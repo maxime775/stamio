@@ -10,7 +10,9 @@
     "android": "expo start --android",
     "typecheck": "tsc --noEmit",
     "security:static": "node scripts/static-security-check.mjs",
-    "security:concurrency": "node scripts/verify-concurrent-lock.mjs"
+    "security:concurrency": "node scripts/verify-concurrent-lock.mjs",
+    "security:rls": "node scripts/verify-rls-lockdown.mjs",
+    "security:secrets": "node scripts/verify-no-client-secrets.mjs"
   },
   "dependencies": {
     "@expo/metro-runtime": "~4.0.1",

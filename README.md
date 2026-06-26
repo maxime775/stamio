@@ -86,6 +86,8 @@ Le numéro de téléphone n'est jamais stocké en clair.
 ```bash
 npm run typecheck
 npm run security:static
+npm run security:rls
+npm run security:secrets
 ```
 
 Pour démontrer la contrainte anti-double vote au niveau PostgreSQL, utilisez une base de test Supabase avec les secrets serveur :
