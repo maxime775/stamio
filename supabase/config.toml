@@ -1,0 +1,10 @@
+project_id = "verified-polls"
+
+[functions.start-verification]
+verify_jwt = false
+
+[functions.submit-vote]
+verify_jwt = false
+
+[functions.get-results]
+verify_jwt = false
