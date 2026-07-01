@@ -12,7 +12,9 @@
     "security:static": "node scripts/static-security-check.mjs",
     "security:concurrency": "node scripts/verify-concurrent-lock.mjs",
     "security:rls": "node scripts/verify-rls-lockdown.mjs",
-    "security:secrets": "node scripts/verify-no-client-secrets.mjs"
+    "security:secrets": "node scripts/verify-no-client-secrets.mjs",
+    "test:phone": "node scripts/verify-phone-normalization.mjs",
+    "test:otp-config": "node scripts/verify-otp-provider-config.mjs"
   },
   "dependencies": {
     "@expo/metro-runtime": "~4.0.1",

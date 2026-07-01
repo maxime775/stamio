@@ -45,6 +45,11 @@ supabase secrets set TURNSTILE_SECRET_KEY=...
 supabase secrets set HMAC_SECRET=...
 ```
 
+Le provider OTP est configuré uniquement dans les secrets des Edge Functions. En production, utilisez
+`APP_ENV=production` et `OTP_PROVIDER=twilio`; toute autre combinaison est refusée côté serveur.
+Pour une instance Supabase locale ou un projet staging séparé, `OTP_PROVIDER=local_test` exige
+`OTP_TEST_PHONE_ALLOWLIST` et `OTP_TEST_CODE`. Ce mode ne doit jamais pointer vers les données de production.
+
 Puis déployez :
 
 ```bash

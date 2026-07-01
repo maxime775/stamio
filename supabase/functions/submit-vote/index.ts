@@ -1,7 +1,8 @@
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.45.4";
 import { corsHeaders, jsonResponse } from "../_shared/cors.ts";
 import { hmacSha256Hex } from "../_shared/crypto.ts";
-import { isOtp, isUuid, normalizePhone } from "../_shared/validation.ts";
+import { checkOtpCode, getOtpConfig, type OtpConfig } from "../_shared/otp-provider.ts";
+import { isOtp, isUuid, normalizeFrenchMobilePhone } from "../_shared/validation.ts";
 
 Deno.serve(async (req) => {
   if (req.method === "OPTIONS") return new Response("ok", { headers: corsHeaders });
@@ -9,40 +10,43 @@ Deno.serve(async (req) => {
 
   const supabaseUrl = Deno.env.get("SUPABASE_URL");
   const serviceRoleKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY");
-  const accountSid = Deno.env.get("TWILIO_ACCOUNT_SID");
-  const authToken = Deno.env.get("TWILIO_AUTH_TOKEN");
-  const verifyServiceSid = Deno.env.get("TWILIO_VERIFY_SERVICE_SID");
   const hmacSecret = Deno.env.get("HMAC_SECRET");
 
-  if (!supabaseUrl || !serviceRoleKey || !accountSid || !authToken || !verifyServiceSid || !hmacSecret) {
+  if (!supabaseUrl || !serviceRoleKey || !hmacSecret) {
+    return jsonResponse({ status: "error", message: "Server configuration error" }, 500);
+  }
+
+  let otpConfig: OtpConfig;
+  try {
+    otpConfig = getOtpConfig();
+  } catch {
     return jsonResponse({ status: "error", message: "Server configuration error" }, 500);
   }
 
   const body = await req.json().catch(() => null);
   const pollId = body?.poll_id;
   const choiceId = body?.choice_id;
-  const phone = normalizePhone(body?.phone_e164);
   const otpCode = body?.otp_code;
 
-  if (!isUuid(pollId) || !isUuid(choiceId) || !phone || !isOtp(otpCode)) {
+  if (!isUuid(pollId) || !isUuid(choiceId) || !isOtp(otpCode)) {
     return jsonResponse({ status: "invalid_code" }, 400);
   }
+
+  const normalizedPhone = normalizeFrenchMobilePhone(
+    typeof body?.phone_e164 === "string" ? body.phone_e164 : ""
+  );
+  if (!normalizedPhone.ok) {
+    return jsonResponse({ status: "invalid_phone_type" }, 400);
+  }
+  const phone = normalizedPhone.phone;
 
   const supabase = createClient(supabaseUrl, serviceRoleKey, {
     auth: { persistSession: false }
   });
+  const authenticatedUserId = await getAuthenticatedVerifiedUserId(supabase, req.headers.get("Authorization"));
 
-  const checkResponse = await fetch(`https://verify.twilio.com/v2/Services/${verifyServiceSid}/VerificationCheck`, {
-    method: "POST",
-    headers: {
-      Authorization: `Basic ${btoa(`${accountSid}:${authToken}`)}`,
-      "Content-Type": "application/x-www-form-urlencoded"
-    },
-    body: new URLSearchParams({ To: phone, Code: otpCode })
-  });
-
-  const checkPayload = await checkResponse.json().catch(() => null);
-  if (!checkResponse.ok || checkPayload?.status !== "approved") {
+  const otpStatus = await checkOtpCode(otpConfig, phone, otpCode);
+  if (otpStatus !== "approved") {
     await supabase.from("vote_attempts").insert({
       poll_id: isUuid(pollId) ? pollId : null,
       choice_id: isUuid(choiceId) ? choiceId : null,
@@ -80,6 +84,14 @@ Deno.serve(async (req) => {
   });
 
   if (result.status === "accepted" && result.receipt_hash) {
+    if (authenticatedUserId) {
+      const { error: answerError } = await supabase.rpc("record_verified_user_answer", {
+        p_user_id: authenticatedUserId,
+        p_poll_id: pollId,
+        p_choice_id: choiceId
+      });
+      if (answerError) console.error("record_verified_user_answer failed", answerError.message);
+    }
     return jsonResponse({ status: "accepted", receipt_hash: result.receipt_hash });
   }
   if (result.status === "duplicate") {
@@ -90,3 +102,15 @@ Deno.serve(async (req) => {
   }
   return jsonResponse({ status: "error" }, 500);
 });
+
+async function getAuthenticatedVerifiedUserId(
+  supabase: ReturnType<typeof createClient>,
+  authorization: string | null
+) {
+  const token = authorization?.match(/^Bearer\s+(.+)$/i)?.[1];
+  if (!token) return null;
+
+  const { data, error } = await supabase.auth.getUser(token);
+  if (error || !data.user?.email_confirmed_at) return null;
+  return data.user.id;
+}

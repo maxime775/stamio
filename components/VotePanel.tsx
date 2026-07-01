@@ -4,7 +4,7 @@ import { CheckCircle2, Send, X } from "lucide-react-native";
 import { OtpInput } from "@/components/OtpInput";
 import { Turnstile } from "@/components/Turnstile";
 import { getResults, startVerification, submitVote } from "@/lib/api";
-import { normalizePhoneInput, validateOtp } from "@/lib/validation";
+import { normalizeFrenchMobilePhoneInput, validateOtp } from "@/lib/validation";
 import type { PollResult, VoteStatus } from "@/lib/types";
 
 type Props = {
@@ -35,6 +35,7 @@ export function VotePanel({ visible, pollId, choiceId, choiceLabel, platform, on
       setOtp("");
       setOtpError(null);
       setPhoneError(null);
+      setTurnstileToken("");
       Animated.spring(slide, { toValue: 1, damping: 18, stiffness: 160, useNativeDriver: true }).start();
     } else {
       slide.setValue(0);
@@ -45,16 +46,11 @@ export function VotePanel({ visible, pollId, choiceId, choiceLabel, platform, on
   const siteKey = process.env.EXPO_PUBLIC_TURNSTILE_SITE_KEY;
 
   async function handleStart() {
-    const normalized = normalizePhoneInput(phone);
+    const normalized = normalizeFrenchMobilePhoneInput(phone);
     if (!normalized.ok) {
-      setPhoneError("Numéro invalide. Utilisez le format international, par exemple +33612345678.");
+      setPhoneError("Pour cette phase de test, seuls les numéros mobiles français commençant par 06 ou 07 sont acceptés.");
       return;
     }
-    if (platform === "web" && !turnstileToken) {
-      setPhoneError("Validation anti-abus requise avant l'envoi du SMS.");
-      return;
-    }
-
     setLoading(true);
     setPhoneError(null);
     const response = await startVerification({
@@ -66,21 +62,23 @@ export function VotePanel({ visible, pollId, choiceId, choiceLabel, platform, on
     });
     setLoading(false);
 
-    if (response.status === "ok") {
+    if (response.status === "verification_started") {
       setStep("otp");
-    } else if (response.status === "invalid_phone") {
-      setPhoneError("Numéro invalide. Utilisez le format international.");
+    } else if (response.status === "invalid_phone_type") {
+      setPhoneError("Pour cette phase de test, seuls les numéros mobiles français commençant par 06 ou 07 sont acceptés.");
     } else if (response.status === "poll_closed") {
       setPhoneError("Ce sondage est fermé.");
+    } else if (response.status === "captcha_required") {
+      setPhoneError("La validation anti-abus est requise. Complétez le captcha puis réessayez.");
     } else {
       setPhoneError("Impossible d'envoyer le code pour le moment.");
     }
   }
 
   async function handleSubmit() {
-    const normalized = normalizePhoneInput(phone);
+    const normalized = normalizeFrenchMobilePhoneInput(phone);
     if (!normalized.ok) {
-      setPhoneError("Numéro invalide.");
+      setPhoneError("Pour cette phase de test, seuls les numéros mobiles français commençant par 06 ou 07 sont acceptés.");
       setStep("phone");
       return;
     }
@@ -104,6 +102,9 @@ export function VotePanel({ visible, pollId, choiceId, choiceLabel, platform, on
     if (response.status === "accepted") {
       setStep("success");
       setTimeout(onClose, 900);
+    } else if (response.status === "invalid_phone_type") {
+      setPhoneError("Pour cette phase de test, seuls les numéros mobiles français commençant par 06 ou 07 sont acceptés.");
+      setStep("phone");
     } else if (response.status === "invalid_code") {
       setOtpError("Code OTP invalide.");
     } else if (response.status === "duplicate") {
@@ -119,7 +120,7 @@ export function VotePanel({ visible, pollId, choiceId, choiceLabel, platform, on
     <Modal transparent visible={visible} animationType="fade" onRequestClose={onClose}>
       <View style={styles.overlay}>
         <Pressable style={styles.scrim} onPress={onClose} />
-        <Animated.View style={[styles.panel, { transform: [{ translateY }] }]}>
+        <Animated.View style={StyleSheet.flatten([styles.panel, { transform: [{ translateY: translateY as unknown as number }] }])}>
           <View style={styles.handle} />
           <View style={styles.header}>
             <View>
@@ -127,7 +128,7 @@ export function VotePanel({ visible, pollId, choiceId, choiceLabel, platform, on
               <Text style={styles.title}>{choiceLabel}</Text>
             </View>
             <Pressable onPress={onClose} style={styles.iconButton}>
-              <X size={18} color="#0F172A" />
+              <X size={18} color="#E2E8F0" />
             </Pressable>
           </View>
 
@@ -192,7 +193,7 @@ const styles = StyleSheet.create({
     maxWidth: 560,
     borderTopLeftRadius: 30,
     borderTopRightRadius: 30,
-    backgroundColor: "#FFFFFF",
+    backgroundColor: "#0F172A",
     padding: 22,
     paddingBottom: 30,
     gap: 18,
@@ -205,36 +206,36 @@ const styles = StyleSheet.create({
     width: 42,
     height: 5,
     borderRadius: 999,
-    backgroundColor: "#CBD5E1",
+    backgroundColor: "rgba(148, 163, 184, 0.42)",
     alignSelf: "center"
   },
   header: { flexDirection: "row", justifyContent: "space-between", alignItems: "flex-start", gap: 16 },
   kicker: { color: "#0F766E", fontSize: 12, fontWeight: "900", textTransform: "uppercase" },
-  title: { color: "#0F172A", fontSize: 22, fontWeight: "900", marginTop: 4 },
+  title: { color: "#F8FAFC", fontSize: 22, fontWeight: "900", marginTop: 4 },
   iconButton: {
     width: 38,
     height: 38,
     borderRadius: 19,
     alignItems: "center",
     justifyContent: "center",
-    backgroundColor: "#F1F5F9"
+    backgroundColor: "rgba(148, 163, 184, 0.12)"
   },
   body: { gap: 13 },
-  label: { color: "#334155", fontWeight: "800", fontSize: 14 },
+  label: { color: "#CBD5E1", fontWeight: "800", fontSize: 14 },
   input: {
     minHeight: 56,
     borderRadius: 16,
     borderWidth: 1,
-    borderColor: "#CBD5E1",
+    borderColor: "rgba(148, 163, 184, 0.26)",
     paddingHorizontal: 16,
-    color: "#0F172A",
+    color: "#F8FAFC",
     fontSize: 18,
     fontWeight: "700",
-    backgroundColor: "#F8FAFC"
+    backgroundColor: "rgba(2, 6, 23, 0.58)"
   },
   error: {
-    color: "#B91C1C",
-    backgroundColor: "#FEF2F2",
+    color: "#FCA5A5",
+    backgroundColor: "rgba(127, 29, 29, 0.26)",
     borderRadius: 12,
     padding: 12,
     fontSize: 13,
@@ -251,5 +252,5 @@ const styles = StyleSheet.create({
   },
   primaryText: { color: "#06111C", fontSize: 16, fontWeight: "900" },
   success: { alignItems: "center", justifyContent: "center", paddingVertical: 30, gap: 12 },
-  successTitle: { color: "#064E3B", fontSize: 24, fontWeight: "900" }
+  successTitle: { color: "#A7F3D0", fontSize: 24, fontWeight: "900" }
 });

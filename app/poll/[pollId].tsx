@@ -1,24 +1,31 @@
 import { useEffect, useMemo, useState } from "react";
-import { Animated, Platform, Pressable, ScrollView, StyleSheet, Text, View } from "react-native";
+import { Animated, Modal, Platform, Pressable, ScrollView, StyleSheet, Text, View } from "react-native";
 import { LinearGradient } from "expo-linear-gradient";
 import { ShieldCheck, Sparkles } from "lucide-react-native";
-import { useLocalSearchParams } from "expo-router";
+import { useLocalSearchParams, useRouter, type Href } from "expo-router";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { PollCard } from "@/components/PollCard";
 import { ResultsBars } from "@/components/ResultsBars";
 import { VotePanel } from "@/components/VotePanel";
 import { SecurityBadge } from "@/components/SecurityBadge";
 import { SkeletonPoll } from "@/components/SkeletonPoll";
+import { useAuth } from "@/components/AuthProvider";
 import { fetchPoll, getResults } from "@/lib/api";
+import { VISITOR_VOTE_LIMIT } from "@/lib/product";
+import { getVisitorVoteCount, incrementVisitorVoteCount } from "@/lib/visitorLimit";
 import type { Poll, PollResult, VoteStatus } from "@/lib/types";
 
 export default function PollScreen() {
   const { pollId } = useLocalSearchParams<{ pollId: string }>();
+  const router = useRouter();
+  const { user, emailVerified } = useAuth();
   const [poll, setPoll] = useState<Poll | null>(null);
   const [selectedChoiceId, setSelectedChoiceId] = useState<string | null>(null);
   const [results, setResults] = useState<PollResult[]>([]);
   const [loading, setLoading] = useState(true);
   const [panelVisible, setPanelVisible] = useState(false);
+  const [limitVisible, setLimitVisible] = useState(false);
+  const [visitorCount, setVisitorCount] = useState(0);
   const [voteState, setVoteState] = useState<VoteStatus | null>(null);
   const fade = useMemo(() => new Animated.Value(0), []);
 
@@ -44,13 +51,29 @@ export default function PollScreen() {
     };
   }, [fade, pollId]);
 
-  const selectedChoice = poll?.choices.find((choice) => choice.id === selectedChoiceId) ?? null;
+  useEffect(() => {
+    getVisitorVoteCount().then(setVisitorCount);
+  }, []);
 
-  function handleVoteFinished(status: VoteStatus, nextResults?: PollResult[]) {
+  const selectedChoice = poll?.choices.find((choice) => choice.id === selectedChoiceId) ?? null;
+  const isVerifiedUser = Boolean(user && emailVerified);
+
+  async function handleOpenVotePanel() {
+    if (!isVerifiedUser && visitorCount >= VISITOR_VOTE_LIMIT) {
+      setLimitVisible(true);
+      return;
+    }
+    setPanelVisible(true);
+  }
+
+  async function handleVoteFinished(status: VoteStatus, nextResults?: PollResult[]) {
     setVoteState(status);
     if (nextResults) setResults(nextResults);
-    if (status.status === "accepted" || status.status === "duplicate") {
+    if (status.status === "duplicate") {
       setPanelVisible(false);
+    }
+    if (!isVerifiedUser && status.status === "accepted") {
+      setVisitorCount(await incrementVisitorVoteCount());
     }
   }
 
@@ -83,7 +106,7 @@ export default function PollScreen() {
           {loading ? (
             <SkeletonPoll />
           ) : poll ? (
-            <Animated.View style={[styles.contentGrid, { opacity: fade }]}>
+            <Animated.View style={StyleSheet.flatten([styles.contentGrid, { opacity: fade as unknown as number }])}>
               <View style={styles.mainColumn}>
                 <PollCard
                   poll={poll}
@@ -92,12 +115,14 @@ export default function PollScreen() {
                 />
                 <Pressable
                   disabled={!selectedChoiceId}
-                  onPress={() => setPanelVisible(true)}
-                  style={({ pressed }) => [
-                    styles.voteButton,
-                    !selectedChoiceId && styles.voteButtonDisabled,
-                    pressed && selectedChoiceId && styles.voteButtonPressed
-                  ]}
+                  onPress={handleOpenVotePanel}
+                  style={({ pressed }) =>
+                    StyleSheet.flatten([
+                      styles.voteButton,
+                      !selectedChoiceId && styles.voteButtonDisabled,
+                      pressed && selectedChoiceId && styles.voteButtonPressed
+                    ])
+                  }
                 >
                   <Sparkles size={18} color="#06111C" />
                   <Text style={styles.voteButtonText}>Valider mon vote</Text>
@@ -136,8 +161,48 @@ export default function PollScreen() {
             onFinished={handleVoteFinished}
           />
         ) : null}
+        <VisitorLimitModal
+          visible={limitVisible}
+          onClose={() => setLimitVisible(false)}
+          onSignup={() => router.push("/auth/signup" as Href)}
+          onLogin={() => router.push("/auth/login" as Href)}
+        />
       </SafeAreaView>
     </LinearGradient>
+  );
+}
+
+function VisitorLimitModal({
+  visible,
+  onClose,
+  onSignup,
+  onLogin
+}: {
+  visible: boolean;
+  onClose: () => void;
+  onSignup: () => void;
+  onLogin: () => void;
+}) {
+  return (
+    <Modal transparent visible={visible} animationType="fade" onRequestClose={onClose}>
+      <View style={styles.limitOverlay}>
+        <Pressable style={styles.limitScrim} onPress={onClose} />
+        <View style={styles.limitCard}>
+          <Text style={styles.limitTitle}>Vous avez atteint la limite visiteur</Text>
+          <Text style={styles.limitText}>
+            Créez un compte gratuit pour continuer à participer. Cette limite est une règle produit locale; l’unicité réelle du vote reste assurée par le serveur.
+          </Text>
+          <View style={styles.limitActions}>
+            <Pressable onPress={onSignup} style={styles.limitPrimary}>
+              <Text style={styles.limitPrimaryText}>Créer mon compte</Text>
+            </Pressable>
+            <Pressable onPress={onLogin} style={styles.limitSecondary}>
+              <Text style={styles.limitSecondaryText}>J’ai déjà un compte</Text>
+            </Pressable>
+          </View>
+        </View>
+      </View>
+    </Modal>
   );
 }
 
@@ -239,4 +304,27 @@ const styles = StyleSheet.create({
   },
   emptyTitle: { color: "#F8FAFC", fontSize: 22, fontWeight: "800" },
   emptyText: { color: "#94A3B8", marginTop: 8 },
+  limitOverlay: { flex: 1, alignItems: "center", justifyContent: "center", padding: 20 },
+  limitScrim: { ...StyleSheet.absoluteFillObject, backgroundColor: "rgba(2, 6, 23, 0.62)" },
+  limitCard: {
+    width: "100%",
+    maxWidth: 480,
+    borderRadius: 24,
+    backgroundColor: "#0F172A",
+    borderWidth: 1,
+    borderColor: "rgba(148, 163, 184, 0.22)",
+    padding: 24,
+    gap: 14,
+    shadowColor: "#020617",
+    shadowOpacity: 0.24,
+    shadowRadius: 24,
+    shadowOffset: { width: 0, height: 12 }
+  },
+  limitTitle: { color: "#F8FAFC", fontSize: 24, lineHeight: 30, fontWeight: "900" },
+  limitText: { color: "#CBD5E1", fontSize: 15, lineHeight: 23, fontWeight: "700" },
+  limitActions: { flexDirection: "row", flexWrap: "wrap", gap: 10 },
+  limitPrimary: { minHeight: 46, borderRadius: 14, backgroundColor: "#A7F3D0", paddingHorizontal: 16, alignItems: "center", justifyContent: "center" },
+  limitPrimaryText: { color: "#06111C", fontWeight: "900" },
+  limitSecondary: { minHeight: 46, borderRadius: 14, backgroundColor: "rgba(148, 163, 184, 0.12)", paddingHorizontal: 16, alignItems: "center", justifyContent: "center" },
+  limitSecondaryText: { color: "#CBD5E1", fontWeight: "900" }
 });

@@ -23,16 +23,18 @@ export function PollCard({ poll, selectedChoiceId, onSelectChoice }: Props) {
             <Pressable
               key={choice.id}
               onPress={() => onSelectChoice(choice.id)}
-              style={({ pressed }) => [
-                styles.option,
-                selected && styles.optionSelected,
-                pressed && styles.optionPressed
-              ]}
+              style={({ pressed }) =>
+                StyleSheet.flatten([
+                  styles.option,
+                  selected && styles.optionSelected,
+                  pressed && styles.optionPressed
+                ])
+              }
             >
-              <View style={[styles.radio, selected && styles.radioSelected]}>
+              <View style={StyleSheet.flatten([styles.radio, selected && styles.radioSelected])}>
                 {selected ? <Check size={16} color="#06111C" /> : <Circle size={14} color="#8EA1B8" />}
               </View>
-              <Text style={[styles.optionText, selected && styles.optionTextSelected]}>{choice.label}</Text>
+              <Text style={StyleSheet.flatten([styles.optionText, selected && styles.optionTextSelected])}>{choice.label}</Text>
               {selected ? <Animated.View style={styles.glow} /> : null}
             </Pressable>
           );
@@ -46,9 +48,9 @@ const styles = StyleSheet.create({
   card: {
     borderRadius: 28,
     padding: 24,
-    backgroundColor: "rgba(248, 250, 252, 0.96)",
+    backgroundColor: "rgba(15, 23, 42, 0.94)",
     borderWidth: 1,
-    borderColor: "rgba(255, 255, 255, 0.55)",
+    borderColor: "rgba(148, 163, 184, 0.18)",
     shadowColor: "#020617",
     shadowOpacity: 0.26,
     shadowRadius: 36,
@@ -58,8 +60,8 @@ const styles = StyleSheet.create({
   },
   topRow: { flexDirection: "row", justifyContent: "space-between", alignItems: "center", gap: 10 },
   livePill: {
-    color: "#047857",
-    backgroundColor: "#D1FAE5",
+    color: "#A7F3D0",
+    backgroundColor: "rgba(20, 184, 166, 0.12)",
     borderRadius: 999,
     paddingHorizontal: 11,
     paddingVertical: 7,
@@ -67,15 +69,15 @@ const styles = StyleSheet.create({
     fontWeight: "800",
     overflow: "hidden"
   },
-  count: { color: "#64748B", fontSize: 13, fontWeight: "700" },
-  question: { color: "#0F172A", fontSize: 28, lineHeight: 34, fontWeight: "900", letterSpacing: 0 },
+  count: { color: "#94A3B8", fontSize: 13, fontWeight: "700" },
+  question: { color: "#F8FAFC", fontSize: 28, lineHeight: 34, fontWeight: "900", letterSpacing: 0 },
   options: { gap: 12 },
   option: {
     minHeight: 64,
     borderRadius: 18,
     borderWidth: 1,
-    borderColor: "#E2E8F0",
-    backgroundColor: "#FFFFFF",
+    borderColor: "rgba(148, 163, 184, 0.22)",
+    backgroundColor: "rgba(2, 6, 23, 0.42)",
     paddingHorizontal: 16,
     paddingVertical: 14,
     flexDirection: "row",
@@ -84,8 +86,8 @@ const styles = StyleSheet.create({
     overflow: "hidden"
   },
   optionSelected: {
-    borderColor: "#0F766E",
-    backgroundColor: "#ECFDF5"
+    borderColor: "#A7F3D0",
+    backgroundColor: "rgba(20, 184, 166, 0.12)"
   },
   optionPressed: { transform: [{ scale: 0.992 }] },
   radio: {
@@ -94,7 +96,7 @@ const styles = StyleSheet.create({
     borderRadius: 15,
     alignItems: "center",
     justifyContent: "center",
-    backgroundColor: "#F8FAFC",
+    backgroundColor: "rgba(15, 23, 42, 0.88)",
     borderWidth: 1,
     borderColor: "#CBD5E1"
   },
@@ -102,8 +104,8 @@ const styles = StyleSheet.create({
     backgroundColor: "#A7F3D0",
     borderColor: "#10B981"
   },
-  optionText: { color: "#334155", fontSize: 17, fontWeight: "700", flex: 1 },
-  optionTextSelected: { color: "#064E3B" },
+  optionText: { color: "#CBD5E1", fontSize: 17, fontWeight: "700", flex: 1 },
+  optionTextSelected: { color: "#A7F3D0" },
   glow: {
     position: "absolute",
     right: -30,

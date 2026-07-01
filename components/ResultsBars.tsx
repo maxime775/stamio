@@ -48,15 +48,13 @@ function ResultRow({ result, total }: { result: PollResult; total: number }) {
       </View>
       <View style={styles.track}>
         <Animated.View
-          style={[
-            styles.fill,
-            {
-              width: width.interpolate({
-                inputRange: [0, 1],
-                outputRange: ["0%", "100%"]
-              })
-            }
-          ]}
+          style={{
+            ...styles.fill,
+            width: width.interpolate({
+              inputRange: [0, 1],
+              outputRange: ["0%", "100%"]
+            }) as unknown as `${number}%`
+          }}
         />
       </View>
       <Text style={styles.votes}>{result.votes} comptabilisé{result.votes > 1 ? "s" : ""}</Text>

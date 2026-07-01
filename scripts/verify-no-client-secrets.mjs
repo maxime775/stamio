@@ -10,8 +10,11 @@ const serverSecretNames = [
   "TWILIO_ACCOUNT_SID",
   "TWILIO_VERIFY_SERVICE_SID",
   "HMAC_SECRET",
-  "TURNSTILE_SECRET_KEY"
+  "TURNSTILE_SECRET_KEY",
+  "OTP_TEST_PHONE_ALLOWLIST",
+  "OTP_TEST_CODE"
 ];
+const serverOnlyNames = [...serverSecretNames, "APP_ENV", "OTP_PROVIDER"];
 
 const failures = [];
 
@@ -23,7 +26,7 @@ for (const file of filesToScan()) {
   const isDocumentation = rel === "README.md" || rel === "AGENTS.md" || rel === ".env.example";
 
   if (isClient) {
-    for (const secretName of serverSecretNames) {
+    for (const secretName of serverOnlyNames) {
       if (text.includes(secretName)) failures.push(`${rel}: client references ${secretName}`);
     }
     if (text.includes("sb_secret_")) failures.push(`${rel}: client contains sb_secret_`);
@@ -63,6 +66,9 @@ for (const file of filesToScan()) {
     }
     if (hasRealAssignedValue(line, "SUPABASE_SERVICE_ROLE_KEY")) {
       failures.push(`${rel}:${lineNumber}: contains a real-looking Supabase service role key`);
+    }
+    if (hasFixedOtpCode(line, "OTP_TEST_CODE")) {
+      failures.push(`${rel}:${lineNumber}: contains a fixed local-test OTP code`);
     }
   }
 }
@@ -119,6 +125,11 @@ function hasRealAssignedValue(line, key) {
   }
 
   return value.length >= 20;
+}
+
+function hasFixedOtpCode(line, key) {
+  const value = assignedValue(line, key);
+  return value !== null && !isPlaceholder(value) && /^\d{6}$/.test(value);
 }
 
 function assignedValue(line, key) {
