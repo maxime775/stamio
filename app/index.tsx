@@ -1,17 +1,21 @@
 import { useEffect, useMemo, useState } from "react";
-import { Animated, Pressable, StyleSheet, Text, View } from "react-native";
+import { Animated, Pressable, StyleSheet, Text, useWindowDimensions, View } from "react-native";
 import { useRouter, type Href } from "expo-router";
 import { ArrowRight } from "lucide-react-native";
 import { PageShell } from "@/components/PageShell";
 import { TrendingPollsCarousel } from "@/components/TrendingPollsCarousel";
 import { TrustBadge } from "@/components/TrustBadge";
+import { FeaturedTopicsTicker } from "@/components/FeaturedTopicsTicker";
 import { getFeaturedPolls } from "@/lib/api";
+import { fontFamilyBold, fontFamilyMedium, fontFamilySemibold, palette, radius, shadows } from "@/lib/design";
 import type { PollWithStats } from "@/lib/types";
 
 export default function Home() {
   const router = useRouter();
   const [polls, setPolls] = useState<PollWithStats[]>([]);
   const fade = useMemo(() => new Animated.Value(0), []);
+  const { width } = useWindowDimensions();
+  const compact = width < 720;
 
   useEffect(() => {
     let active = true;
@@ -27,12 +31,12 @@ export default function Home() {
 
   return (
     <PageShell>
-      <Animated.View style={StyleSheet.flatten([styles.hero, { opacity: fade as unknown as number }])}>
+      <Animated.View style={StyleSheet.flatten([styles.hero, compact && styles.heroCompact, compact && { maxWidth: Math.max(280, width - 40) }, { opacity: fade as unknown as number }])}>
         <View style={styles.heroCopy}>
-          <Text style={styles.kicker}>Sondages vérifiés</Text>
-          <Text style={styles.title}>Les sujets qui font l’actu. Votre avis compte.</Text>
+          <Text style={styles.kicker}>Signal d’opinion</Text>
+          <Text style={StyleSheet.flatten([styles.title, compact && styles.titleCompact])}>Donnez votre avis. Prenez le temps d’en changer.</Text>
           <Text style={styles.subtitle}>
-            Votez sur les grandes questions du moment, suivez les résultats en temps réel et construisez votre réputation citoyenne.
+            Votez sur les grandes questions du moment, suivez les résultats en temps réel et participez à des débats où l’on peut hésiter, échanger et se faire une opinion.
           </Text>
           <View style={styles.actions}>
             <Pressable onPress={() => router.push("/themes" as Href)} style={styles.primary}>
@@ -44,12 +48,7 @@ export default function Home() {
             </Pressable>
           </View>
         </View>
-        <View style={styles.signalPanel}>
-          <Text style={styles.signalValue}>{polls.length || 5}</Text>
-          <Text style={styles.signalLabel}>questions mises en avant</Text>
-          <View style={styles.signalLine} />
-          <Text style={styles.signalNote}>Participation encadrée par validation serveur et anti-doublon technique.</Text>
-        </View>
+        <FeaturedTopicsTicker count={polls.length} />
       </Animated.View>
 
       <TrendingPollsCarousel polls={polls} />
@@ -67,29 +66,27 @@ export default function Home() {
 const styles = StyleSheet.create({
   hero: {
     minHeight: 420,
-    borderRadius: 28,
-    backgroundColor: "#0B1220",
+    borderRadius: radius.lg,
+    backgroundColor: palette.surfaceSubtle,
     borderWidth: 1,
     borderColor: "rgba(148, 163, 184, 0.16)",
-    padding: 28,
+    padding: 32,
     flexDirection: "row",
+    flexWrap: "wrap",
     alignItems: "center",
     gap: 28,
     overflow: "hidden"
   },
+  heroCompact: { width: "100%", padding: 22, minHeight: 0 },
   heroCopy: { flex: 1, minWidth: 280, gap: 16 },
-  kicker: { color: "#A7F3D0", fontSize: 13, fontWeight: "900", textTransform: "uppercase" },
-  title: { color: "#FFFFFF", fontSize: 48, lineHeight: 54, fontWeight: "900", letterSpacing: 0, maxWidth: 720 },
-  subtitle: { color: "#CBD5E1", fontSize: 18, lineHeight: 28, maxWidth: 680 },
+  kicker: { color: palette.primaryStrong, fontFamily: fontFamilySemibold, fontSize: 11, letterSpacing: 1.1, textTransform: "uppercase" },
+  title: { color: palette.ink, fontFamily: fontFamilyBold, fontSize: 46, lineHeight: 53, letterSpacing: -1.4, maxWidth: 720 },
+  titleCompact: { fontSize: 36, lineHeight: 43, letterSpacing: -0.9 },
+  subtitle: { color: palette.inkSecondary, fontSize: 17, lineHeight: 27, maxWidth: 680 },
   actions: { flexDirection: "row", gap: 12, flexWrap: "wrap", marginTop: 8 },
-  primary: { minHeight: 50, borderRadius: 14, backgroundColor: "#0F766E", paddingHorizontal: 18, flexDirection: "row", alignItems: "center", gap: 10 },
-  primaryText: { color: "#FFFFFF", fontWeight: "900", fontSize: 15 },
-  secondary: { minHeight: 50, borderRadius: 14, backgroundColor: "rgba(255,255,255,0.09)", paddingHorizontal: 18, justifyContent: "center", borderWidth: 1, borderColor: "rgba(255,255,255,0.14)" },
-  secondaryText: { color: "#E2E8F0", fontWeight: "900", fontSize: 15 },
-  signalPanel: { width: 280, borderRadius: 22, backgroundColor: "rgba(255,255,255,0.08)", padding: 22, gap: 10, borderWidth: 1, borderColor: "rgba(255,255,255,0.12)" },
-  signalValue: { color: "#A7F3D0", fontSize: 54, fontWeight: "900" },
-  signalLabel: { color: "#FFFFFF", fontSize: 17, fontWeight: "900" },
-  signalLine: { height: 1, backgroundColor: "rgba(255,255,255,0.16)", marginVertical: 8 },
-  signalNote: { color: "#CBD5E1", lineHeight: 21, fontWeight: "700" },
+  primary: { minHeight: 48, borderRadius: radius.sm, backgroundColor: palette.primary, paddingHorizontal: 18, flexDirection: "row", alignItems: "center", gap: 10, ...shadows.panel },
+  primaryText: { color: "#FFFFFF", fontFamily: fontFamilySemibold, fontSize: 14 },
+  secondary: { minHeight: 48, borderRadius: radius.sm, backgroundColor: "transparent", paddingHorizontal: 18, justifyContent: "center", borderWidth: 1, borderColor: palette.lineStrong },
+  secondaryText: { color: palette.inkSecondary, fontFamily: fontFamilyMedium, fontSize: 14 },
   trustGrid: { flexDirection: "row", flexWrap: "wrap", gap: 14 }
 });

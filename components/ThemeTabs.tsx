@@ -2,6 +2,7 @@ import { Pressable, ScrollView, StyleSheet, Text, View } from "react-native";
 import { useRouter, type Href } from "expo-router";
 import { THEMES } from "@/lib/product";
 import type { ThemeSlug } from "@/lib/types";
+import { fontFamilyMedium, fontFamilySemibold, getThemeVisual, palette } from "@/lib/design";
 
 type Props = {
   active?: ThemeSlug | "all";
@@ -26,13 +27,14 @@ export function ThemeTabs({ active = "all", includeAll = false, onSelect }: Prop
       <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.content}>
         {items.map((item) => {
           const selected = active === item.slug;
+          const visual = item.slug === "all" ? { accent: palette.primaryStrong, soft: palette.primarySoft } : getThemeVisual(item.slug);
           return (
             <Pressable
               key={item.slug}
               onPress={() => handleSelect(item.slug)}
-              style={({ pressed }) => StyleSheet.flatten([styles.tab, selected && styles.tabActive, pressed && styles.tabPressed])}
+              style={({ pressed }) => StyleSheet.flatten([styles.tab, selected && styles.tabActive, selected && { borderBottomColor: visual.accent }, pressed && styles.tabPressed])}
             >
-              <Text style={StyleSheet.flatten([styles.label, selected && styles.labelActive])}>{item.label}</Text>
+              <Text style={StyleSheet.flatten([styles.label, selected && styles.labelActive, selected && { color: visual.accent }])}>{item.label}</Text>
             </Pressable>
           );
         })}
@@ -43,28 +45,23 @@ export function ThemeTabs({ active = "all", includeAll = false, onSelect }: Prop
 
 const styles = StyleSheet.create({
   wrap: {
-    borderRadius: 18,
-    backgroundColor: "rgba(15, 23, 42, 0.86)",
-    borderWidth: 1,
-    borderColor: "rgba(148, 163, 184, 0.18)",
-    padding: 6
+    borderBottomWidth: 1,
+    borderBottomColor: palette.line
   },
   content: { gap: 8, alignItems: "center" },
   tab: {
     minHeight: 40,
-    borderRadius: 14,
+    borderRadius: 0,
     paddingHorizontal: 16,
     alignItems: "center",
-    justifyContent: "center"
+    justifyContent: "center",
+    borderBottomWidth: 2,
+    borderBottomColor: "transparent"
   },
   tabActive: {
-    backgroundColor: "#A7F3D0",
-    shadowColor: "#0F766E",
-    shadowOpacity: 0.18,
-    shadowRadius: 14,
-    shadowOffset: { width: 0, height: 8 }
+    backgroundColor: "transparent"
   },
   tabPressed: { transform: [{ scale: 0.98 }] },
-  label: { color: "#94A3B8", fontSize: 14, fontWeight: "900" },
-  labelActive: { color: "#06111C" }
+  label: { color: palette.muted, fontFamily: fontFamilyMedium, fontSize: 13 },
+  labelActive: { color: palette.ink, fontFamily: fontFamilySemibold }
 });

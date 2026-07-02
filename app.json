@@ -1,11 +1,11 @@
 {
   "expo": {
-    "name": "Verified Polls",
+    "name": "Sayit",
     "slug": "verified-polls",
     "scheme": "verifiedpolls",
     "version": "0.1.0",
     "orientation": "portrait",
-    "userInterfaceStyle": "light",
+    "userInterfaceStyle": "dark",
     "assetBundlePatterns": [
       "**/*"
     ],
@@ -13,14 +13,15 @@
       "supportsTablet": true
     },
     "android": {
-      "backgroundColor": "#0B1020"
+      "backgroundColor": "#080B10"
     },
     "web": {
       "bundler": "metro",
       "output": "single"
     },
     "plugins": [
-      "expo-router"
+      "expo-router",
+      "expo-font"
     ],
     "experiments": {
       "typedRoutes": true

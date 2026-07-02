@@ -39,6 +39,16 @@ const checks = [
     }
   },
   {
+    table: "user_poll_answers",
+    row: { user_id: randomUUID(), poll_id: pollId, choice_id: choiceId },
+    optionalIfMissing: true
+  },
+  {
+    table: "user_reputation_events",
+    row: { user_id: randomUUID(), poll_id: pollId, event_type: "client_write_probe", points: 999 },
+    optionalIfMissing: true
+  },
+  {
     table: "vote_attempts",
     row: {
       poll_id: null,

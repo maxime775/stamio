@@ -1,4 +1,5 @@
 import { StyleSheet, Text } from "react-native";
+import { palette } from "@/lib/design";
 
 export function getPasswordIssues(password: string) {
   return [
@@ -24,10 +25,9 @@ export function PasswordStrengthRules({ password }: { password: string }) {
 
 const styles = StyleSheet.create({
   help: {
-    color: "#94A3B8",
+    color: palette.muted,
     fontSize: 12,
     lineHeight: 18,
-    fontWeight: "700",
     marginTop: -4
   }
 });

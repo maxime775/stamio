@@ -1,5 +1,6 @@
 import { StyleSheet, Text, View } from "react-native";
 import { Award } from "lucide-react-native";
+import { fontFamilyBold, fontFamilyMedium, fontFamilySemibold, palette, radius } from "@/lib/design";
 
 type Props = {
   score: number;
@@ -21,7 +22,7 @@ export function ReputationBadge({ score }: Props) {
     <View style={styles.card}>
       <View style={styles.top}>
         <View style={styles.icon}>
-          <Award size={22} color="#A7F3D0" />
+          <Award size={21} color={palette.primaryStrong} />
         </View>
         <View>
           <Text style={styles.score}>{score} point{score > 1 ? "s" : ""}</Text>
@@ -37,12 +38,12 @@ export function ReputationBadge({ score }: Props) {
 }
 
 const styles = StyleSheet.create({
-  card: { borderRadius: 20, backgroundColor: "rgba(15, 23, 42, 0.92)", borderWidth: 1, borderColor: "rgba(148, 163, 184, 0.18)", padding: 20, gap: 14 },
+  card: { borderRadius: radius.md, backgroundColor: palette.surface, borderWidth: 1, borderColor: palette.line, padding: 20, gap: 14 },
   top: { flexDirection: "row", alignItems: "center", gap: 12 },
-  icon: { width: 46, height: 46, borderRadius: 15, backgroundColor: "rgba(20, 184, 166, 0.12)", alignItems: "center", justifyContent: "center" },
-  score: { color: "#F8FAFC", fontSize: 24, fontWeight: "900" },
-  level: { color: "#A7F3D0", fontWeight: "900", marginTop: 2 },
-  track: { height: 10, borderRadius: 999, backgroundColor: "rgba(148, 163, 184, 0.18)", overflow: "hidden" },
-  fill: { height: "100%", borderRadius: 999, backgroundColor: "#A7F3D0" },
-  note: { color: "#94A3B8", fontSize: 13, lineHeight: 19, fontWeight: "700" }
+  icon: { width: 40, height: 40, borderRadius: radius.sm, backgroundColor: palette.primarySoft, alignItems: "center", justifyContent: "center" },
+  score: { color: palette.ink, fontFamily: fontFamilyBold, fontSize: 22 },
+  level: { color: palette.primaryStrong, fontFamily: fontFamilySemibold, marginTop: 2 },
+  track: { height: 5, borderRadius: radius.xs, backgroundColor: palette.lineStrong, overflow: "hidden" },
+  fill: { height: "100%", borderRadius: radius.xs, backgroundColor: palette.primaryStrong },
+  note: { color: palette.muted, fontSize: 12, lineHeight: 19 }
 });

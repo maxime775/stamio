@@ -1,6 +1,7 @@
-import { Animated, Pressable, StyleSheet, Text, View } from "react-native";
-import { Check, Circle } from "lucide-react-native";
+import { Pressable, StyleSheet, Text, View } from "react-native";
+import { Check } from "lucide-react-native";
 import type { Poll } from "@/lib/types";
+import { fontFamilyMedium, fontFamilySemibold, getThemeVisual, palette, radius } from "@/lib/design";
 
 type Props = {
   poll: Poll;
@@ -9,15 +10,15 @@ type Props = {
 };
 
 export function PollCard({ poll, selectedChoiceId, onSelectChoice }: Props) {
+  const theme = getThemeVisual(poll.theme);
   return (
     <View style={styles.card}>
-      <View style={styles.topRow}>
-        <Text style={styles.livePill}>Question ouverte</Text>
-        <Text style={styles.count}>{poll.choices.length} options</Text>
+      <View style={styles.heading}>
+        <Text style={styles.kicker}>Position</Text>
+        <View style={styles.headingRow}><Text style={styles.title}>Votre réponse</Text><Text style={styles.hint}>Sélection unique</Text></View>
       </View>
-      <Text style={styles.question}>{poll.question}</Text>
       <View style={styles.options}>
-        {poll.choices.map((choice) => {
+        {poll.choices.map((choice, index) => {
           const selected = selectedChoiceId === choice.id;
           return (
             <Pressable
@@ -27,15 +28,14 @@ export function PollCard({ poll, selectedChoiceId, onSelectChoice }: Props) {
                 StyleSheet.flatten([
                   styles.option,
                   selected && styles.optionSelected,
+                  selected && { borderColor: theme.accent, borderLeftColor: theme.accent, backgroundColor: theme.soft },
                   pressed && styles.optionPressed
                 ])
               }
             >
-              <View style={StyleSheet.flatten([styles.radio, selected && styles.radioSelected])}>
-                {selected ? <Check size={16} color="#06111C" /> : <Circle size={14} color="#8EA1B8" />}
-              </View>
-              <Text style={StyleSheet.flatten([styles.optionText, selected && styles.optionTextSelected])}>{choice.label}</Text>
-              {selected ? <Animated.View style={styles.glow} /> : null}
+              <View style={StyleSheet.flatten([styles.optionCode, selected && { borderColor: theme.accent }])}><Text style={StyleSheet.flatten([styles.optionCodeText, selected && { color: theme.accent }])}>{String.fromCharCode(65 + index)}</Text></View>
+              <Text style={StyleSheet.flatten([styles.optionText, selected && styles.optionTextSelected, selected && { color: theme.accent }])}>{choice.label}</Text>
+              {selected ? <Check size={15} color={theme.accent} /> : null}
             </Pressable>
           );
         })}
@@ -46,73 +46,52 @@ export function PollCard({ poll, selectedChoiceId, onSelectChoice }: Props) {
 
 const styles = StyleSheet.create({
   card: {
-    borderRadius: 28,
-    padding: 24,
-    backgroundColor: "rgba(15, 23, 42, 0.94)",
+    borderRadius: radius.md,
+    padding: 16,
+    backgroundColor: palette.surface,
     borderWidth: 1,
-    borderColor: "rgba(148, 163, 184, 0.18)",
-    shadowColor: "#020617",
-    shadowOpacity: 0.26,
-    shadowRadius: 36,
-    shadowOffset: { width: 0, height: 22 },
-    gap: 20,
+    borderColor: palette.line,
+    borderTopWidth: 2,
+    borderTopColor: palette.primary,
+    gap: 14,
     overflow: "hidden"
   },
-  topRow: { flexDirection: "row", justifyContent: "space-between", alignItems: "center", gap: 10 },
-  livePill: {
-    color: "#A7F3D0",
-    backgroundColor: "rgba(20, 184, 166, 0.12)",
-    borderRadius: 999,
-    paddingHorizontal: 11,
-    paddingVertical: 7,
-    fontSize: 12,
-    fontWeight: "800",
-    overflow: "hidden"
-  },
-  count: { color: "#94A3B8", fontSize: 13, fontWeight: "700" },
-  question: { color: "#F8FAFC", fontSize: 28, lineHeight: 34, fontWeight: "900", letterSpacing: 0 },
-  options: { gap: 12 },
+  heading: { gap: 5 },
+  headingRow: { flexDirection: "row", alignItems: "baseline", justifyContent: "space-between", gap: 12 },
+  kicker: { color: palette.primaryStrong, fontFamily: fontFamilySemibold, fontSize: 9, textTransform: "uppercase", letterSpacing: 1 },
+  title: { color: palette.ink, fontFamily: fontFamilySemibold, fontSize: 15 },
+  hint: { color: palette.muted, fontSize: 10 },
+  options: { gap: 8 },
   option: {
-    minHeight: 64,
-    borderRadius: 18,
+    minHeight: 52,
+    borderRadius: radius.sm,
     borderWidth: 1,
-    borderColor: "rgba(148, 163, 184, 0.22)",
-    backgroundColor: "rgba(2, 6, 23, 0.42)",
-    paddingHorizontal: 16,
-    paddingVertical: 14,
+    borderLeftWidth: 3,
+    borderLeftColor: palette.lineStrong,
+    borderColor: palette.line,
+    backgroundColor: palette.surfaceSubtle,
+    paddingHorizontal: 13,
+    paddingVertical: 10,
     flexDirection: "row",
     alignItems: "center",
-    gap: 13,
+    gap: 11,
     overflow: "hidden"
   },
   optionSelected: {
-    borderColor: "#A7F3D0",
-    backgroundColor: "rgba(20, 184, 166, 0.12)"
+    borderColor: palette.primaryStrong,
+    backgroundColor: palette.primarySoft
   },
-  optionPressed: { transform: [{ scale: 0.992 }] },
-  radio: {
-    width: 30,
-    height: 30,
-    borderRadius: 15,
+  optionPressed: { transform: [{ scale: 0.995 }] },
+  optionCode: {
+    width: 24,
+    height: 24,
+    borderRadius: radius.xs,
     alignItems: "center",
     justifyContent: "center",
-    backgroundColor: "rgba(15, 23, 42, 0.88)",
     borderWidth: 1,
-    borderColor: "#CBD5E1"
+    borderColor: palette.lineStrong
   },
-  radioSelected: {
-    backgroundColor: "#A7F3D0",
-    borderColor: "#10B981"
-  },
-  optionText: { color: "#CBD5E1", fontSize: 17, fontWeight: "700", flex: 1 },
-  optionTextSelected: { color: "#A7F3D0" },
-  glow: {
-    position: "absolute",
-    right: -30,
-    top: -30,
-    width: 92,
-    height: 92,
-    borderRadius: 46,
-    backgroundColor: "rgba(45, 212, 191, 0.18)"
-  }
+  optionCodeText: { color: palette.muted, fontFamily: fontFamilySemibold, fontSize: 10 },
+  optionText: { color: palette.inkSecondary, fontSize: 14, fontFamily: fontFamilyMedium, flex: 1 },
+  optionTextSelected: { color: palette.primaryStrong },
 });

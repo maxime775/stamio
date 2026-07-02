@@ -9,6 +9,7 @@ import { REGIONS_FR, SEX_OPTIONS, isSex } from "@/lib/product";
 import { signUpUser } from "@/lib/api";
 import { normalizePhoneInput } from "@/lib/validation";
 import type { Sex } from "@/lib/types";
+import { fontFamilyMedium, fontFamilySemibold, palette, radius } from "@/lib/design";
 
 export function SignupForm() {
   const router = useRouter();
@@ -123,17 +124,17 @@ function Field(props: ComponentProps<typeof TextInput> & { label: string }) {
 
 const styles = StyleSheet.create({
   field: { gap: 7, flex: 1 },
-  label: { color: "#CBD5E1", fontWeight: "900", fontSize: 14 },
+  label: { color: palette.inkSecondary, fontFamily: fontFamilyMedium, fontSize: 13 },
   input: {
     minHeight: 52,
-    borderRadius: 14,
+    borderRadius: radius.sm,
     borderWidth: 1,
     borderColor: "rgba(148, 163, 184, 0.26)",
-    backgroundColor: "rgba(2, 6, 23, 0.58)",
+    backgroundColor: palette.surfaceSubtle,
     paddingHorizontal: 14,
     color: "#F8FAFC",
     fontSize: 16,
-    fontWeight: "700"
+    fontFamily: fontFamilyMedium
   },
   profileBlock: {
     borderTopWidth: 1,
@@ -141,12 +142,12 @@ const styles = StyleSheet.create({
     paddingTop: 16,
     gap: 13
   },
-  blockTitle: { color: "#F8FAFC", fontSize: 16, fontWeight: "900" },
+  blockTitle: { color: palette.ink, fontFamily: fontFamilySemibold, fontSize: 15 },
   twoCols: { flexDirection: "row", gap: 12, flexWrap: "wrap" },
   segmented: {
     minHeight: 48,
-    borderRadius: 14,
-    backgroundColor: "rgba(2, 6, 23, 0.58)",
+    borderRadius: radius.sm,
+    backgroundColor: palette.surfaceSubtle,
     borderWidth: 1,
     borderColor: "rgba(148, 163, 184, 0.26)",
     padding: 4,
@@ -155,18 +156,18 @@ const styles = StyleSheet.create({
   },
   segment: {
     flex: 1,
-    borderRadius: 10,
+    borderRadius: radius.xs,
     alignItems: "center",
     justifyContent: "center",
     paddingVertical: 10
   },
-  segmentActive: { backgroundColor: "#A7F3D0" },
-  segmentText: { color: "#94A3B8", fontWeight: "900" },
-  segmentTextActive: { color: "#06111C" },
-  error: { color: "#FCA5A5", backgroundColor: "rgba(127, 29, 29, 0.26)", borderRadius: 12, padding: 12, fontWeight: "800" },
-  primary: { minHeight: 52, borderRadius: 14, backgroundColor: "#A7F3D0", alignItems: "center", justifyContent: "center" },
-  primaryPressed: { transform: [{ scale: 0.99 }], backgroundColor: "#6EE7B7" },
-  primaryText: { color: "#06111C", fontSize: 16, fontWeight: "900" },
+  segmentActive: { backgroundColor: palette.primary },
+  segmentText: { color: palette.muted, fontFamily: fontFamilyMedium },
+  segmentTextActive: { color: "#FFFFFF" },
+  error: { color: "#FCA5A5", backgroundColor: "rgba(127, 29, 29, 0.26)", borderRadius: radius.sm, padding: 12 },
+  primary: { minHeight: 52, borderRadius: radius.sm, backgroundColor: palette.primary, alignItems: "center", justifyContent: "center" },
+  primaryPressed: { transform: [{ translateY: 1 }], backgroundColor: "#315CC2" },
+  primaryText: { color: "#FFFFFF", fontFamily: fontFamilySemibold, fontSize: 15 },
   link: { alignItems: "center", padding: 8 },
-  linkText: { color: "#A7F3D0", fontWeight: "900" }
+  linkText: { color: palette.primaryStrong, fontFamily: fontFamilySemibold }
 });

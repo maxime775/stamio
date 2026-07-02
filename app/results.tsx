@@ -6,6 +6,7 @@ import { ResultsPreviewCard } from "@/components/ResultsPreviewCard";
 import { ThemeTabs } from "@/components/ThemeTabs";
 import { getLatestResults } from "@/lib/api";
 import type { PollWithStats, ThemeSlug } from "@/lib/types";
+import { fontFamilyBold, fontFamilySemibold, palette } from "@/lib/design";
 
 export default function ResultsPage() {
   const [polls, setPolls] = useState<PollWithStats[]>([]);
@@ -47,8 +48,8 @@ export default function ResultsPage() {
 
 const styles = StyleSheet.create({
   heading: { gap: 8 },
-  kicker: { color: "#0F766E", fontWeight: "900", textTransform: "uppercase", fontSize: 13 },
-  title: { color: "#F8FAFC", fontSize: 42, lineHeight: 48, fontWeight: "900", letterSpacing: 0 },
-  intro: { color: "#94A3B8", fontSize: 17, lineHeight: 25, maxWidth: 760 },
+  kicker: { color: palette.primaryStrong, fontFamily: fontFamilySemibold, textTransform: "uppercase", fontSize: 10, letterSpacing: 1.2 },
+  title: { color: palette.ink, fontFamily: fontFamilyBold, fontSize: 40, lineHeight: 47, letterSpacing: -1 },
+  intro: { color: palette.muted, fontSize: 16, lineHeight: 25, maxWidth: 760 },
   list: { gap: 16 }
 });

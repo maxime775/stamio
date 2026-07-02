@@ -8,6 +8,7 @@ import { ReputationBadge } from "@/components/ReputationBadge";
 import { useAuth } from "@/components/AuthProvider";
 import { getCurrentUserProfile, getLatestUserAnswers, signOutUser } from "@/lib/api";
 import type { Profile, UserPollAnswer } from "@/lib/types";
+import { fontFamilyBold, fontFamilyMedium, fontFamilySemibold, palette, radius } from "@/lib/design";
 
 export default function AccountPage() {
   const router = useRouter();
@@ -50,7 +51,7 @@ export default function AccountPage() {
     return (
       <PageShell compact>
         <View style={styles.loading}>
-          <ActivityIndicator color="#0F766E" />
+          <ActivityIndicator color={palette.primaryStrong} />
           <Text style={styles.loadingText}>Chargement du compte</Text>
         </View>
       </PageShell>
@@ -83,13 +84,13 @@ export default function AccountPage() {
 
 const styles = StyleSheet.create({
   heading: { flexDirection: "row", justifyContent: "space-between", alignItems: "center", gap: 16, flexWrap: "wrap" },
-  kicker: { color: "#0F766E", fontWeight: "900", textTransform: "uppercase", fontSize: 13 },
-  title: { color: "#F8FAFC", fontSize: 38, lineHeight: 44, fontWeight: "900", letterSpacing: 0, marginTop: 4 },
-  logout: { borderRadius: 14, backgroundColor: "rgba(148, 163, 184, 0.12)", borderWidth: 1, borderColor: "rgba(148, 163, 184, 0.18)", paddingHorizontal: 16, paddingVertical: 12 },
-  logoutText: { color: "#CBD5E1", fontWeight: "900" },
+  kicker: { color: palette.primaryStrong, fontFamily: fontFamilySemibold, textTransform: "uppercase", fontSize: 10, letterSpacing: 1.2 },
+  title: { color: palette.ink, fontFamily: fontFamilyBold, fontSize: 36, lineHeight: 43, letterSpacing: -0.8, marginTop: 5 },
+  logout: { borderRadius: radius.sm, backgroundColor: "transparent", borderWidth: 1, borderColor: palette.lineStrong, paddingHorizontal: 16, paddingVertical: 11 },
+  logoutText: { color: palette.inkSecondary, fontFamily: fontFamilyMedium },
   grid: { flexDirection: "row", flexWrap: "wrap", gap: 16, alignItems: "flex-start" },
   main: { flex: 1, minWidth: 320, gap: 16 },
   side: { width: 330, minWidth: 280, flexGrow: 1 },
-  loading: { borderRadius: 20, backgroundColor: "rgba(15, 23, 42, 0.92)", borderWidth: 1, borderColor: "rgba(148, 163, 184, 0.18)", padding: 24, alignItems: "center", gap: 10 },
-  loadingText: { color: "#94A3B8", fontWeight: "800" }
+  loading: { borderRadius: radius.md, backgroundColor: palette.surface, borderWidth: 1, borderColor: palette.line, padding: 24, alignItems: "center", gap: 10 },
+  loadingText: { color: palette.muted, fontFamily: fontFamilyMedium }
 });

@@ -1,51 +1,90 @@
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useRef } from "react";
 import { NativeScrollEvent, NativeSyntheticEvent, ScrollView, StyleSheet, Text, View } from "react-native";
 import { PollTeaserCard } from "@/components/PollTeaserCard";
 import type { PollWithStats } from "@/lib/types";
+import { fontFamilyBold, fontFamilyMedium, palette } from "@/lib/design";
 
 type Props = {
   polls: PollWithStats[];
 };
 
+const SCROLL_SPEED_PX_PER_SECOND = 30;
+
 export function TrendingPollsCarousel({ polls }: Props) {
-  const [progress, setProgress] = useState(0);
   const scrollRef = useRef<ScrollView | null>(null);
-  const maxOffsetRef = useRef(1);
+  const segmentWidthRef = useRef(1);
   const offsetRef = useRef(0);
-  const pausedRef = useRef(false);
+  const hoverPausedRef = useRef(false);
+  const touchPausedRef = useRef(false);
+  const lastFrameRef = useRef(0);
   const resumeTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   useEffect(() => {
     if (polls.length < 2) return undefined;
 
-    const timer = setInterval(() => {
-      if (pausedRef.current) return;
-
-      const next = offsetRef.current >= maxOffsetRef.current ? 0 : offsetRef.current + 1.1;
-      offsetRef.current = next;
-      scrollRef.current?.scrollTo({ x: next, y: 0, animated: false });
-    }, 34);
+    let frame = 0;
+    function tick(timestamp: number) {
+      if (lastFrameRef.current === 0) lastFrameRef.current = timestamp;
+      const delta = Math.min(timestamp - lastFrameRef.current, 32);
+      lastFrameRef.current = timestamp;
+      const segment = segmentWidthRef.current;
+      if (!hoverPausedRef.current && !touchPausedRef.current && segment > 1) {
+        let next = offsetRef.current + (SCROLL_SPEED_PX_PER_SECOND * delta) / 1000;
+        if (next >= segment * 2) next -= segment;
+        offsetRef.current = next;
+        scrollRef.current?.scrollTo({ x: next, y: 0, animated: false });
+      }
+      frame = requestAnimationFrame(tick);
+    }
+    frame = requestAnimationFrame(tick);
 
     return () => {
-      clearInterval(timer);
+      cancelAnimationFrame(frame);
       if (resumeTimerRef.current) clearTimeout(resumeTimerRef.current);
     };
   }, [polls.length]);
 
   function pauseTemporarily() {
-    pausedRef.current = true;
+    touchPausedRef.current = true;
     if (resumeTimerRef.current) clearTimeout(resumeTimerRef.current);
     resumeTimerRef.current = setTimeout(() => {
-      pausedRef.current = false;
+      touchPausedRef.current = false;
     }, 2600);
+  }
+
+  function handleCardHover(value: boolean) {
+    hoverPausedRef.current = value;
+    lastFrameRef.current = 0;
   }
 
   function handleScroll(event: NativeSyntheticEvent<NativeScrollEvent>) {
     const { contentOffset, contentSize, layoutMeasurement } = event.nativeEvent;
-    maxOffsetRef.current = Math.max(contentSize.width - layoutMeasurement.width, 1);
+    void contentSize;
+    void layoutMeasurement;
     offsetRef.current = contentOffset.x;
-    setProgress(Math.min(contentOffset.x / maxOffsetRef.current, 1));
   }
+
+  function handleContentSizeChange(width: number) {
+    const segment = polls.length > 1 ? width / 3 : width;
+    segmentWidthRef.current = segment;
+    const initial = polls.length > 1 ? segment : 0;
+    offsetRef.current = initial;
+    requestAnimationFrame(() => scrollRef.current?.scrollTo({ x: initial, y: 0, animated: false }));
+  }
+
+  function normalizeLoopPosition() {
+    if (polls.length < 2) return;
+    const segment = segmentWidthRef.current;
+    let next = offsetRef.current;
+    if (next < segment * 0.5) next += segment;
+    if (next > segment * 2.5) next -= segment;
+    if (next !== offsetRef.current) {
+      offsetRef.current = next;
+      scrollRef.current?.scrollTo({ x: next, y: 0, animated: false });
+    }
+  }
+
+  const segments = polls.length > 1 ? [0, 1, 2] : [0];
 
   return (
     <View style={styles.wrap}>
@@ -55,32 +94,34 @@ export function TrendingPollsCarousel({ polls }: Props) {
       </View>
       <ScrollView
         ref={scrollRef}
+        style={styles.scroller}
         horizontal
         showsHorizontalScrollIndicator={false}
         contentContainerStyle={styles.rail}
         decelerationRate="fast"
         onScroll={handleScroll}
+        onContentSizeChange={handleContentSizeChange}
         onScrollBeginDrag={pauseTemporarily}
+        onMomentumScrollEnd={normalizeLoopPosition}
         onTouchStart={pauseTemporarily}
         scrollEventThrottle={16}
       >
-        {polls.map((poll) => (
-          <PollTeaserCard key={poll.id} poll={poll} />
+        {segments.map((segment) => (
+          <View key={segment} style={styles.segment}>
+            {polls.map((poll) => <PollTeaserCard key={`${poll.id}-${segment}`} poll={poll} onHoverChange={handleCardHover} />)}
+          </View>
         ))}
       </ScrollView>
-      <View style={styles.progressTrack}>
-        <View style={{ ...styles.progressFill, width: `${Math.max(18, progress * 100)}%` }} />
-      </View>
     </View>
   );
 }
 
 const styles = StyleSheet.create({
-  wrap: { gap: 16 },
+  wrap: { width: "100%", maxWidth: "100%", gap: 16, overflow: "hidden" },
+  scroller: { width: "100%", maxWidth: "100%" },
   header: { flexDirection: "row", justifyContent: "space-between", alignItems: "flex-end", gap: 12, flexWrap: "wrap" },
-  title: { color: "#F8FAFC", fontSize: 28, lineHeight: 34, fontWeight: "900", letterSpacing: 0 },
-  counter: { color: "#94A3B8", fontWeight: "800" },
-  rail: { gap: 16, paddingVertical: 6, paddingRight: 20 },
-  progressTrack: { height: 5, borderRadius: 999, backgroundColor: "rgba(148, 163, 184, 0.18)", overflow: "hidden" },
-  progressFill: { height: "100%", borderRadius: 999, backgroundColor: "#A7F3D0" }
+  title: { color: palette.ink, fontFamily: fontFamilyBold, fontSize: 26, lineHeight: 32, letterSpacing: -0.5 },
+  counter: { color: palette.muted, fontFamily: fontFamilyMedium, fontSize: 12 },
+  rail: { paddingVertical: 6 },
+  segment: { flexDirection: "row", gap: 16, paddingRight: 16 }
 });

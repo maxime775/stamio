@@ -1,7 +1,10 @@
 import { supabase } from "@/lib/supabase";
-import { FALLBACK_POLLS } from "@/lib/product";
+import { FALLBACK_POLLS, getPollDescription } from "@/lib/product";
 import type {
   Poll,
+  PollComment,
+  PollCommentImage,
+  PollHistoryPoint,
   PollResult,
   PollWithStats,
   Profile,
@@ -30,7 +33,7 @@ type SubmitPayload = {
 export async function fetchPoll(pollId: string): Promise<Poll | null> {
   const enriched = await supabase
     .from("polls")
-    .select("id, question, status, theme, featured, trend_label, created_at, closes_at, choices(id, poll_id, label, position)")
+    .select("id, question, description, status, theme, featured, trend_label, created_at, closes_at, choices(id, poll_id, label, position)")
     .eq("id", pollId)
     .maybeSingle();
 
@@ -38,7 +41,7 @@ export async function fetchPoll(pollId: string): Promise<Poll | null> {
 
   const { data, error } = await supabase
     .from("polls")
-    .select("id, question, status, closes_at, choices(id, poll_id, label, position)")
+    .select("id, question, status, theme, featured, trend_label, created_at, closes_at, choices(id, poll_id, label, position)")
     .eq("id", pollId)
     .maybeSingle();
 
@@ -70,6 +73,80 @@ export async function getResults(pollId: string): Promise<PollResult[]> {
   });
   if (error || !data) return [];
   return data.results;
+}
+
+export async function getResultsHistory(pollId: string): Promise<PollHistoryPoint[]> {
+  const { data, error } = await supabase.functions.invoke<{ history: PollHistoryPoint[] }>("get-results-history", {
+    body: { poll_id: pollId }
+  });
+  if (error || !data) return [];
+  return data.history.map((point) => ({ ...point, votes: Number(point.votes), percentage: Number(point.percentage) }));
+}
+
+export async function getPollComments(pollId: string): Promise<PollComment[]> {
+  const { data, error } = await supabase.rpc("get_poll_comments_v2", { p_poll_id: pollId });
+  if (error || !data) return [];
+  return data.map((comment: Record<string, unknown>) => {
+    const imagePath = typeof comment.image_path === "string" ? comment.image_path : null;
+    const imageUrl = imagePath ? supabase.storage.from(COMMENT_IMAGE_BUCKET).getPublicUrl(imagePath).data.publicUrl : null;
+    return { ...comment, likes: Number(comment.likes), image_size: comment.image_size ? Number(comment.image_size) : null, image_url: imageUrl };
+  }) as PollComment[];
+}
+
+export async function createPollComment(pollId: string, body: string, parentCommentId: string | null = null, image?: PollCommentImage) {
+  if (image) {
+    return supabase.rpc("create_poll_comment_with_image", {
+      p_poll_id: pollId,
+      p_parent_comment_id: parentCommentId,
+      p_body: body,
+      p_image_path: image.path,
+      p_image_mime_type: image.mimeType,
+      p_image_size: image.size
+    });
+  }
+  return supabase.rpc("create_poll_comment", {
+    p_poll_id: pollId,
+    p_parent_comment_id: parentCommentId,
+    p_body: body
+  });
+}
+
+export async function togglePollCommentLike(commentId: string) {
+  return supabase.rpc("toggle_poll_comment_like", { p_comment_id: commentId });
+}
+
+const COMMENT_IMAGE_BUCKET = "poll-comment-images";
+
+export async function uploadPollCommentImage(pollId: string, base64: string, mimeType: PollCommentImage["mimeType"], size: number): Promise<PollCommentImage> {
+  const { data } = await supabase.auth.getUser();
+  if (!data.user) throw new Error("authentication_required");
+  const extension = mimeType === "image/png" ? "png" : mimeType === "image/webp" ? "webp" : "jpg";
+  const path = `poll-comments/${pollId}/${data.user.id}/${createUuid()}.${extension}`;
+  const bytes = decodeBase64(base64);
+  if (bytes.byteLength !== size || size > 5 * 1024 * 1024) throw new Error("invalid_image_size");
+  const payload = bytes.buffer.slice(bytes.byteOffset, bytes.byteOffset + bytes.byteLength) as ArrayBuffer;
+  const { error } = await supabase.storage.from(COMMENT_IMAGE_BUCKET).upload(path, payload, { contentType: mimeType, upsert: false });
+  if (error) throw error;
+  return { path, mimeType, size };
+}
+
+export async function removePollCommentImage(path: string) {
+  return supabase.storage.from(COMMENT_IMAGE_BUCKET).remove([path]);
+}
+
+function decodeBase64(value: string) {
+  const binary = globalThis.atob(value);
+  const bytes = new Uint8Array(binary.length);
+  for (let index = 0; index < binary.length; index += 1) bytes[index] = binary.charCodeAt(index);
+  return bytes;
+}
+
+function createUuid() {
+  return "xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx".replace(/[xy]/g, (character) => {
+    const random = Math.floor(Math.random() * 16);
+    const value = character === "x" ? random : (random & 0x3) | 0x8;
+    return value.toString(16);
+  });
 }
 
 export async function getFeaturedPolls(): Promise<PollWithStats[]> {
@@ -183,6 +260,7 @@ function normalizePoll(data: Record<string, unknown>): Poll {
   const choices = Array.isArray(data.choices) ? data.choices : [];
   return {
     ...(data as Poll),
+    description: typeof data.description === "string" && data.description.trim() ? data.description : getPollDescription(String(data.id)),
     choices: [...choices].sort((a, b) => Number(a.position) - Number(b.position))
   };
 }

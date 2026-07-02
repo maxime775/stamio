@@ -1,6 +1,7 @@
 import { StyleSheet, Text, View } from "react-native";
 import { getSexLabel } from "@/lib/product";
 import type { Profile } from "@/lib/types";
+import { fontFamilyBold, fontFamilyMedium, fontFamilySemibold, palette, radius } from "@/lib/design";
 
 type Props = {
   profile: Profile | null;
@@ -35,10 +36,10 @@ function Field({ label, value }: { label: string; value: string }) {
 }
 
 const styles = StyleSheet.create({
-  card: { borderRadius: 20, backgroundColor: "rgba(15, 23, 42, 0.92)", borderWidth: 1, borderColor: "rgba(148, 163, 184, 0.18)", padding: 20, gap: 18 },
-  title: { color: "#F8FAFC", fontSize: 22, fontWeight: "900" },
+  card: { borderRadius: radius.md, backgroundColor: palette.surface, borderWidth: 1, borderColor: palette.line, padding: 20, gap: 18 },
+  title: { color: palette.ink, fontFamily: fontFamilyBold, fontSize: 20 },
   grid: { flexDirection: "row", flexWrap: "wrap", gap: 12 },
-  field: { minWidth: 190, flex: 1, borderRadius: 14, backgroundColor: "rgba(2, 6, 23, 0.42)", padding: 14, gap: 5 },
-  label: { color: "#94A3B8", fontSize: 12, fontWeight: "900", textTransform: "uppercase" },
-  value: { color: "#F8FAFC", fontSize: 15, fontWeight: "800" }
+  field: { minWidth: 190, flex: 1, borderRadius: radius.sm, backgroundColor: palette.surfaceSubtle, padding: 14, gap: 5 },
+  label: { color: palette.muted, fontFamily: fontFamilyMedium, fontSize: 10, letterSpacing: 0.8, textTransform: "uppercase" },
+  value: { color: palette.ink, fontFamily: fontFamilySemibold, fontSize: 14 }
 });

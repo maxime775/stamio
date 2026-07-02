@@ -1,5 +1,6 @@
 import { StyleSheet, Text, View } from "react-native";
 import { PageShell } from "@/components/PageShell";
+import { fontFamilyBold, fontFamilySemibold, palette, radius } from "@/lib/design";
 
 export default function AboutPage() {
   return (
@@ -50,14 +51,14 @@ function Section({ title, items }: { title: string; items: string[] }) {
 }
 
 const styles = StyleSheet.create({
-  hero: { borderRadius: 26, backgroundColor: "#0F172A", padding: 28, gap: 12 },
-  kicker: { color: "#A7F3D0", fontWeight: "900", textTransform: "uppercase", fontSize: 13 },
-  title: { color: "#FFFFFF", fontSize: 42, lineHeight: 48, fontWeight: "900", letterSpacing: 0, maxWidth: 760 },
-  subtitle: { color: "#CBD5E1", fontSize: 17, lineHeight: 26, maxWidth: 820 },
+  hero: { borderRadius: radius.md, backgroundColor: palette.surfaceSubtle, borderWidth: 1, borderColor: palette.line, padding: 30, gap: 12 },
+  kicker: { color: palette.primaryStrong, fontFamily: fontFamilySemibold, textTransform: "uppercase", fontSize: 10, letterSpacing: 1.2 },
+  title: { color: palette.ink, fontFamily: fontFamilyBold, fontSize: 40, lineHeight: 47, letterSpacing: -1, maxWidth: 760 },
+  subtitle: { color: palette.inkSecondary, fontSize: 16, lineHeight: 26, maxWidth: 820 },
   grid: { flexDirection: "row", flexWrap: "wrap", gap: 16 },
-  section: { flex: 1, minWidth: 300, borderRadius: 20, backgroundColor: "rgba(15, 23, 42, 0.92)", borderWidth: 1, borderColor: "rgba(148, 163, 184, 0.18)", padding: 22, gap: 14 },
-  sectionTitle: { color: "#F8FAFC", fontSize: 23, fontWeight: "900" },
+  section: { flex: 1, minWidth: 300, borderRadius: radius.md, backgroundColor: palette.surface, borderWidth: 1, borderColor: palette.line, padding: 22, gap: 14 },
+  sectionTitle: { color: palette.ink, fontFamily: fontFamilyBold, fontSize: 21 },
   row: { flexDirection: "row", alignItems: "flex-start", gap: 10 },
-  dot: { width: 8, height: 8, borderRadius: 4, backgroundColor: "#A7F3D0", marginTop: 7 },
-  item: { color: "#CBD5E1", fontSize: 15, lineHeight: 22, flex: 1, fontWeight: "700" }
+  dot: { width: 5, height: 5, borderRadius: 1, backgroundColor: palette.primaryStrong, marginTop: 8 },
+  item: { color: palette.inkSecondary, fontSize: 14, lineHeight: 22, flex: 1 }
 });

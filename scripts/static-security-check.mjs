@@ -66,6 +66,18 @@ const startVerificationSource = readFileSync(join(root, "supabase", "functions",
 if (!startVerificationSource.includes("Turnstile bypass is only allowed for local_test in local/staging and must never apply in production.")) {
   failures.push("start-verification: missing explicit Turnstile bypass safety comment");
 }
+
+const discussionMigrationSource = readFileSync(join(root, "supabase", "migrations", "20260701090000_poll_history_and_discussion.sql"), "utf8");
+if (!discussionMigrationSource.includes("v_user_id uuid := auth.uid()") || discussionMigrationSource.includes("p_user_id uuid")) {
+  failures.push("poll discussion: write RPCs must derive the user from auth.uid()");
+}
+if (!discussionMigrationSource.includes("revoke all on public.poll_comments from anon, authenticated") ||
+    !discussionMigrationSource.includes("grant select (id, poll_id, parent_comment_id, body, created_at, updated_at, deleted_at)")) {
+  failures.push("poll discussion: comments must be public-read and protected from direct writes");
+}
+if (!discussionMigrationSource.includes("grant execute on function public.get_poll_results_history(uuid) to service_role")) {
+  failures.push("results history: raw aggregation RPC must remain server-only");
+}
 if (/\bplatform\b/.test(startVerificationSource)) {
   failures.push("start-verification: client-provided platform must not affect Turnstile");
 }

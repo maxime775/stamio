@@ -4,6 +4,7 @@ import { useLocalSearchParams, useRouter, type Href } from "expo-router";
 import { MailCheck } from "lucide-react-native";
 import { PageShell } from "@/components/PageShell";
 import { supabase } from "@/lib/supabase";
+import { fontFamilyBold, fontFamilyMedium, fontFamilySemibold, palette, radius } from "@/lib/design";
 
 export default function VerifyEmailPage() {
   const router = useRouter();
@@ -26,7 +27,7 @@ export default function VerifyEmailPage() {
     <PageShell compact>
       <View style={styles.card}>
         <View style={styles.icon}>
-          <MailCheck size={30} color="#0F766E" />
+          <MailCheck size={28} color={palette.primaryStrong} />
         </View>
         <Text style={styles.title}>Vérifiez votre boîte mail</Text>
         <Text style={styles.text}>Cliquez sur le lien reçu pour activer votre compte. L’accès complet au compte est réservé aux emails vérifiés.</Text>
@@ -45,14 +46,14 @@ export default function VerifyEmailPage() {
 }
 
 const styles = StyleSheet.create({
-  card: { width: "100%", maxWidth: 520, alignSelf: "center", borderRadius: 24, backgroundColor: "rgba(15, 23, 42, 0.94)", borderWidth: 1, borderColor: "rgba(148, 163, 184, 0.18)", padding: 28, gap: 16, alignItems: "center" },
-  icon: { width: 62, height: 62, borderRadius: 20, backgroundColor: "rgba(20, 184, 166, 0.12)", alignItems: "center", justifyContent: "center" },
-  title: { color: "#F8FAFC", fontSize: 31, lineHeight: 37, fontWeight: "900", textAlign: "center" },
-  text: { color: "#94A3B8", fontSize: 16, lineHeight: 24, textAlign: "center" },
-  message: { color: "#A7F3D0", backgroundColor: "rgba(20, 184, 166, 0.12)", borderRadius: 12, padding: 12, fontWeight: "800" },
+  card: { width: "100%", maxWidth: 520, alignSelf: "center", borderRadius: radius.md, backgroundColor: palette.surface, borderWidth: 1, borderColor: palette.line, padding: 28, gap: 16, alignItems: "center" },
+  icon: { width: 54, height: 54, borderRadius: radius.md, backgroundColor: palette.primarySoft, alignItems: "center", justifyContent: "center" },
+  title: { color: palette.ink, fontFamily: fontFamilyBold, fontSize: 29, lineHeight: 36, textAlign: "center" },
+  text: { color: palette.muted, fontSize: 15, lineHeight: 24, textAlign: "center" },
+  message: { color: palette.positive, backgroundColor: "rgba(47,191,145,0.1)", borderRadius: radius.sm, padding: 12, fontFamily: fontFamilyMedium },
   actions: { flexDirection: "row", flexWrap: "wrap", justifyContent: "center", gap: 12 },
-  primary: { minHeight: 48, borderRadius: 14, backgroundColor: "#A7F3D0", paddingHorizontal: 18, alignItems: "center", justifyContent: "center" },
-  primaryText: { color: "#06111C", fontWeight: "900" },
-  secondary: { minHeight: 48, borderRadius: 14, backgroundColor: "rgba(148, 163, 184, 0.12)", paddingHorizontal: 18, alignItems: "center", justifyContent: "center" },
-  secondaryText: { color: "#CBD5E1", fontWeight: "900" }
+  primary: { minHeight: 48, borderRadius: radius.sm, backgroundColor: palette.primary, paddingHorizontal: 18, alignItems: "center", justifyContent: "center" },
+  primaryText: { color: "#FFFFFF", fontFamily: fontFamilySemibold },
+  secondary: { minHeight: 48, borderRadius: radius.sm, backgroundColor: "transparent", borderWidth: 1, borderColor: palette.lineStrong, paddingHorizontal: 18, alignItems: "center", justifyContent: "center" },
+  secondaryText: { color: palette.inkSecondary, fontFamily: fontFamilyMedium }
 });

@@ -1,5 +1,6 @@
 import { StyleSheet, Text, View } from "react-native";
 import { BadgeCheck, ChartNoAxesColumnIncreasing, EyeOff, Fingerprint } from "lucide-react-native";
+import { fontFamilySemibold, palette, radius } from "@/lib/design";
 
 type IconName = "verified" | "results" | "private" | "lock";
 
@@ -14,7 +15,7 @@ export function TrustBadge({ icon, title, text }: Props) {
   return (
     <View style={styles.card}>
       <View style={styles.icon}>
-        <Icon size={22} color="#A7F3D0" />
+        <Icon size={20} color={palette.primaryStrong} />
       </View>
       <Text style={styles.title}>{title}</Text>
       <Text style={styles.text}>{text}</Text>
@@ -26,21 +27,21 @@ const styles = StyleSheet.create({
   card: {
     flex: 1,
     minWidth: 220,
-    borderRadius: 18,
+    borderRadius: radius.md,
     borderWidth: 1,
-    borderColor: "rgba(148, 163, 184, 0.18)",
-    backgroundColor: "rgba(15, 23, 42, 0.92)",
+    borderColor: palette.line,
+    backgroundColor: palette.surface,
     padding: 18,
     gap: 8
   },
   icon: {
-    width: 42,
-    height: 42,
-    borderRadius: 14,
+    width: 32,
+    height: 32,
+    borderRadius: radius.sm,
     alignItems: "center",
     justifyContent: "center",
-    backgroundColor: "rgba(20, 184, 166, 0.12)"
+    backgroundColor: palette.primarySoft
   },
-  title: { color: "#F8FAFC", fontWeight: "900", fontSize: 16 },
-  text: { color: "#94A3B8", lineHeight: 20, fontSize: 13 }
+  title: { color: palette.ink, fontFamily: fontFamilySemibold, fontSize: 15 },
+  text: { color: palette.muted, lineHeight: 20, fontSize: 13 }
 });

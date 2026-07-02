@@ -7,6 +7,7 @@ import { ThemeTabs } from "@/components/ThemeTabs";
 import { THEMES } from "@/lib/product";
 import { getPollsByTheme } from "@/lib/api";
 import type { PollWithStats, ThemeSlug } from "@/lib/types";
+import { fontFamilyBold, fontFamilyMedium, fontFamilySemibold, palette, radius } from "@/lib/design";
 
 export default function ThemesIndex() {
   const [activeTheme, setActiveTheme] = useState<ThemeSlug | "all">("all");
@@ -66,12 +67,12 @@ function Stat({ label, value }: { label: string; value: number }) {
 
 const styles = StyleSheet.create({
   heading: { gap: 8 },
-  kicker: { color: "#0F766E", fontWeight: "900", textTransform: "uppercase", fontSize: 13 },
-  title: { color: "#F8FAFC", fontSize: 42, lineHeight: 48, fontWeight: "900", letterSpacing: 0, maxWidth: 820 },
-  intro: { color: "#94A3B8", fontSize: 17, lineHeight: 25, maxWidth: 780 },
+  kicker: { color: palette.primaryStrong, fontFamily: fontFamilySemibold, textTransform: "uppercase", fontSize: 10, letterSpacing: 1.2 },
+  title: { color: palette.ink, fontFamily: fontFamilyBold, fontSize: 40, lineHeight: 47, letterSpacing: -1, maxWidth: 820 },
+  intro: { color: palette.muted, fontSize: 16, lineHeight: 25, maxWidth: 780 },
   stats: { flexDirection: "row", flexWrap: "wrap", gap: 12 },
-  stat: { minWidth: 170, borderRadius: 18, backgroundColor: "rgba(15, 23, 42, 0.92)", borderWidth: 1, borderColor: "rgba(148, 163, 184, 0.18)", padding: 18 },
-  statValue: { color: "#F8FAFC", fontSize: 30, fontWeight: "900" },
-  statLabel: { color: "#94A3B8", fontWeight: "800", marginTop: 4 },
+  stat: { minWidth: 170, borderRadius: radius.sm, backgroundColor: palette.surface, borderWidth: 1, borderColor: palette.line, padding: 18 },
+  statValue: { color: palette.ink, fontFamily: fontFamilyBold, fontSize: 28 },
+  statLabel: { color: palette.muted, fontFamily: fontFamilyMedium, fontSize: 12, marginTop: 4 },
   grid: { flexDirection: "row", flexWrap: "wrap", gap: 16 }
 });

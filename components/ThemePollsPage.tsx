@@ -7,6 +7,7 @@ import { ThemeTabs } from "@/components/ThemeTabs";
 import { THEMES, getThemeLabel } from "@/lib/product";
 import { getPollsByTheme } from "@/lib/api";
 import type { PollWithStats, ThemeSlug } from "@/lib/types";
+import { fontFamilyBold, fontFamilyMedium, fontFamilySemibold, getThemeVisual, palette, radius } from "@/lib/design";
 
 type Props = {
   activeTheme: ThemeSlug;
@@ -16,6 +17,7 @@ export function ThemePollsPage({ activeTheme }: Props) {
   const [polls, setPolls] = useState<PollWithStats[]>([]);
   const fade = useMemo(() => new Animated.Value(0), []);
   const theme = THEMES.find((item) => item.slug === activeTheme);
+  const visual = getThemeVisual(activeTheme);
   const totalVotes = polls.reduce((sum, poll) => sum + poll.totalVotes, 0);
 
   useEffect(() => {
@@ -34,14 +36,14 @@ export function ThemePollsPage({ activeTheme }: Props) {
   return (
     <PageShell>
       <View style={styles.heading}>
-        <Text style={styles.kicker}>Nos thèmes</Text>
+        <Text style={StyleSheet.flatten([styles.kicker, { color: visual.accent }])}>Nos thèmes</Text>
         <Text style={styles.title}>{getThemeLabel(activeTheme)}</Text>
         <Text style={styles.intro}>{theme?.intro}</Text>
       </View>
       <ThemeTabs active={activeTheme} />
       <View style={styles.stats}>
-        <Stat label="Sondages" value={polls.length} />
-        <Stat label="Votes agrégés" value={totalVotes} />
+        <Stat label="Sondages" value={polls.length} accent={visual.accent} />
+        <Stat label="Votes agrégés" value={totalVotes} accent={visual.accent} />
       </View>
       <Animated.View style={StyleSheet.flatten([styles.grid, { opacity: fade as unknown as number }])}>
         {polls.length > 0 ? (
@@ -54,10 +56,10 @@ export function ThemePollsPage({ activeTheme }: Props) {
   );
 }
 
-function Stat({ label, value }: { label: string; value: number }) {
+function Stat({ label, value, accent }: { label: string; value: number; accent: string }) {
   return (
     <View style={styles.stat}>
-      <Text style={styles.statValue}>{value}</Text>
+      <Text style={StyleSheet.flatten([styles.statValue, { color: accent }])}>{value}</Text>
       <Text style={styles.statLabel}>{label}</Text>
     </View>
   );
@@ -65,12 +67,12 @@ function Stat({ label, value }: { label: string; value: number }) {
 
 const styles = StyleSheet.create({
   heading: { gap: 8 },
-  kicker: { color: "#0F766E", fontWeight: "900", textTransform: "uppercase", fontSize: 13 },
-  title: { color: "#F8FAFC", fontSize: 42, lineHeight: 48, fontWeight: "900", letterSpacing: 0 },
-  intro: { color: "#94A3B8", fontSize: 17, lineHeight: 25, maxWidth: 720 },
+  kicker: { color: palette.primaryStrong, fontFamily: fontFamilySemibold, textTransform: "uppercase", fontSize: 10, letterSpacing: 1.2 },
+  title: { color: palette.ink, fontFamily: fontFamilyBold, fontSize: 40, lineHeight: 47, letterSpacing: -1 },
+  intro: { color: palette.muted, fontSize: 16, lineHeight: 25, maxWidth: 720 },
   stats: { flexDirection: "row", flexWrap: "wrap", gap: 12 },
-  stat: { minWidth: 160, borderRadius: 18, backgroundColor: "rgba(15, 23, 42, 0.92)", borderWidth: 1, borderColor: "rgba(148, 163, 184, 0.18)", padding: 18 },
-  statValue: { color: "#F8FAFC", fontSize: 30, fontWeight: "900" },
-  statLabel: { color: "#94A3B8", fontWeight: "800", marginTop: 4 },
+  stat: { minWidth: 160, borderRadius: radius.sm, backgroundColor: palette.surface, borderWidth: 1, borderColor: palette.line, padding: 18 },
+  statValue: { color: palette.ink, fontFamily: fontFamilyBold, fontSize: 28 },
+  statLabel: { color: palette.muted, fontFamily: fontFamilyMedium, fontSize: 12, marginTop: 4 },
   grid: { flexDirection: "row", flexWrap: "wrap", gap: 16 }
 });

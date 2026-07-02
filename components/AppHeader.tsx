@@ -1,7 +1,9 @@
-import { Pressable, StyleSheet, Text, useWindowDimensions, View } from "react-native";
+import { useEffect, useRef } from "react";
+import { Animated, Pressable, StyleSheet, Text, useWindowDimensions, View } from "react-native";
 import { Link, usePathname, useRouter, type Href } from "expo-router";
 import { BarChart3, CircleUserRound, Home, Info, Layers3, LogIn, UserPlus } from "lucide-react-native";
 import { useAuth } from "@/components/AuthProvider";
+import { fontFamilyBold, fontFamilyMedium, fontFamilySemibold, palette, radius } from "@/lib/design";
 
 const centerNav = [
   { label: "Nos thèmes", href: "/themes", icon: Layers3 },
@@ -39,11 +41,7 @@ export function AppHeader() {
         {!compact ? (
           <View style={styles.centerNav}>
             {centerNav.map((item) => (
-              <Link key={item.href} href={item.href as Href} asChild>
-                <Pressable style={StyleSheet.flatten([styles.navItem, pathname.startsWith(item.href) && styles.navItemActive])}>
-                  <Text style={StyleSheet.flatten([styles.navText, pathname.startsWith(item.href) && styles.navTextActive])}>{item.label}</Text>
-                </Pressable>
-              </Link>
+              <DesktopNavLink key={item.href} item={item} active={pathname.startsWith(item.href)} />
             ))}
           </View>
         ) : null}
@@ -78,7 +76,7 @@ export function AppHeader() {
             const active = item.href === "/" ? pathname === "/" : pathname.startsWith(item.href);
             return (
               <Pressable key={item.href} onPress={() => go(item.href)} style={styles.bottomItem}>
-                <Icon size={19} color={active ? "#0F766E" : "#64748B"} />
+                <Icon size={18} color={active ? palette.primaryStrong : palette.muted} />
                 <Text style={StyleSheet.flatten([styles.bottomLabel, active && styles.bottomLabelActive])}>{item.label}</Text>
               </Pressable>
             );
@@ -89,11 +87,23 @@ export function AppHeader() {
   );
 }
 
+function DesktopNavLink({ item, active }: { item: (typeof centerNav)[number]; active: boolean }) {
+  const line = useRef(new Animated.Value(active ? 1 : 0)).current;
+  useEffect(() => { Animated.timing(line, { toValue: active ? 1 : 0, duration: 220, useNativeDriver: true }).start(); }, [active, line]);
+  function hover(value: number) { Animated.timing(line, { toValue: value, duration: 220, useNativeDriver: true }).start(); }
+  return <Link href={item.href as Href} asChild>
+    <Pressable onHoverIn={() => hover(1)} onHoverOut={() => hover(active ? 1 : 0)} style={styles.navItem}>
+      <Text style={StyleSheet.flatten([styles.navText, active && styles.navTextActive])}>{item.label}</Text>
+      <Animated.View style={StyleSheet.flatten([styles.navLine, { transform: [{ scaleX: line }] }])} />
+    </Pressable>
+  </Link>;
+}
+
 const styles = StyleSheet.create({
   header: {
-    minHeight: 72,
-    paddingHorizontal: 20,
-    backgroundColor: "rgba(7, 17, 31, 0.96)",
+    minHeight: 64,
+    paddingHorizontal: 24,
+    backgroundColor: "rgba(8, 11, 16, 0.98)",
     borderBottomWidth: 1,
     borderBottomColor: "rgba(148, 163, 184, 0.18)",
     flexDirection: "row",
@@ -104,67 +114,67 @@ const styles = StyleSheet.create({
   },
   brand: { flexDirection: "row", alignItems: "center", gap: 10, minWidth: 128 },
   brandMark: {
-    width: 36,
-    height: 36,
-    borderRadius: 10,
+    width: 32,
+    height: 32,
+    borderRadius: radius.sm,
     alignItems: "center",
     justifyContent: "center",
-    backgroundColor: "rgba(20, 184, 166, 0.14)",
+    backgroundColor: palette.primarySoft,
     borderWidth: 1,
-    borderColor: "rgba(167, 243, 208, 0.22)"
+    borderColor: palette.lineStrong
   },
-  brandMarkText: { color: "#A7F3D0", fontSize: 18, fontWeight: "900" },
-  brandText: { color: "#F8FAFC", fontSize: 21, fontWeight: "900", letterSpacing: 0 },
+  brandMarkText: { color: palette.primaryStrong, fontFamily: fontFamilyBold, fontSize: 16 },
+  brandText: { color: palette.ink, fontFamily: fontFamilyBold, fontSize: 19, letterSpacing: -0.3 },
   centerNav: { flexDirection: "row", alignItems: "center", justifyContent: "center", gap: 6, flex: 1 },
-  navItem: { paddingHorizontal: 14, paddingVertical: 10, borderRadius: 999 },
-  navItemActive: { backgroundColor: "rgba(20, 184, 166, 0.14)" },
-  navText: { color: "#94A3B8", fontSize: 14, fontWeight: "800" },
-  navTextActive: { color: "#A7F3D0" },
+  navItem: { paddingHorizontal: 14, paddingVertical: 11, position: "relative" },
+  navLine: { position: "absolute", left: 14, right: 14, bottom: 4, height: 2, borderRadius: 1, backgroundColor: palette.primaryStrong },
+  navText: { color: palette.muted, fontFamily: fontFamilyMedium, fontSize: 13 },
+  navTextActive: { color: "#DCE5FF" },
   account: { minWidth: 128, flexDirection: "row", alignItems: "center", justifyContent: "flex-end", gap: 8 },
   accountButton: {
     minHeight: 40,
-    borderRadius: 999,
+    borderRadius: radius.sm,
     paddingHorizontal: 13,
     flexDirection: "row",
     alignItems: "center",
     gap: 8,
-    backgroundColor: "rgba(148, 163, 184, 0.12)",
+    backgroundColor: "transparent",
     borderWidth: 1,
     borderColor: "rgba(148, 163, 184, 0.18)"
   },
-  accountText: { color: "#E2E8F0", fontWeight: "900" },
+  accountText: { color: palette.inkSecondary, fontFamily: fontFamilyMedium },
   secondaryButton: {
     minHeight: 40,
     paddingHorizontal: 13,
-    borderRadius: 999,
+    borderRadius: radius.sm,
     flexDirection: "row",
     alignItems: "center",
     gap: 7,
-    backgroundColor: "rgba(148, 163, 184, 0.12)",
+    backgroundColor: "transparent",
     borderWidth: 1,
     borderColor: "rgba(148, 163, 184, 0.18)"
   },
-  secondaryText: { color: "#CBD5E1", fontWeight: "800" },
+  secondaryText: { color: palette.inkSecondary, fontFamily: fontFamilyMedium },
   primaryButton: {
     minHeight: 40,
     minWidth: 40,
     paddingHorizontal: 13,
-    borderRadius: 999,
+    borderRadius: radius.sm,
     flexDirection: "row",
     alignItems: "center",
     justifyContent: "center",
     gap: 7,
-    backgroundColor: "#0F766E"
+    backgroundColor: palette.primary,
   },
-  primaryText: { color: "#F8FAFC", fontWeight: "900" },
+  primaryText: { color: "#FFFFFF", fontFamily: fontFamilySemibold },
   bottomNav: {
     position: "absolute",
-    left: 12,
-    right: 12,
-    bottom: 12,
-    minHeight: 64,
-    borderRadius: 22,
-    backgroundColor: "rgba(8, 13, 27, 0.97)",
+    left: 0,
+    right: 0,
+    bottom: 0,
+    minHeight: 60,
+    borderRadius: 0,
+    backgroundColor: "rgba(8, 11, 16, 0.98)",
     borderWidth: 1,
     borderColor: "rgba(148, 163, 184, 0.22)",
     flexDirection: "row",
@@ -177,6 +187,6 @@ const styles = StyleSheet.create({
     shadowOffset: { width: 0, height: 10 }
   },
   bottomItem: { alignItems: "center", justifyContent: "center", gap: 3, flex: 1 },
-  bottomLabel: { color: "#94A3B8", fontSize: 10, fontWeight: "800" },
-  bottomLabelActive: { color: "#A7F3D0" }
+  bottomLabel: { color: palette.muted, fontFamily: fontFamilyMedium, fontSize: 9 },
+  bottomLabelActive: { color: palette.primaryStrong }
 });

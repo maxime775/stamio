@@ -1,27 +1,33 @@
 import { useEffect, useMemo, useState } from "react";
-import { Animated, Modal, Platform, Pressable, ScrollView, StyleSheet, Text, View } from "react-native";
+import { Animated, Modal, Platform, Pressable, ScrollView, StyleSheet, Text, useWindowDimensions, View } from "react-native";
 import { LinearGradient } from "expo-linear-gradient";
-import { ShieldCheck, Sparkles } from "lucide-react-native";
+import { Check, MessagesSquare } from "lucide-react-native";
 import { useLocalSearchParams, useRouter, type Href } from "expo-router";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { PollCard } from "@/components/PollCard";
-import { ResultsBars } from "@/components/ResultsBars";
+import { PollTimer } from "@/components/PollTimer";
+import { ResultsDonutSummary } from "@/components/ResultsDonutSummary";
+import { ResultsHistoryChart } from "@/components/ResultsHistoryChart";
+import { PollDiscussion } from "@/components/PollDiscussion";
+import { AppFooter } from "@/components/AppFooter";
 import { VotePanel } from "@/components/VotePanel";
-import { SecurityBadge } from "@/components/SecurityBadge";
 import { SkeletonPoll } from "@/components/SkeletonPoll";
 import { useAuth } from "@/components/AuthProvider";
-import { fetchPoll, getResults } from "@/lib/api";
-import { VISITOR_VOTE_LIMIT } from "@/lib/product";
+import { fetchPoll, getResults, getResultsHistory } from "@/lib/api";
+import { getPollDescription, getThemeLabel, VISITOR_VOTE_LIMIT } from "@/lib/product";
+import { fontFamilyBold, fontFamilyMedium, fontFamilySemibold, getThemeVisual, palette, radius, shadows } from "@/lib/design";
 import { getVisitorVoteCount, incrementVisitorVoteCount } from "@/lib/visitorLimit";
-import type { Poll, PollResult, VoteStatus } from "@/lib/types";
+import type { Poll, PollHistoryPoint, PollResult, VoteStatus } from "@/lib/types";
 
 export default function PollScreen() {
   const { pollId } = useLocalSearchParams<{ pollId: string }>();
+  const compact = useWindowDimensions().width < 760;
   const router = useRouter();
   const { user, emailVerified } = useAuth();
   const [poll, setPoll] = useState<Poll | null>(null);
   const [selectedChoiceId, setSelectedChoiceId] = useState<string | null>(null);
   const [results, setResults] = useState<PollResult[]>([]);
+  const [history, setHistory] = useState<PollHistoryPoint[]>([]);
   const [loading, setLoading] = useState(true);
   const [panelVisible, setPanelVisible] = useState(false);
   const [limitVisible, setLimitVisible] = useState(false);
@@ -34,10 +40,11 @@ export default function PollScreen() {
     async function load() {
       if (!pollId) return;
       setLoading(true);
-      const [pollData, resultData] = await Promise.all([fetchPoll(pollId), getResults(pollId)]);
+      const [pollData, resultData, historyData] = await Promise.all([fetchPoll(pollId), getResults(pollId), getResultsHistory(pollId)]);
       if (!active) return;
       setPoll(pollData);
       setResults(resultData);
+      setHistory(historyData);
       setLoading(false);
       Animated.timing(fade, { toValue: 1, duration: 480, useNativeDriver: true }).start();
     }
@@ -69,6 +76,7 @@ export default function PollScreen() {
   async function handleVoteFinished(status: VoteStatus, nextResults?: PollResult[]) {
     setVoteState(status);
     if (nextResults) setResults(nextResults);
+    if (status.status === "accepted" && pollId) setHistory(await getResultsHistory(pollId));
     if (status.status === "duplicate") {
       setPanelVisible(false);
     }
@@ -78,36 +86,29 @@ export default function PollScreen() {
   }
 
   return (
-    <LinearGradient colors={["#07111F", "#0C1428", "#101827"]} style={styles.root}>
+    <LinearGradient colors={[palette.canvas, "#0A0E14", palette.canvas]} style={styles.root}>
       <SafeAreaView style={styles.safe}>
         <ScrollView contentContainerStyle={styles.scroll} showsVerticalScrollIndicator={false}>
-          <View style={styles.header}>
-            <View>
-              <Text style={styles.brand}>Verified Polls</Text>
-              <Text style={styles.subtitle}>Sondages vérifiés par SMS, résultats auditables.</Text>
-            </View>
-            <View style={styles.brandMark}>
-              <ShieldCheck size={24} color="#DFFCF2" />
-            </View>
-          </View>
-
-          <View style={styles.hero}>
-            <View style={styles.heroCopy}>
-              <Text style={styles.eyebrow}>Vote unique par numéro</Text>
-              <Text style={styles.title}>Un sondage fiable sans exposer votre téléphone.</Text>
-            </View>
-            <View style={styles.badges}>
-              <SecurityBadge icon="lock" label="OTP Twilio" />
-              <SecurityBadge icon="hash" label="Hash par sondage" />
-              <SecurityBadge icon="shield" label="RLS active" />
-            </View>
-          </View>
-
           {loading ? (
             <SkeletonPoll />
           ) : poll ? (
-            <Animated.View style={StyleSheet.flatten([styles.contentGrid, { opacity: fade as unknown as number }])}>
-              <View style={styles.mainColumn}>
+            <Animated.View style={StyleSheet.flatten([styles.contentStack, { opacity: fade as unknown as number }])}>
+              <View style={styles.hero}>
+                <View style={styles.metaRow}>
+                  <Text style={StyleSheet.flatten([styles.theme, { color: getThemeVisual(poll.theme).accent }])}>{getThemeLabel(poll.theme)}</Text>
+                  <PollTimer poll={poll} style={styles.timer} />
+                </View>
+                <Text style={StyleSheet.flatten([styles.title, compact && styles.titleCompact])}>{poll.question}</Text>
+                <View style={StyleSheet.flatten([styles.overview, compact && styles.overviewCompact])}>
+                  <View style={styles.contextBlock}>
+                    <Text style={styles.contextKicker}>Enjeux</Text>
+                    <Text style={styles.contextText}>{poll.description ?? getPollDescription(poll.id)}</Text>
+                  </View>
+                  <ResultsDonutSummary choices={poll.choices} results={results} />
+                </View>
+              </View>
+              <View style={styles.contentGrid}>
+                <View style={styles.mainColumn}>
                 <PollCard
                   poll={poll}
                   selectedChoiceId={selectedChoiceId}
@@ -124,7 +125,7 @@ export default function PollScreen() {
                     ])
                   }
                 >
-                  <Sparkles size={18} color="#06111C" />
+                  <Check size={17} color="#FFFFFF" />
                   <Text style={styles.voteButtonText}>Valider mon vote</Text>
                 </Pressable>
                 {voteState?.status === "duplicate" ? (
@@ -136,10 +137,22 @@ export default function PollScreen() {
                     <Text selectable style={styles.receiptHash}>{voteState.receipt_hash}</Text>
                   </View>
                 ) : null}
-              </View>
+                </View>
 
-              <View style={styles.sideColumn}>
-                <ResultsBars results={results} />
+                <View style={styles.analyticsColumn}>
+                  <ResultsHistoryChart history={history} />
+                </View>
+              </View>
+              <View style={styles.discussionBreak}>
+                <View style={styles.discussionAccent} />
+                <MessagesSquare size={17} color={palette.primaryStrong} />
+                <View style={styles.discussionCopy}>
+                  <Text style={styles.discussionLabelText}>Espace de discussion</Text>
+                  <Text style={styles.discussionIntro}>Confrontez les arguments et complétez la lecture des résultats.</Text>
+                </View>
+              </View>
+              <View style={styles.discussionColumn}>
+                <PollDiscussion pollId={poll.id} />
               </View>
             </Animated.View>
           ) : (
@@ -148,6 +161,7 @@ export default function PollScreen() {
               <Text style={styles.emptyText}>La question demandée n'est pas ouverte ou n'existe pas.</Text>
             </View>
           )}
+          <AppFooter />
         </ScrollView>
 
         {poll && selectedChoice ? (
@@ -217,114 +231,105 @@ const styles = StyleSheet.create({
     maxWidth: 1160,
     alignSelf: "center"
   },
-  header: {
-    paddingTop: 16,
-    flexDirection: "row",
-    alignItems: "center",
-    justifyContent: "space-between"
-  },
-  brand: { color: "#F8FAFC", fontSize: 22, fontWeight: "800", letterSpacing: 0 },
-  subtitle: { color: "#93A4B8", marginTop: 4, fontSize: 14 },
-  brandMark: {
-    width: 48,
-    height: 48,
-    borderRadius: 16,
-    alignItems: "center",
-    justifyContent: "center",
-    backgroundColor: "rgba(45, 212, 191, 0.14)",
-    borderWidth: 1,
-    borderColor: "rgba(153, 246, 228, 0.24)"
-  },
   hero: {
     gap: 18,
-    paddingTop: 18,
-    paddingBottom: 8
+    paddingTop: 26,
+    paddingBottom: 8,
+    borderBottomWidth: 1,
+    borderBottomColor: palette.line
   },
-  heroCopy: { gap: 8 },
-  eyebrow: { color: "#7DD3FC", fontWeight: "700", textTransform: "uppercase", fontSize: 12, letterSpacing: 1 },
+  metaRow: { flexDirection: "row", alignItems: "center", justifyContent: "space-between", flexWrap: "wrap", gap: 12 },
+  theme: { fontFamily: fontFamilySemibold, textTransform: "uppercase", fontSize: 10, letterSpacing: 1.2 },
+  timer: { color: palette.ink, fontSize: 13, letterSpacing: 0.35 },
   title: {
-    color: "#F8FAFC",
+    color: palette.ink,
+    fontFamily: fontFamilyBold,
     fontSize: 42,
-    lineHeight: 48,
-    fontWeight: "900",
-    maxWidth: 760,
-    letterSpacing: 0
+    lineHeight: 49,
+    maxWidth: 940,
+    letterSpacing: -1.1
   },
-  badges: { flexDirection: "row", flexWrap: "wrap", gap: 10 },
+  titleCompact: { fontSize: 34, lineHeight: 41, letterSpacing: -0.8 },
+  overview: { flexDirection: "row", alignItems: "stretch", justifyContent: "space-between", gap: 24 },
+  overviewCompact: { flexDirection: "column-reverse" },
+  contextBlock: { flex: 1, minWidth: 280, borderLeftWidth: 2, borderLeftColor: palette.primary, paddingVertical: 12, paddingHorizontal: 16, alignSelf: "stretch", justifyContent: "center", gap: 7 },
+  contextKicker: { color: palette.primaryStrong, fontFamily: fontFamilySemibold, fontSize: 10, textTransform: "uppercase", letterSpacing: 1 },
+  contextText: { color: palette.inkSecondary, fontSize: 14, lineHeight: 22, maxWidth: 720 },
+  contentStack: { gap: 28 },
   contentGrid: {
     gap: 18,
     flexDirection: "row",
     alignItems: "flex-start",
     flexWrap: "wrap"
   },
-  mainColumn: { flex: 1, minWidth: 320, gap: 14 },
-  sideColumn: { width: 360, minWidth: 300, flexGrow: 1 },
+  mainColumn: { flexGrow: 0.72, flexBasis: 320, minWidth: 300, gap: 10 },
+  analyticsColumn: { flexGrow: 1.55, flexBasis: 600, minWidth: 300 },
+  discussionBreak: { position: "relative", flexDirection: "row", alignItems: "center", gap: 11, marginTop: 28, paddingHorizontal: 16, paddingVertical: 20, backgroundColor: palette.surfaceSubtle, borderTopWidth: 1, borderBottomWidth: 1, borderColor: palette.lineStrong, overflow: "hidden" },
+  discussionAccent: { position: "absolute", left: 0, top: 0, bottom: 0, width: 2, backgroundColor: palette.primary },
+  discussionCopy: { gap: 4, flex: 1 },
+  discussionLabelText: { color: palette.inkSecondary, fontFamily: fontFamilySemibold, fontSize: 11, textTransform: "uppercase", letterSpacing: 1.1 },
+  discussionIntro: { color: palette.muted, fontSize: 12, lineHeight: 18 },
+  discussionColumn: { width: "100%" },
   voteButton: {
-    minHeight: 56,
-    borderRadius: 18,
+    minHeight: 48,
+    borderRadius: radius.sm,
     alignItems: "center",
     justifyContent: "center",
     flexDirection: "row",
-    gap: 10,
-    backgroundColor: "#A7F3D0",
-    shadowColor: "#34D399",
-    shadowOpacity: 0.28,
-    shadowRadius: 24,
-    shadowOffset: { width: 0, height: 14 }
+    gap: 8,
+    backgroundColor: palette.primary,
+    ...shadows.panel
   },
-  voteButtonPressed: { transform: [{ scale: 0.99 }] },
+  voteButtonPressed: { transform: [{ translateY: 1 }] },
   voteButtonDisabled: { backgroundColor: "rgba(148, 163, 184, 0.28)", shadowOpacity: 0 },
-  voteButtonText: { color: "#06111C", fontSize: 16, fontWeight: "800" },
+  voteButtonText: { color: "#FFFFFF", fontFamily: fontFamilySemibold, fontSize: 14 },
   duplicate: {
     color: "#FCA5A5",
     fontSize: 14,
-    fontWeight: "700",
+    fontFamily: fontFamilyMedium,
     backgroundColor: "rgba(239, 68, 68, 0.12)",
     borderWidth: 1,
     borderColor: "rgba(252, 165, 165, 0.22)",
-    borderRadius: 14,
+    borderRadius: radius.sm,
     padding: 14
   },
   receiptBox: {
-    borderRadius: 16,
+    borderRadius: radius.sm,
     borderWidth: 1,
     borderColor: "rgba(167, 243, 208, 0.28)",
     backgroundColor: "rgba(16, 185, 129, 0.1)",
     padding: 14,
     gap: 6
   },
-  receiptLabel: { color: "#A7F3D0", fontSize: 12, textTransform: "uppercase", fontWeight: "800" },
+  receiptLabel: { color: palette.positive, fontFamily: fontFamilySemibold, fontSize: 11, textTransform: "uppercase" },
   receiptHash: { color: "#E2E8F0", fontSize: 12, lineHeight: 18 },
   emptyState: {
     padding: 28,
-    borderRadius: 24,
+    borderRadius: radius.md,
     borderWidth: 1,
     borderColor: "rgba(148, 163, 184, 0.22)",
-    backgroundColor: "rgba(15, 23, 42, 0.78)"
+    backgroundColor: palette.surface
   },
-  emptyTitle: { color: "#F8FAFC", fontSize: 22, fontWeight: "800" },
+  emptyTitle: { color: palette.ink, fontFamily: fontFamilyBold, fontSize: 21 },
   emptyText: { color: "#94A3B8", marginTop: 8 },
   limitOverlay: { flex: 1, alignItems: "center", justifyContent: "center", padding: 20 },
   limitScrim: { ...StyleSheet.absoluteFillObject, backgroundColor: "rgba(2, 6, 23, 0.62)" },
   limitCard: {
     width: "100%",
     maxWidth: 480,
-    borderRadius: 24,
-    backgroundColor: "#0F172A",
+    borderRadius: radius.lg,
+    backgroundColor: palette.surface,
     borderWidth: 1,
     borderColor: "rgba(148, 163, 184, 0.22)",
     padding: 24,
     gap: 14,
-    shadowColor: "#020617",
-    shadowOpacity: 0.24,
-    shadowRadius: 24,
-    shadowOffset: { width: 0, height: 12 }
+    ...shadows.panel
   },
-  limitTitle: { color: "#F8FAFC", fontSize: 24, lineHeight: 30, fontWeight: "900" },
-  limitText: { color: "#CBD5E1", fontSize: 15, lineHeight: 23, fontWeight: "700" },
+  limitTitle: { color: palette.ink, fontFamily: fontFamilyBold, fontSize: 23, lineHeight: 30 },
+  limitText: { color: palette.inkSecondary, fontSize: 15, lineHeight: 23 },
   limitActions: { flexDirection: "row", flexWrap: "wrap", gap: 10 },
-  limitPrimary: { minHeight: 46, borderRadius: 14, backgroundColor: "#A7F3D0", paddingHorizontal: 16, alignItems: "center", justifyContent: "center" },
-  limitPrimaryText: { color: "#06111C", fontWeight: "900" },
-  limitSecondary: { minHeight: 46, borderRadius: 14, backgroundColor: "rgba(148, 163, 184, 0.12)", paddingHorizontal: 16, alignItems: "center", justifyContent: "center" },
-  limitSecondaryText: { color: "#CBD5E1", fontWeight: "900" }
+  limitPrimary: { minHeight: 46, borderRadius: radius.sm, backgroundColor: palette.primary, paddingHorizontal: 16, alignItems: "center", justifyContent: "center" },
+  limitPrimaryText: { color: "#FFFFFF", fontFamily: fontFamilySemibold },
+  limitSecondary: { minHeight: 46, borderRadius: radius.sm, backgroundColor: "transparent", borderWidth: 1, borderColor: palette.lineStrong, paddingHorizontal: 16, alignItems: "center", justifyContent: "center" },
+  limitSecondaryText: { color: palette.inkSecondary, fontFamily: fontFamilyMedium }
 });

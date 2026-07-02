@@ -1,5 +1,6 @@
 import { StyleSheet, Text, View } from "react-native";
 import { Hash, LockKeyhole, ShieldCheck } from "lucide-react-native";
+import { fontFamilyMedium, palette, radius } from "@/lib/design";
 
 type Props = {
   icon: "lock" | "hash" | "shield";
@@ -10,7 +11,7 @@ export function SecurityBadge({ icon, label }: Props) {
   const Icon = icon === "lock" ? LockKeyhole : icon === "hash" ? Hash : ShieldCheck;
   return (
     <View style={styles.badge}>
-      <Icon size={15} color="#A7F3D0" />
+      <Icon size={14} color={palette.primaryStrong} />
       <Text style={styles.label}>{label}</Text>
     </View>
   );
@@ -23,10 +24,10 @@ const styles = StyleSheet.create({
     gap: 7,
     paddingHorizontal: 12,
     paddingVertical: 9,
-    borderRadius: 999,
-    backgroundColor: "rgba(15, 23, 42, 0.72)",
+    borderRadius: radius.sm,
+    backgroundColor: palette.surface,
     borderWidth: 1,
-    borderColor: "rgba(167, 243, 208, 0.2)"
+    borderColor: palette.line
   },
-  label: { color: "#DFFCF2", fontSize: 13, fontWeight: "700" }
+  label: { color: palette.inkSecondary, fontFamily: fontFamilyMedium, fontSize: 12 }
 });

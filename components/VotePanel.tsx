@@ -6,6 +6,7 @@ import { Turnstile } from "@/components/Turnstile";
 import { getResults, startVerification, submitVote } from "@/lib/api";
 import { normalizeFrenchMobilePhoneInput, validateOtp } from "@/lib/validation";
 import type { PollResult, VoteStatus } from "@/lib/types";
+import { fontFamilyBold, fontFamilyMedium, fontFamilySemibold, palette, radius, shadows } from "@/lib/design";
 
 type Props = {
   visible: boolean;
@@ -148,7 +149,7 @@ export function VotePanel({ visible, pollId, choiceId, choiceLabel, platform, on
               {platform === "web" ? <Turnstile siteKey={siteKey} onToken={setTurnstileToken} /> : null}
               {phoneError ? <Text style={styles.error}>{phoneError}</Text> : null}
               <Pressable disabled={loading} onPress={handleStart} style={styles.primaryButton}>
-                {loading ? <ActivityIndicator color="#06111C" /> : <Send size={18} color="#06111C" />}
+                {loading ? <ActivityIndicator color="#FFFFFF" /> : <Send size={18} color="#FFFFFF" />}
                 <Text style={styles.primaryText}>Recevoir le code SMS</Text>
               </Pressable>
             </View>
@@ -160,7 +161,7 @@ export function VotePanel({ visible, pollId, choiceId, choiceLabel, platform, on
               <OtpInput value={otp} onChange={setOtp} />
               {otpError ? <Text style={styles.error}>{otpError}</Text> : null}
               <Pressable disabled={loading} onPress={handleSubmit} style={styles.primaryButton}>
-                {loading ? <ActivityIndicator color="#06111C" /> : <CheckCircle2 size={18} color="#06111C" />}
+                {loading ? <ActivityIndicator color="#FFFFFF" /> : <CheckCircle2 size={18} color="#FFFFFF" />}
                 <Text style={styles.primaryText}>Comptabiliser mon vote</Text>
               </Pressable>
             </View>
@@ -191,66 +192,63 @@ const styles = StyleSheet.create({
     alignSelf: "center",
     width: "100%",
     maxWidth: 560,
-    borderTopLeftRadius: 30,
-    borderTopRightRadius: 30,
-    backgroundColor: "#0F172A",
+    borderTopLeftRadius: radius.lg,
+    borderTopRightRadius: radius.lg,
+    backgroundColor: palette.surface,
     padding: 22,
     paddingBottom: 30,
     gap: 18,
-    shadowColor: "#020617",
-    shadowOpacity: 0.35,
-    shadowRadius: 34,
-    shadowOffset: { width: 0, height: -12 }
+    ...shadows.panel
   },
   handle: {
     width: 42,
     height: 5,
-    borderRadius: 999,
-    backgroundColor: "rgba(148, 163, 184, 0.42)",
+    borderRadius: radius.xs,
+    backgroundColor: palette.lineStrong,
     alignSelf: "center"
   },
   header: { flexDirection: "row", justifyContent: "space-between", alignItems: "flex-start", gap: 16 },
-  kicker: { color: "#0F766E", fontSize: 12, fontWeight: "900", textTransform: "uppercase" },
-  title: { color: "#F8FAFC", fontSize: 22, fontWeight: "900", marginTop: 4 },
+  kicker: { color: palette.primaryStrong, fontFamily: fontFamilySemibold, fontSize: 10, letterSpacing: 1, textTransform: "uppercase" },
+  title: { color: palette.ink, fontFamily: fontFamilyBold, fontSize: 21, marginTop: 4 },
   iconButton: {
     width: 38,
     height: 38,
-    borderRadius: 19,
+    borderRadius: radius.sm,
     alignItems: "center",
     justifyContent: "center",
-    backgroundColor: "rgba(148, 163, 184, 0.12)"
+    backgroundColor: palette.surfaceRaised
   },
   body: { gap: 13 },
-  label: { color: "#CBD5E1", fontWeight: "800", fontSize: 14 },
+  label: { color: palette.inkSecondary, fontFamily: fontFamilyMedium, fontSize: 13 },
   input: {
     minHeight: 56,
-    borderRadius: 16,
+    borderRadius: radius.sm,
     borderWidth: 1,
     borderColor: "rgba(148, 163, 184, 0.26)",
     paddingHorizontal: 16,
     color: "#F8FAFC",
     fontSize: 18,
-    fontWeight: "700",
-    backgroundColor: "rgba(2, 6, 23, 0.58)"
+    fontFamily: fontFamilyMedium,
+    backgroundColor: palette.surfaceSubtle
   },
   error: {
     color: "#FCA5A5",
     backgroundColor: "rgba(127, 29, 29, 0.26)",
-    borderRadius: 12,
+    borderRadius: radius.sm,
     padding: 12,
     fontSize: 13,
-    fontWeight: "700"
+    fontFamily: fontFamilyMedium
   },
   primaryButton: {
     minHeight: 56,
-    borderRadius: 18,
-    backgroundColor: "#A7F3D0",
+    borderRadius: radius.sm,
+    backgroundColor: palette.primary,
     alignItems: "center",
     justifyContent: "center",
     flexDirection: "row",
     gap: 10
   },
-  primaryText: { color: "#06111C", fontSize: 16, fontWeight: "900" },
+  primaryText: { color: "#FFFFFF", fontFamily: fontFamilySemibold, fontSize: 15 },
   success: { alignItems: "center", justifyContent: "center", paddingVertical: 30, gap: 12 },
-  successTitle: { color: "#A7F3D0", fontSize: 24, fontWeight: "900" }
+  successTitle: { color: palette.positive, fontFamily: fontFamilyBold, fontSize: 23 }
 });

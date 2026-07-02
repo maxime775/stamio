@@ -1,5 +1,6 @@
 import { Pressable, StyleSheet, Text, View } from "react-native";
 import { Inbox } from "lucide-react-native";
+import { fontFamilyBold, fontFamilySemibold, palette, radius } from "@/lib/design";
 
 type Props = {
   title: string;
@@ -12,7 +13,7 @@ export function EmptyState({ title, message, actionLabel, onAction }: Props) {
   return (
     <View style={styles.box}>
       <View style={styles.icon}>
-        <Inbox size={24} color="#A7F3D0" />
+        <Inbox size={22} color={palette.primaryStrong} />
       </View>
       <Text style={styles.title}>{title}</Text>
       <Text style={styles.message}>{message}</Text>
@@ -27,10 +28,10 @@ export function EmptyState({ title, message, actionLabel, onAction }: Props) {
 
 const styles = StyleSheet.create({
   box: {
-    borderRadius: 18,
+    borderRadius: radius.md,
     borderWidth: 1,
-    borderColor: "rgba(148, 163, 184, 0.18)",
-    backgroundColor: "rgba(15, 23, 42, 0.92)",
+    borderColor: palette.line,
+    backgroundColor: palette.surface,
     padding: 24,
     gap: 10,
     alignItems: "flex-start"
@@ -38,13 +39,13 @@ const styles = StyleSheet.create({
   icon: {
     width: 44,
     height: 44,
-    borderRadius: 14,
+    borderRadius: radius.sm,
     alignItems: "center",
     justifyContent: "center",
-    backgroundColor: "rgba(20, 184, 166, 0.12)"
+    backgroundColor: palette.primarySoft
   },
-  title: { color: "#F8FAFC", fontSize: 20, fontWeight: "900" },
-  message: { color: "#94A3B8", fontSize: 15, lineHeight: 22, maxWidth: 620 },
-  button: { marginTop: 6, borderRadius: 12, backgroundColor: "#A7F3D0", paddingHorizontal: 16, paddingVertical: 11 },
-  buttonText: { color: "#06111C", fontWeight: "900" }
+  title: { color: palette.ink, fontFamily: fontFamilyBold, fontSize: 19 },
+  message: { color: palette.muted, fontSize: 14, lineHeight: 22, maxWidth: 620 },
+  button: { marginTop: 6, borderRadius: radius.sm, backgroundColor: palette.primary, paddingHorizontal: 16, paddingVertical: 11 },
+  buttonText: { color: "#FFFFFF", fontFamily: fontFamilySemibold }
 });

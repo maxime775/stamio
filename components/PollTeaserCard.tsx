@@ -1,38 +1,56 @@
+import { useState } from "react";
 import { Pressable, StyleSheet, Text, View } from "react-native";
 import { useRouter, type Href } from "expo-router";
 import { ArrowRight, TrendingUp } from "lucide-react-native";
 import { getThemeLabel } from "@/lib/product";
+import { getThemeVisual, fontFamilyBold, fontFamilyMedium, fontFamilySemibold, palette, radius, shadows } from "@/lib/design";
+import { PollTimer } from "@/components/PollTimer";
 import type { PollWithStats } from "@/lib/types";
 
 type Props = {
   poll: PollWithStats;
   compact?: boolean;
+  onHoverChange?: (hovered: boolean) => void;
 };
 
-export function PollTeaserCard({ poll, compact = false }: Props) {
+export function PollTeaserCard({ poll, compact = false, onHoverChange }: Props) {
   const router = useRouter();
+  const [hovered, setHovered] = useState(false);
+  const [ctaHovered, setCtaHovered] = useState(false);
+  const theme = getThemeVisual(poll.theme);
 
   return (
     <Pressable
       onPress={() => router.push(`/poll/${poll.id}` as Href)}
-      style={({ pressed }) => StyleSheet.flatten([styles.card, compact && styles.compact, pressed && styles.pressed])}
+      onHoverIn={() => { setHovered(true); onHoverChange?.(true); }}
+      onHoverOut={() => { setHovered(false); setCtaHovered(false); onHoverChange?.(false); }}
+      style={({ pressed }) => StyleSheet.flatten([
+        styles.card,
+        compact && styles.compact,
+        { borderColor: hovered ? theme.accent : "rgba(148, 163, 184, 0.18)" },
+        hovered && styles.hovered,
+        pressed && styles.pressed
+      ])}
     >
       <View style={styles.top}>
-        <Text style={styles.theme}>{getThemeLabel(poll.theme)}</Text>
+        <Text style={StyleSheet.flatten([styles.theme, { color: theme.accent }])}>{getThemeLabel(poll.theme)}</Text>
         {poll.trend_label ? (
           <View style={styles.trend}>
-            <TrendingUp size={14} color="#A7F3D0" />
+            <TrendingUp size={14} color={palette.positive} />
             <Text style={styles.trendText}>{poll.trend_label}</Text>
           </View>
         ) : null}
       </View>
       <Text style={styles.question}>{poll.question}</Text>
       <View style={styles.footer}>
-        <Text style={styles.votes}>{poll.totalVotes} participant{poll.totalVotes > 1 ? "s" : ""}</Text>
-        <View style={styles.cta}>
-          <Text style={styles.ctaText}>J’ai un avis</Text>
-          <ArrowRight size={16} color="#06111C" />
+        <View style={styles.meta}>
+          <Text style={styles.votes}>{poll.totalVotes} participant{poll.totalVotes > 1 ? "s" : ""}</Text>
+          <PollTimer poll={poll} style={styles.timer} />
         </View>
+        <Pressable onHoverIn={() => setCtaHovered(true)} onHoverOut={() => setCtaHovered(false)} style={StyleSheet.flatten([styles.cta, ctaHovered && styles.ctaHovered])}>
+          <Text style={StyleSheet.flatten([styles.ctaText, ctaHovered && styles.ctaTextHovered])}>J’ai un avis</Text>
+          <View style={ctaHovered && styles.ctaArrowHovered}><ArrowRight size={16} color={palette.primaryStrong} /></View>
+        </Pressable>
       </View>
     </Pressable>
   );
@@ -42,44 +60,48 @@ const styles = StyleSheet.create({
   card: {
     width: 320,
     minHeight: 238,
-    borderRadius: 20,
+    borderRadius: radius.md,
     borderWidth: 1,
     borderColor: "rgba(148, 163, 184, 0.18)",
-    backgroundColor: "rgba(15, 23, 42, 0.94)",
+    backgroundColor: palette.surface,
     padding: 20,
     justifyContent: "space-between",
     gap: 18,
-    shadowColor: "#000000",
-    shadowOpacity: 0.28,
-    shadowRadius: 18,
-    shadowOffset: { width: 0, height: 10 }
+    ...shadows.panel
   },
   compact: { width: "100%", minHeight: 190 },
-  pressed: { transform: [{ translateY: 2 }] },
+  hovered: { transform: [{ translateY: -2 }], backgroundColor: palette.surfaceRaised },
+  pressed: { transform: [{ translateY: 1 }, { scale: 0.992 }] },
   top: { flexDirection: "row", justifyContent: "space-between", alignItems: "center", gap: 10 },
   theme: {
-    color: "#A7F3D0",
-    backgroundColor: "rgba(20, 184, 166, 0.12)",
-    borderRadius: 999,
-    paddingHorizontal: 10,
-    paddingVertical: 6,
-    fontSize: 12,
-    fontWeight: "900",
+    color: palette.primaryStrong,
+    backgroundColor: "transparent",
+    borderRadius: 0,
+    paddingVertical: 2,
+    fontSize: 11,
+    fontFamily: fontFamilySemibold,
+    letterSpacing: 0.8,
+    textTransform: "uppercase",
     overflow: "hidden"
   },
   trend: { flexDirection: "row", alignItems: "center", gap: 5 },
-  trendText: { color: "#A7F3D0", fontSize: 12, fontWeight: "800" },
-  question: { color: "#F8FAFC", fontSize: 20, lineHeight: 27, fontWeight: "900", letterSpacing: 0 },
+  trendText: { color: palette.positive, fontSize: 11, fontFamily: fontFamilyMedium },
+  question: { color: palette.ink, fontFamily: fontFamilyBold, fontSize: 19, lineHeight: 26, letterSpacing: -0.25 },
   footer: { flexDirection: "row", alignItems: "center", justifyContent: "space-between", gap: 12 },
-  votes: { color: "#94A3B8", fontSize: 13, fontWeight: "800", flex: 1 },
+  meta: { flex: 1, gap: 4 },
+  votes: { color: palette.muted, fontSize: 12, fontFamily: fontFamilyMedium },
+  timer: { color: palette.ink, fontSize: 13, letterSpacing: 0.2 },
   cta: {
-    borderRadius: 999,
-    backgroundColor: "#A7F3D0",
-    paddingHorizontal: 12,
-    paddingVertical: 9,
+    borderRadius: radius.xs,
+    backgroundColor: "transparent",
+    paddingHorizontal: 8,
+    paddingVertical: 7,
     flexDirection: "row",
     alignItems: "center",
     gap: 7
   },
-  ctaText: { color: "#06111C", fontWeight: "900", fontSize: 13 }
+  ctaHovered: { backgroundColor: palette.primarySoft },
+  ctaText: { color: palette.primaryStrong, fontFamily: fontFamilySemibold, fontSize: 12, borderBottomWidth: 1, borderBottomColor: "transparent" },
+  ctaTextHovered: { borderBottomColor: palette.primaryStrong },
+  ctaArrowHovered: { transform: [{ translateX: 3 }] }
 });

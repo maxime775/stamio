@@ -12,6 +12,7 @@ export type Sex = "homme" | "femme";
 export type Poll = {
   id: string;
   question: string;
+  description?: string | null;
   status: "open" | "closed";
   theme?: ThemeSlug;
   featured?: boolean;
@@ -25,6 +26,37 @@ export type PollResult = {
   choice_id: string;
   label: string;
   votes: number;
+};
+
+export type PollHistoryPoint = {
+  choice_id: string;
+  label: string;
+  captured_at: string;
+  votes: number;
+  percentage: number;
+};
+
+export type PollComment = {
+  id: string;
+  poll_id: string;
+  parent_comment_id: string | null;
+  body: string;
+  created_at: string;
+  updated_at: string;
+  deleted_at: string | null;
+  author_label: string;
+  likes: number;
+  liked_by_me: boolean;
+  image_path: string | null;
+  image_mime_type: string | null;
+  image_size: number | null;
+  image_url: string | null;
+};
+
+export type PollCommentImage = {
+  path: string;
+  mimeType: "image/png" | "image/jpeg" | "image/webp";
+  size: number;
 };
 
 export type PollWithStats = Poll & {

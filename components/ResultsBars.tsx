@@ -1,6 +1,7 @@
 import { useEffect, useRef } from "react";
 import { Animated, StyleSheet, Text, View } from "react-native";
 import type { PollResult } from "@/lib/types";
+import { fontFamilyBold, fontFamilyMedium, fontFamilySemibold, palette, radius } from "@/lib/design";
 
 type Props = {
   results: PollResult[];
@@ -64,31 +65,31 @@ function ResultRow({ result, total }: { result: PollResult; total: number }) {
 
 const styles = StyleSheet.create({
   card: {
-    borderRadius: 26,
-    padding: 22,
-    backgroundColor: "rgba(15, 23, 42, 0.76)",
+    borderRadius: radius.md,
+    padding: 17,
+    backgroundColor: palette.surface,
     borderWidth: 1,
-    borderColor: "rgba(148, 163, 184, 0.22)",
-    gap: 20
+    borderColor: palette.line,
+    gap: 15
   },
   header: { flexDirection: "row", alignItems: "center", justifyContent: "space-between", gap: 12 },
-  title: { color: "#F8FAFC", fontSize: 22, fontWeight: "900" },
-  total: { color: "#A7F3D0", fontSize: 13, fontWeight: "800" },
-  rows: { gap: 18 },
+  title: { color: palette.ink, fontFamily: fontFamilyBold, fontSize: 20 },
+  total: { color: palette.muted, fontFamily: fontFamilyMedium, fontSize: 12 },
+  rows: { gap: 13 },
   row: { gap: 8 },
   rowTop: { flexDirection: "row", justifyContent: "space-between", alignItems: "center", gap: 10 },
-  label: { color: "#E2E8F0", fontSize: 15, fontWeight: "800", flex: 1 },
-  percent: { color: "#F8FAFC", fontSize: 15, fontWeight: "900" },
+  label: { color: palette.inkSecondary, fontFamily: fontFamilyMedium, fontSize: 14, flex: 1 },
+  percent: { color: palette.ink, fontFamily: fontFamilySemibold, fontSize: 14 },
   track: {
-    height: 12,
-    borderRadius: 999,
-    backgroundColor: "rgba(148, 163, 184, 0.18)",
+    height: 6,
+    borderRadius: radius.xs,
+    backgroundColor: palette.lineStrong,
     overflow: "hidden"
   },
   fill: {
     height: "100%",
-    borderRadius: 999,
-    backgroundColor: "#5EEAD4"
+    borderRadius: radius.xs,
+    backgroundColor: palette.primaryStrong
   },
-  votes: { color: "#94A3B8", fontSize: 12, fontWeight: "700" }
+  votes: { color: palette.muted, fontSize: 11 }
 });

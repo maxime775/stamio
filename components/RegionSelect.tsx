@@ -2,6 +2,7 @@ import { useState } from "react";
 import { Modal, Pressable, ScrollView, StyleSheet, Text, View } from "react-native";
 import { ChevronDown } from "lucide-react-native";
 import { REGIONS_FR } from "@/lib/product";
+import { fontFamilyMedium, fontFamilySemibold, palette, radius } from "@/lib/design";
 
 type Props = {
   value: string;
@@ -21,7 +22,7 @@ export function RegionSelect({ value, onChange }: Props) {
       <Text style={styles.label}>Région de résidence</Text>
       <Pressable onPress={() => setOpen(true)} style={styles.select}>
         <Text style={styles.selectText}>{value}</Text>
-        <ChevronDown size={18} color="#A7F3D0" />
+        <ChevronDown size={18} color={palette.primaryStrong} />
       </Pressable>
 
       <Modal transparent visible={open} animationType="fade" onRequestClose={() => setOpen(false)}>
@@ -52,42 +53,42 @@ export function RegionSelect({ value, onChange }: Props) {
 
 const styles = StyleSheet.create({
   wrap: { gap: 8 },
-  label: { color: "#CBD5E1", fontWeight: "900", fontSize: 14 },
+  label: { color: palette.inkSecondary, fontFamily: fontFamilyMedium, fontSize: 13 },
   select: {
     minHeight: 52,
-    borderRadius: 14,
+    borderRadius: radius.sm,
     borderWidth: 1,
     borderColor: "rgba(148, 163, 184, 0.26)",
-    backgroundColor: "rgba(2, 6, 23, 0.58)",
+    backgroundColor: palette.surfaceSubtle,
     paddingHorizontal: 14,
     flexDirection: "row",
     alignItems: "center",
     justifyContent: "space-between",
     gap: 12
   },
-  selectText: { color: "#F8FAFC", fontSize: 15, fontWeight: "800", flex: 1 },
+  selectText: { color: palette.ink, fontFamily: fontFamilyMedium, fontSize: 15, flex: 1 },
   overlay: { flex: 1, justifyContent: "center", alignItems: "center", padding: 20 },
   scrim: { ...StyleSheet.absoluteFillObject, backgroundColor: "rgba(2, 6, 23, 0.72)" },
   menu: {
     width: "100%",
     maxWidth: 520,
     maxHeight: "78%",
-    borderRadius: 20,
-    backgroundColor: "#0F172A",
+    borderRadius: radius.md,
+    backgroundColor: palette.surface,
     borderWidth: 1,
     borderColor: "rgba(148, 163, 184, 0.24)",
     padding: 14,
     gap: 10
   },
-  menuTitle: { color: "#F8FAFC", fontSize: 18, fontWeight: "900", paddingHorizontal: 4 },
+  menuTitle: { color: palette.ink, fontFamily: fontFamilySemibold, fontSize: 17, paddingHorizontal: 4 },
   menuScroll: { maxHeight: 520 },
   option: {
     minHeight: 44,
-    borderRadius: 12,
+    borderRadius: radius.sm,
     paddingHorizontal: 12,
     justifyContent: "center"
   },
-  optionActive: { backgroundColor: "rgba(20, 184, 166, 0.14)" },
-  optionText: { color: "#CBD5E1", fontWeight: "800", fontSize: 14 },
-  optionTextActive: { color: "#A7F3D0" }
+  optionActive: { backgroundColor: palette.primarySoft },
+  optionText: { color: palette.inkSecondary, fontFamily: fontFamilyMedium, fontSize: 14 },
+  optionTextActive: { color: palette.primaryStrong }
 });

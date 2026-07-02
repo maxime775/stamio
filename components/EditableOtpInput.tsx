@@ -1,5 +1,6 @@
 import { useRef } from "react";
 import { StyleSheet, TextInput, View } from "react-native";
+import { fontFamilyBold, palette, radius } from "@/lib/design";
 
 type Props = {
   value: string;
@@ -76,18 +77,18 @@ const styles = StyleSheet.create({
   cell: {
     width: 46,
     height: 54,
-    borderRadius: 15,
-    color: "#F8FAFC",
+    borderRadius: radius.sm,
+    color: palette.ink,
     fontSize: 22,
-    fontWeight: "900",
+    fontFamily: fontFamilyBold,
     textAlign: "center",
-    backgroundColor: "rgba(2, 6, 23, 0.58)",
+    backgroundColor: palette.surfaceSubtle,
     borderWidth: 1,
     borderColor: "rgba(148, 163, 184, 0.26)"
   },
   cellActive: {
-    borderColor: "#14B8A6",
-    shadowColor: "#14B8A6",
+    borderColor: palette.primaryStrong,
+    shadowColor: palette.primaryStrong,
     shadowOpacity: 0.22,
     shadowRadius: 12,
     shadowOffset: { width: 0, height: 7 }

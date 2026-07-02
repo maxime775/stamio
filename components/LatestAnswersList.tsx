@@ -3,6 +3,7 @@ import { useRouter, type Href } from "expo-router";
 import { EmptyState } from "@/components/EmptyState";
 import { getThemeLabel } from "@/lib/product";
 import type { UserPollAnswer } from "@/lib/types";
+import { fontFamilyBold, fontFamilyMedium, fontFamilySemibold, palette, radius } from "@/lib/design";
 
 type Props = {
   answers: UserPollAnswer[];
@@ -44,11 +45,13 @@ export function LatestAnswersList({ answers }: Props) {
 }
 
 const styles = StyleSheet.create({
-  card: { borderRadius: 20, backgroundColor: "rgba(15, 23, 42, 0.92)", borderWidth: 1, borderColor: "rgba(148, 163, 184, 0.18)", padding: 20, gap: 12 },
-  title: { color: "#F8FAFC", fontSize: 22, fontWeight: "900", marginBottom: 4 },
+  card: { borderRadius: radius.md, backgroundColor: palette.surface, borderWidth: 1, borderColor: palette.line, padding: 20, gap: 0 },
+  title: { color: palette.ink, fontFamily: fontFamilyBold, fontSize: 20, marginBottom: 10 },
   row: {
-    borderRadius: 16,
-    backgroundColor: "rgba(2, 6, 23, 0.42)",
+    borderRadius: 0,
+    backgroundColor: "transparent",
+    borderTopWidth: 1,
+    borderTopColor: palette.line,
     padding: 14,
     gap: 10,
     flexDirection: "row",
@@ -57,8 +60,8 @@ const styles = StyleSheet.create({
   },
   pressed: { transform: [{ scale: 0.99 }] },
   rowMain: { flex: 1, gap: 5 },
-  theme: { color: "#A7F3D0", fontSize: 12, fontWeight: "900" },
-  question: { color: "#F8FAFC", fontSize: 15, lineHeight: 21, fontWeight: "800" },
-  date: { color: "#94A3B8", fontSize: 12, fontWeight: "700" },
-  choice: { color: "#CBD5E1", fontWeight: "900" }
+  theme: { color: palette.primaryStrong, fontFamily: fontFamilySemibold, fontSize: 10, textTransform: "uppercase" },
+  question: { color: palette.ink, fontFamily: fontFamilyMedium, fontSize: 14, lineHeight: 21 },
+  date: { color: palette.muted, fontSize: 11 },
+  choice: { color: palette.inkSecondary, fontFamily: fontFamilySemibold }
 });
