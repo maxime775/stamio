@@ -9,7 +9,7 @@ import { ProfessionSelect } from "@/components/ProfessionSelect";
 import { REGIONS_FR, SEX_OPTIONS } from "@/lib/product";
 import { signUpUser } from "@/lib/api";
 import { normalizeFrenchMobilePhoneInput } from "@/lib/validation";
-import { normalizeSignupEmail, touchAllSignupFields, validateSignup, type SignupField, type SignupTouched, type SignupValues } from "@/lib/signupValidation";
+import { getVisibleSignupError, normalizeSignupEmail, touchAllSignupFields, validateSignup, type SignupField, type SignupTouched, type SignupValues } from "@/lib/signupValidation";
 import type { Sex } from "@/lib/types";
 import { fontFamilyMedium, fontFamilySemibold, palette, radius } from "@/lib/design";
 
@@ -25,6 +25,7 @@ export function SignupForm() {
   const [region, setRegion] = useState(REGIONS_FR[0]);
   const [phone, setPhone] = useState("");
   const [touched, setTouched] = useState<SignupTouched>({});
+  const [submitted, setSubmitted] = useState<SignupTouched>({});
   const [globalError, setGlobalError] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
 
@@ -35,12 +36,18 @@ export function SignupForm() {
     setTouched((current) => ({ ...current, [field]: true }));
   }
 
+  function edit(field: SignupField, action: () => void) {
+    action();
+    setSubmitted((current) => ({ ...current, [field]: false }));
+  }
+
   function fieldError(field: SignupField) {
-    return touched[field] ? validationErrors[field] : undefined;
+    return getVisibleSignupError(field, values, touched, submitted);
   }
 
   async function handleSubmit() {
     setTouched(touchAllSignupFields());
+    setSubmitted(touchAllSignupFields());
     if (Object.keys(validationErrors).length > 0) {
       setGlobalError(null);
       return;
@@ -74,30 +81,30 @@ export function SignupForm() {
 
   return (
     <AuthForm
-      title="Créer un compte gratuit"
+      title="S’inscrire"
       subtitle="Votre compte débloque la participation au-delà de la limite visiteur et prépare votre réputation citoyenne."
       maxWidth={600}
     >
-      <Field field="email" label="Email" error={fieldError("email")} value={email} onBlur={() => touch("email")} onChangeText={setEmail} keyboardType="email-address" autoCapitalize="none" placeholder="vous@example.com" />
-      <Field field="confirmEmail" label="Confirmation de l’email" error={fieldError("confirmEmail")} value={confirmEmail} onBlur={() => touch("confirmEmail")} onChangeText={setConfirmEmail} keyboardType="email-address" autoCapitalize="none" placeholder="Confirmez votre email" />
-      <Field field="password" label="Mot de passe" error={fieldError("password")} value={password} onBlur={() => touch("password")} onChangeText={setPassword} secureTextEntry placeholder="Votre mot de passe" />
-      <PasswordStrengthRules password={password} />
-      <Field field="confirmPassword" label="Confirmation du mot de passe" error={fieldError("confirmPassword")} value={confirmPassword} onBlur={() => touch("confirmPassword")} onChangeText={setConfirmPassword} secureTextEntry placeholder="Confirmez votre mot de passe" />
+      <Field field="email" label="Email" error={fieldError("email")} value={email} onBlur={() => touch("email")} onChangeText={(value) => edit("email", () => setEmail(value))} keyboardType="email-address" autoCapitalize="none" placeholder="vous@example.com" />
+      <Field field="confirmEmail" label="Confirmation de l’email" error={fieldError("confirmEmail")} value={confirmEmail} onBlur={() => touch("confirmEmail")} onChangeText={(value) => edit("confirmEmail", () => setConfirmEmail(value))} keyboardType="email-address" autoCapitalize="none" placeholder="Confirmez votre email" />
+      <Field field="password" label="Mot de passe" error={fieldError("password")} value={password} onBlur={() => touch("password")} onChangeText={(value) => edit("password", () => setPassword(value))} secureTextEntry placeholder="Votre mot de passe" />
+      {!fieldError("password") ? <PasswordStrengthRules password={password} /> : null}
+      <Field field="confirmPassword" label="Confirmation du mot de passe" error={fieldError("confirmPassword")} value={confirmPassword} onBlur={() => touch("confirmPassword")} onChangeText={(value) => edit("confirmPassword", () => setConfirmPassword(value))} secureTextEntry placeholder="Confirmez votre mot de passe" />
 
       <View style={styles.profileBlock}>
         <Text style={styles.blockTitle}>Informations de profil</Text>
-        <SexSegmented error={fieldError("sex")} value={sex} onBlur={() => touch("sex")} onChange={(value) => { setSex(value); touch("sex"); }} />
+        <SexSegmented error={fieldError("sex")} value={sex} onBlur={() => touch("sex")} onChange={(value) => { edit("sex", () => setSex(value)); touch("sex"); }} />
         <View style={styles.twoCols}>
-          <Field field="age" label="Âge" error={fieldError("age")} value={age} onBlur={() => touch("age")} onChangeText={setAge} keyboardType="number-pad" placeholder="34" />
-          <ProfessionSelect error={fieldError("profession")} value={profession} onBlur={() => touch("profession")} onChange={setProfession} />
+          <Field field="age" label="Âge" error={fieldError("age")} value={age} onBlur={() => touch("age")} onChangeText={(value) => edit("age", () => setAge(value))} keyboardType="number-pad" placeholder="34" />
+          <ProfessionSelect error={fieldError("profession")} value={profession} onBlur={() => touch("profession")} onChange={(value) => edit("profession", () => setProfession(value))} />
         </View>
-        <RegionSelect error={fieldError("region")} value={region} onBlur={() => touch("region")} onChange={setRegion} />
-        <Field field="phone" label="Téléphone" error={fieldError("phone")} value={phone} onBlur={() => touch("phone")} onChangeText={setPhone} keyboardType="phone-pad" placeholder="+33612345678" />
+        <RegionSelect error={fieldError("region")} value={region} onBlur={() => touch("region")} onChange={(value) => edit("region", () => setRegion(value))} />
+        <Field field="phone" label="Téléphone" error={fieldError("phone")} value={phone} onBlur={() => touch("phone")} onChangeText={(value) => edit("phone", () => setPhone(value))} keyboardType="phone-pad" placeholder="+33612345678" />
       </View>
 
       {globalError ? <Text accessibilityLiveRegion="polite" style={styles.globalError}>{globalError}</Text> : null}
       <Pressable accessibilityRole="button" disabled={loading} onPress={handleSubmit} style={({ pressed }) => ({ ...styles.primary, ...(pressed ? styles.primaryPressed : {}) })}>
-        {loading ? <ActivityIndicator color="#06111C" /> : <Text style={styles.primaryText}>Créer mon compte</Text>}
+        {loading ? <ActivityIndicator color="#06111C" /> : <Text style={styles.primaryText}>S’inscrire</Text>}
       </Pressable>
       <Pressable accessibilityRole="link" onPress={() => router.push("/auth/login" as Href)} style={styles.link}>
         <Text style={styles.linkText}>J’ai déjà un compte</Text>

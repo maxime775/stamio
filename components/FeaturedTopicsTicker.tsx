@@ -9,18 +9,19 @@ export function FeaturedTopicsTicker({ count }: { count: number }) {
 
   useEffect(() => {
     const timer = setInterval(() => {
-      Animated.timing(motion, { toValue: 0, duration: 220, useNativeDriver: true }).start(() => {
+      Animated.timing(motion, { toValue: 0.18, duration: 260, useNativeDriver: true }).start(() => {
         setIndex((value) => (value + 1) % THEMES.length);
-        motion.setValue(0);
-        Animated.timing(motion, { toValue: 1, duration: 420, useNativeDriver: true }).start();
+        motion.setValue(0.18);
+        Animated.timing(motion, { toValue: 1, duration: 480, useNativeDriver: true }).start();
       });
-    }, 2800);
+    }, 3200);
     return () => clearInterval(timer);
   }, [motion]);
 
   const theme = THEMES[index];
   const visual = getThemeVisual(theme.slug);
-  const translateY = motion.interpolate({ inputRange: [0, 1], outputRange: [8, 0] });
+  const translateY = motion.interpolate({ inputRange: [0, 1], outputRange: [12, 0] });
+  const scale = motion.interpolate({ inputRange: [0, 1], outputRange: [0.96, 1] });
   return (
     <View style={styles.panel}>
       <View style={styles.status}><View style={styles.statusDot} /><Text style={styles.statusText}>Signal en continu</Text></View>
@@ -28,9 +29,7 @@ export function FeaturedTopicsTicker({ count }: { count: number }) {
       <Text style={styles.label}>questions mises en avant</Text>
       <View style={styles.line} />
       <View style={styles.topicRow}>
-        <Text style={styles.topicLabel}>Thème observé</Text>
-        <Animated.View style={StyleSheet.flatten([styles.topicSignal, { opacity: motion, transform: [{ translateY }] }])}>
-          <View style={StyleSheet.flatten([styles.topicLine, { backgroundColor: visual.accent }])} />
+        <Animated.View style={StyleSheet.flatten([styles.topicSignal, { opacity: motion, transform: [{ translateY }, { scale }] }])}>
           <Text style={StyleSheet.flatten([styles.topic, { color: visual.accent }])}>{theme.label}</Text>
         </Animated.View>
       </View>
@@ -47,10 +46,8 @@ const styles = StyleSheet.create({
   value: { color: palette.ink, fontFamily: fontFamilyBold, fontSize: 46, letterSpacing: -1.5, marginTop: 2 },
   label: { color: palette.ink, fontFamily: fontFamilySemibold, fontSize: 14 },
   line: { height: 1, backgroundColor: palette.line, marginVertical: 7 },
-  topicRow: { flexDirection: "row", alignItems: "center", justifyContent: "space-between", minHeight: 22, gap: 12 },
-  topicLabel: { color: palette.muted, fontSize: 11 },
-  topicSignal: { flexDirection: "row", alignItems: "center", justifyContent: "flex-end", gap: 7, minWidth: 96 },
-  topicLine: { width: 14, height: 2 },
-  topic: { fontFamily: fontFamilySemibold, fontSize: 12 },
+  topicRow: { minHeight: 28, alignItems: "flex-start", justifyContent: "center" },
+  topicSignal: { alignItems: "flex-start", justifyContent: "center", minWidth: 120 },
+  topic: { fontFamily: fontFamilyBold, fontSize: 16, letterSpacing: -0.2 },
   note: { color: palette.muted, fontSize: 12, lineHeight: 18 }
 });

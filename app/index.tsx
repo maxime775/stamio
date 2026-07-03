@@ -34,9 +34,9 @@ export default function Home() {
       <Animated.View style={StyleSheet.flatten([styles.hero, compact && styles.heroCompact, compact && { maxWidth: Math.max(280, width - 40) }, { opacity: fade as unknown as number }])}>
         <View style={styles.heroCopy}>
           <Text style={styles.kicker}>Signal d’opinion</Text>
-          <Text style={StyleSheet.flatten([styles.title, compact && styles.titleCompact])}>Donnez votre avis. Prenez le temps d’en changer.</Text>
+          <Text style={StyleSheet.flatten([styles.title, compact && styles.titleCompact])}>Exprimez votre position. Faites-la évoluer.</Text>
           <Text style={styles.subtitle}>
-            Votez sur les grandes questions du moment, suivez les résultats en temps réel et participez à des débats où l’on peut hésiter, échanger et se faire une opinion.
+            Votez anonymement sur les grandes questions du moment, suivez les résultats agrégés et débattez librement. Ici, on peut hésiter, échanger et se forger une opinion.
           </Text>
           <View style={styles.actions}>
             <Pressable onPress={() => router.push("/themes" as Href)} style={styles.primary}>

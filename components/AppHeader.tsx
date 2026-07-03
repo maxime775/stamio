@@ -1,7 +1,7 @@
 import { useEffect, useRef } from "react";
 import { Animated, Pressable, StyleSheet, Text, useWindowDimensions, View } from "react-native";
 import { Link, usePathname, useRouter, type Href } from "expo-router";
-import { BarChart3, CircleUserRound, Home, Info, Layers3, LogIn, UserPlus } from "lucide-react-native";
+import { BarChart3, CircleUserRound, Home, Info, Layers3, LogIn } from "lucide-react-native";
 import { useAuth } from "@/components/AuthProvider";
 import { fontFamilyBold, fontFamilyMedium, fontFamilySemibold, palette, radius } from "@/lib/design";
 
@@ -61,8 +61,7 @@ export function AppHeader() {
                 </Pressable>
               ) : null}
               <Pressable onPress={() => go("/auth/signup")} style={styles.primaryButton}>
-                <UserPlus size={16} color="#F8FAFC" />
-                {!compact ? <Text style={styles.primaryText}>Créer un compte</Text> : null}
+                <Text style={styles.primaryText}>S’inscrire</Text>
               </Pressable>
             </>
           )}
@@ -163,7 +162,6 @@ const styles = StyleSheet.create({
     flexDirection: "row",
     alignItems: "center",
     justifyContent: "center",
-    gap: 7,
     backgroundColor: palette.primary,
   },
   primaryText: { color: "#FFFFFF", fontFamily: fontFamilySemibold },

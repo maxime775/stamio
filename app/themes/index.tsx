@@ -4,6 +4,7 @@ import { EmptyState } from "@/components/EmptyState";
 import { PageShell } from "@/components/PageShell";
 import { PollTeaserCard } from "@/components/PollTeaserCard";
 import { ThemeTabs } from "@/components/ThemeTabs";
+import { VotesMetric } from "@/components/VotesMetric";
 import { THEMES } from "@/lib/product";
 import { getPollsByTheme } from "@/lib/api";
 import type { PollWithStats, ThemeSlug } from "@/lib/types";
@@ -35,16 +36,15 @@ export default function ThemesIndex() {
 
   return (
     <PageShell>
-      <View style={styles.heading}>
-        <Text style={styles.kicker}>Nos thèmes</Text>
-        <Text style={styles.title}>Choisissez un sujet, puis donnez votre avis</Text>
-        <Text style={styles.intro}>Politique, économie, société ou sport: chaque thème regroupe des questions ouvertes et des résultats agrégés.</Text>
+      <View style={styles.hero}>
+        <View style={styles.heading}>
+          <Text style={styles.kicker}>Nos thèmes</Text>
+          <Text style={styles.title}>Choisissez un sujet, puis donnez votre avis</Text>
+          <Text style={styles.intro}>Politique, économie, société ou sport : chaque thème regroupe des questions ouvertes et des résultats agrégés.</Text>
+        </View>
+        <VotesMetric value={totalVotes} />
       </View>
       <ThemeTabs active={activeTheme} includeAll onSelect={setActiveTheme} />
-      <View style={styles.stats}>
-        <Stat label="Sondages affichés" value={polls.length} />
-        <Stat label="Votes agrégés" value={totalVotes} />
-      </View>
       <View style={styles.grid}>
         {polls.length > 0 ? (
           polls.map((poll) => <PollTeaserCard key={poll.id} poll={poll} compact />)
@@ -56,23 +56,11 @@ export default function ThemesIndex() {
   );
 }
 
-function Stat({ label, value }: { label: string; value: number }) {
-  return (
-    <View style={styles.stat}>
-      <Text style={styles.statValue}>{value}</Text>
-      <Text style={styles.statLabel}>{label}</Text>
-    </View>
-  );
-}
-
 const styles = StyleSheet.create({
-  heading: { gap: 8 },
+  hero: { flexDirection: "row", alignItems: "center", justifyContent: "space-between", flexWrap: "wrap", gap: 24 },
+  heading: { gap: 8, flex: 1, minWidth: 280 },
   kicker: { color: palette.primaryStrong, fontFamily: fontFamilySemibold, textTransform: "uppercase", fontSize: 10, letterSpacing: 1.2 },
   title: { color: palette.ink, fontFamily: fontFamilyBold, fontSize: 40, lineHeight: 47, letterSpacing: -1, maxWidth: 820 },
   intro: { color: palette.muted, fontSize: 16, lineHeight: 25, maxWidth: 780 },
-  stats: { flexDirection: "row", flexWrap: "wrap", gap: 12 },
-  stat: { minWidth: 170, borderRadius: radius.sm, backgroundColor: palette.surface, borderWidth: 1, borderColor: palette.line, padding: 18 },
-  statValue: { color: palette.ink, fontFamily: fontFamilyBold, fontSize: 28 },
-  statLabel: { color: palette.muted, fontFamily: fontFamilyMedium, fontSize: 12, marginTop: 4 },
   grid: { flexDirection: "row", flexWrap: "wrap", gap: 16 }
 });

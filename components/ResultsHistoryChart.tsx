@@ -171,5 +171,5 @@ const styles = StyleSheet.create({
   tooltipRow: { flexDirection: "row", alignItems: "center", gap: 4 },
   tooltipDot: { width: 5, height: 5, borderRadius: 1 }, tooltipLabel: { color: palette.inkSecondary, width: 104, fontSize: 10 }, tooltipValue: { color: palette.ink, fontFamily: fontFamilySemibold, fontSize: 11, fontVariant: ["tabular-nums"] },
   empty: { minHeight: 120, flex: 1, alignItems: "center", justifyContent: "center" }, emptyText: { color: palette.muted, fontFamily },
-  legend: { flexDirection: "row", flexWrap: "wrap", gap: 18, paddingTop: 2 }, legendItem: { flexDirection: "row", alignItems: "center", gap: 7 }, legendLine: { width: 18, height: 2 }, legendText: { color: palette.inkSecondary, fontFamily, fontSize: 11 }
+  legend: { flexDirection: "row", flexWrap: "wrap", justifyContent: "center", alignItems: "center", columnGap: 18, rowGap: 8, paddingTop: 2 }, legendItem: { flexDirection: "row", alignItems: "center", gap: 7 }, legendLine: { width: 18, height: 2 }, legendText: { color: palette.inkSecondary, fontFamily, fontSize: 11 }
 });

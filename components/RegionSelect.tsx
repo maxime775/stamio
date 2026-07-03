@@ -28,7 +28,7 @@ export function RegionSelect({ value, onChange, onBlur, error }: Props) {
   return (
     <View style={styles.wrap}>
       <Text style={styles.label}>Région de résidence</Text>
-      <Pressable accessibilityRole="button" accessibilityHint={error} accessibilityState={{ expanded: open }} onBlur={onBlur} onPress={() => setOpen(true)} style={StyleSheet.flatten([styles.select, error && styles.selectInvalid])}>
+      <Pressable accessibilityRole="button" accessibilityHint={error} accessibilityState={{ expanded: open }} onPress={() => setOpen(true)} style={StyleSheet.flatten([styles.select, error && styles.selectInvalid])}>
         <Text style={styles.selectText}>{value}</Text>
         <ChevronDown size={18} color={palette.primaryStrong} />
       </Pressable>

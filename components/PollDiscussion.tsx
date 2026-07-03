@@ -60,8 +60,8 @@ export function PollDiscussion({ pollId }: { pollId: string }) {
         <CommentComposer pollId={pollId} parent={replyTo} onCancel={() => setReplyTo(null)} onCreated={async () => { setReplyTo(null); await refresh(); }} />
       ) : (
         <View style={styles.signupCta}>
-          <View style={styles.signupCopy}><Text style={styles.signupTitle}>Envie de participer ?</Text><Text style={styles.signupText}>Créez un compte pour participer au débat.</Text></View>
-          <Pressable onPress={() => router.push("/auth/signup" as Href)} style={({ pressed }) => StyleSheet.flatten([styles.primary, pressed && styles.pressed])}><Text style={styles.primaryText}>Créer un compte</Text></Pressable>
+          <View style={styles.signupCopy}><Text style={styles.signupTitle}>Envie de participer ?</Text><Text style={styles.signupText}>Inscrivez-vous pour participer au débat.</Text></View>
+          <Pressable onPress={() => router.push("/auth/signup" as Href)} style={({ pressed }) => StyleSheet.flatten([styles.primary, pressed && styles.pressed])}><Text style={styles.primaryText}>S’inscrire</Text></Pressable>
         </View>
       )}
 
@@ -166,7 +166,7 @@ function CommentItem({ comment, authenticated, onLike, onReply }: { comment: Pol
     <Text style={StyleSheet.flatten([styles.body, comment.deleted_at && styles.deleted])}>{comment.body}</Text>
     {comment.image_url && !comment.deleted_at ? <Image source={{ uri: comment.image_url }} resizeMode="contain" style={styles.commentImage} accessibilityLabel="Image jointe au commentaire" /> : null}
     {!comment.deleted_at ? <View style={styles.actions}>
-      <Pressable onPress={onLike} accessibilityLabel={authenticated ? "Aimer ce commentaire" : "Créer un compte pour aimer"} style={styles.action}><Heart size={14} color={comment.liked_by_me ? palette.danger : palette.muted} fill={comment.liked_by_me ? palette.danger : "transparent"} /><Text style={styles.actionText}>{comment.likes}</Text></Pressable>
+      <Pressable onPress={onLike} accessibilityLabel={authenticated ? "Aimer ce commentaire" : "S’inscrire pour aimer"} style={styles.action}><Heart size={14} color={comment.liked_by_me ? palette.danger : palette.muted} fill={comment.liked_by_me ? palette.danger : "transparent"} /><Text style={styles.actionText}>{comment.likes}</Text></Pressable>
       <Pressable onPress={onReply} style={styles.action}><MessageCircle size={14} color={palette.muted} /><Text style={styles.actionText}>Répondre</Text></Pressable>
     </View> : null}
   </View>;

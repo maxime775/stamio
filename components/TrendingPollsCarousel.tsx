@@ -1,5 +1,5 @@
 import { useEffect, useRef } from "react";
-import { NativeScrollEvent, NativeSyntheticEvent, ScrollView, StyleSheet, Text, View } from "react-native";
+import { NativeScrollEvent, NativeSyntheticEvent, Pressable, ScrollView, StyleSheet, Text, View } from "react-native";
 import { PollTeaserCard } from "@/components/PollTeaserCard";
 import type { PollWithStats } from "@/lib/types";
 import { fontFamilyBold, fontFamilyMedium, palette } from "@/lib/design";
@@ -87,7 +87,7 @@ export function TrendingPollsCarousel({ polls }: Props) {
   const segments = polls.length > 1 ? [0, 1, 2] : [0];
 
   return (
-    <View style={styles.wrap}>
+    <Pressable onHoverIn={() => handleCardHover(true)} onHoverOut={() => handleCardHover(false)} style={styles.wrap}>
       <View style={styles.header}>
         <Text style={styles.title}>Sujets qui font l’actu</Text>
         <Text style={styles.counter}>{polls.length} questions ouvertes</Text>
@@ -108,11 +108,11 @@ export function TrendingPollsCarousel({ polls }: Props) {
       >
         {segments.map((segment) => (
           <View key={segment} style={styles.segment}>
-            {polls.map((poll) => <PollTeaserCard key={`${poll.id}-${segment}`} poll={poll} onHoverChange={handleCardHover} />)}
+            {polls.map((poll) => <PollTeaserCard key={`${poll.id}-${segment}`} poll={poll} />)}
           </View>
         ))}
       </ScrollView>
-    </View>
+    </Pressable>
   );
 }
 

@@ -4,6 +4,7 @@ import { EmptyState } from "@/components/EmptyState";
 import { PageShell } from "@/components/PageShell";
 import { PollTeaserCard } from "@/components/PollTeaserCard";
 import { ThemeTabs } from "@/components/ThemeTabs";
+import { VotesMetric } from "@/components/VotesMetric";
 import { THEMES, getThemeLabel } from "@/lib/product";
 import { getPollsByTheme } from "@/lib/api";
 import type { PollWithStats, ThemeSlug } from "@/lib/types";
@@ -35,16 +36,15 @@ export function ThemePollsPage({ activeTheme }: Props) {
 
   return (
     <PageShell>
-      <View style={styles.heading}>
-        <Text style={StyleSheet.flatten([styles.kicker, { color: visual.accent }])}>Nos thèmes</Text>
-        <Text style={styles.title}>{getThemeLabel(activeTheme)}</Text>
-        <Text style={styles.intro}>{theme?.intro}</Text>
+      <View style={styles.hero}>
+        <View style={styles.heading}>
+          <Text style={StyleSheet.flatten([styles.kicker, { color: visual.accent }])}>Nos thèmes</Text>
+          <Text style={styles.title}>{getThemeLabel(activeTheme)}</Text>
+          <Text style={styles.intro}>{theme?.intro}</Text>
+        </View>
+        <VotesMetric value={totalVotes} accent={visual.accent} />
       </View>
       <ThemeTabs active={activeTheme} />
-      <View style={styles.stats}>
-        <Stat label="Sondages" value={polls.length} accent={visual.accent} />
-        <Stat label="Votes agrégés" value={totalVotes} accent={visual.accent} />
-      </View>
       <Animated.View style={StyleSheet.flatten([styles.grid, { opacity: fade as unknown as number }])}>
         {polls.length > 0 ? (
           polls.map((poll) => <PollTeaserCard key={poll.id} poll={poll} compact />)
@@ -56,23 +56,11 @@ export function ThemePollsPage({ activeTheme }: Props) {
   );
 }
 
-function Stat({ label, value, accent }: { label: string; value: number; accent: string }) {
-  return (
-    <View style={styles.stat}>
-      <Text style={StyleSheet.flatten([styles.statValue, { color: accent }])}>{value}</Text>
-      <Text style={styles.statLabel}>{label}</Text>
-    </View>
-  );
-}
-
 const styles = StyleSheet.create({
-  heading: { gap: 8 },
+  hero: { flexDirection: "row", alignItems: "center", justifyContent: "space-between", flexWrap: "wrap", gap: 24 },
+  heading: { gap: 8, flex: 1, minWidth: 280 },
   kicker: { color: palette.primaryStrong, fontFamily: fontFamilySemibold, textTransform: "uppercase", fontSize: 10, letterSpacing: 1.2 },
   title: { color: palette.ink, fontFamily: fontFamilyBold, fontSize: 40, lineHeight: 47, letterSpacing: -1 },
   intro: { color: palette.muted, fontSize: 16, lineHeight: 25, maxWidth: 720 },
-  stats: { flexDirection: "row", flexWrap: "wrap", gap: 12 },
-  stat: { minWidth: 160, borderRadius: radius.sm, backgroundColor: palette.surface, borderWidth: 1, borderColor: palette.line, padding: 18 },
-  statValue: { color: palette.ink, fontFamily: fontFamilyBold, fontSize: 28 },
-  statLabel: { color: palette.muted, fontFamily: fontFamilyMedium, fontSize: 12, marginTop: 4 },
   grid: { flexDirection: "row", flexWrap: "wrap", gap: 16 }
 });

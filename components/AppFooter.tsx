@@ -10,6 +10,12 @@ const links = [
   ["Mon compte", "/account"]
 ] as const;
 
+const legalLinks = [
+  ["Mentions légales", "/mentions-legales"],
+  ["Confidentialité", "/confidentialite"],
+  ["Conditions d’utilisation", "/conditions-utilisation"]
+] as const;
+
 export function AppFooter() {
   const router = useRouter();
   return (
@@ -26,9 +32,9 @@ export function AppFooter() {
         ))}
       </View>
       <View style={styles.legal}>
-        <Text style={styles.legalLink}>Mentions légales</Text>
-        <Text style={styles.legalLink}>Confidentialité</Text>
-        <Text style={styles.legalLink}>Conditions d’utilisation</Text>
+        {legalLinks.map(([label, href]) => <Pressable key={href} onPress={() => router.push(href as Href)} style={styles.legalHit}>
+          <Text style={styles.legalLink}>{label}</Text>
+        </Pressable>)}
       </View>
       <Text style={styles.copyright}>© 2026 Sayit. Tous droits réservés.</Text>
     </View>
@@ -44,6 +50,7 @@ const styles = StyleSheet.create({
   linkHit: { paddingVertical: 7, paddingRight: 18 },
   link: { color: palette.inkSecondary, fontFamily: fontFamilyMedium, fontSize: 13 },
   legal: { flexDirection: "row", flexWrap: "wrap", gap: 18 },
+  legalHit: { paddingVertical: 4 },
   legalLink: { color: "#77879B", fontFamily, fontSize: 12 },
   copyright: { color: "#65758A", fontFamily, fontSize: 12 }
 });

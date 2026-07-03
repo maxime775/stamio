@@ -18,10 +18,11 @@ export function PollTeaserCard({ poll, compact = false, onHoverChange }: Props) 
   const [hovered, setHovered] = useState(false);
   const [ctaHovered, setCtaHovered] = useState(false);
   const theme = getThemeVisual(poll.theme);
+  const openPoll = () => router.push(`/poll/${poll.id}` as Href);
 
   return (
     <Pressable
-      onPress={() => router.push(`/poll/${poll.id}` as Href)}
+      onPress={openPoll}
       onHoverIn={() => { setHovered(true); onHoverChange?.(true); }}
       onHoverOut={() => { setHovered(false); setCtaHovered(false); onHoverChange?.(false); }}
       style={({ pressed }) => StyleSheet.flatten([
@@ -47,7 +48,7 @@ export function PollTeaserCard({ poll, compact = false, onHoverChange }: Props) 
           <Text style={styles.votes}>{poll.totalVotes} participant{poll.totalVotes > 1 ? "s" : ""}</Text>
           <PollTimer poll={poll} style={styles.timer} />
         </View>
-        <Pressable onHoverIn={() => setCtaHovered(true)} onHoverOut={() => setCtaHovered(false)} style={StyleSheet.flatten([styles.cta, ctaHovered && styles.ctaHovered])}>
+        <Pressable accessibilityRole="link" onPress={(event) => { event.stopPropagation(); openPoll(); }} onHoverIn={() => { setCtaHovered(true); onHoverChange?.(true); }} onHoverOut={() => { setCtaHovered(false); onHoverChange?.(false); }} style={({ pressed }) => StyleSheet.flatten([styles.cta, ctaHovered && styles.ctaHovered, pressed && styles.ctaPressed])}>
           <Text style={StyleSheet.flatten([styles.ctaText, ctaHovered && styles.ctaTextHovered])}>J’ai un avis</Text>
           <View style={ctaHovered && styles.ctaArrowHovered}><ArrowRight size={16} color={palette.primaryStrong} /></View>
         </Pressable>
@@ -101,6 +102,7 @@ const styles = StyleSheet.create({
     gap: 7
   },
   ctaHovered: { backgroundColor: palette.primarySoft },
+  ctaPressed: { opacity: 0.72 },
   ctaText: { color: palette.primaryStrong, fontFamily: fontFamilySemibold, fontSize: 12, borderBottomWidth: 1, borderBottomColor: "transparent" },
   ctaTextHovered: { borderBottomColor: palette.primaryStrong },
   ctaArrowHovered: { transform: [{ translateX: 3 }] }

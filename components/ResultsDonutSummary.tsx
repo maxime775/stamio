@@ -57,8 +57,8 @@ export function ResultsDonutSummary({ choices, results }: Props) {
           {items.map((item) => {
             const percentage = total > 0 ? Math.round((item.votes / total) * 100) : 0;
             return <View key={item.choice_id} style={styles.legendRow}>
-              <Text numberOfLines={2} style={styles.label}>{item.label}</Text>
               <View style={StyleSheet.flatten([styles.swatch, { backgroundColor: item.color }])} />
+              <Text numberOfLines={2} style={styles.label}>{item.label}</Text>
               <Text style={styles.percentage}>{percentage}%</Text>
             </View>;
           })}

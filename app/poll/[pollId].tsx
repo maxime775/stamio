@@ -223,11 +223,11 @@ function VisitorLimitModal({
         <View style={styles.limitCard}>
           <Text style={styles.limitTitle}>Vous avez atteint la limite visiteur</Text>
           <Text style={styles.limitText}>
-            Créez un compte gratuit pour continuer à participer. Cette limite est une règle produit locale; l’unicité réelle du vote reste assurée par le serveur.
+            Inscrivez-vous gratuitement pour continuer à participer. Cette limite est une règle produit locale; l’unicité réelle du vote reste assurée par le serveur.
           </Text>
           <View style={styles.limitActions}>
             <Pressable onPress={onSignup} style={styles.limitPrimary}>
-              <Text style={styles.limitPrimaryText}>Créer mon compte</Text>
+              <Text style={styles.limitPrimaryText}>S’inscrire</Text>
             </Pressable>
             <Pressable onPress={onLogin} style={styles.limitSecondary}>
               <Text style={styles.limitSecondaryText}>J’ai déjà un compte</Text>
