@@ -1,17 +1,15 @@
 import { StyleSheet, Text } from "react-native";
 import { palette } from "@/lib/design";
+import { getPasswordIssues as getSignupPasswordIssues, isStrongSignupPassword } from "@/lib/signupValidation";
 
 export function getPasswordIssues(password: string) {
-  return [
-    { label: "8 caractères minimum", ok: password.length >= 8 },
-    { label: "Une majuscule", ok: /[A-Z]/.test(password) },
-    { label: "Un chiffre", ok: /\d/.test(password) },
-    { label: "Un caractère spécial", ok: /[^A-Za-z0-9]/.test(password) }
-  ];
+  const issues = getSignupPasswordIssues(password);
+  return ["8 caractères minimum", "Une majuscule", "Un chiffre", "Un caractère spécial"]
+    .map((label, index) => ({ label, ok: issues[index] }));
 }
 
 export function isStrongPassword(password: string) {
-  return getPasswordIssues(password).every((rule) => rule.ok);
+  return isStrongSignupPassword(password);
 }
 
 export function PasswordStrengthRules({ password }: { password: string }) {

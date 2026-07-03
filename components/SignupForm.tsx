@@ -1,14 +1,15 @@
 import { useState } from "react";
 import type { ComponentProps } from "react";
-import { ActivityIndicator, Pressable, StyleSheet, Text, TextInput, View } from "react-native";
+import { ActivityIndicator, Platform, Pressable, StyleSheet, Text, TextInput, View } from "react-native";
 import { useRouter, type Href } from "expo-router";
 import { AuthForm } from "@/components/AuthForm";
-import { PasswordStrengthRules, isStrongPassword } from "@/components/PasswordStrengthRules";
+import { PasswordStrengthRules } from "@/components/PasswordStrengthRules";
 import { RegionSelect } from "@/components/RegionSelect";
 import { ProfessionSelect } from "@/components/ProfessionSelect";
-import { REGIONS_FR, SEX_OPTIONS, isSex } from "@/lib/product";
+import { REGIONS_FR, SEX_OPTIONS } from "@/lib/product";
 import { signUpUser } from "@/lib/api";
-import { normalizePhoneInput } from "@/lib/validation";
+import { normalizeFrenchMobilePhoneInput } from "@/lib/validation";
+import { normalizeSignupEmail, touchAllSignupFields, validateSignup, type SignupField, type SignupTouched, type SignupValues } from "@/lib/signupValidation";
 import type { Sex } from "@/lib/types";
 import { fontFamilyMedium, fontFamilySemibold, palette, radius } from "@/lib/design";
 
@@ -23,26 +24,35 @@ export function SignupForm() {
   const [profession, setProfession] = useState("");
   const [region, setRegion] = useState(REGIONS_FR[0]);
   const [phone, setPhone] = useState("");
-  const [error, setError] = useState<string | null>(null);
+  const [touched, setTouched] = useState<SignupTouched>({});
+  const [globalError, setGlobalError] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
 
-  async function handleSubmit() {
-    const parsedAge = Number.parseInt(age, 10);
-    const normalizedPhone = normalizePhoneInput(phone);
-    const normalizedEmail = email.trim().toLowerCase();
-    const normalizedConfirmEmail = confirmEmail.trim().toLowerCase();
+  const values: SignupValues = { email, confirmEmail, password, confirmPassword, sex, age, profession, region, phone };
+  const validationErrors = validateSignup(values);
 
-    if (!normalizedEmail.includes("@")) return setError("Adresse email invalide.");
-    if (normalizedEmail !== normalizedConfirmEmail) return setError("Les adresses email ne correspondent pas.");
-    if (!isStrongPassword(password)) return setError("Le mot de passe ne respecte pas les règles de sécurité.");
-    if (password !== confirmPassword) return setError("Les mots de passe ne correspondent pas.");
-    if (!sex || !isSex(sex)) return setError("Le champ Sexe est obligatoire.");
-    if (!Number.isFinite(parsedAge) || parsedAge < 13 || parsedAge > 120) return setError("Âge invalide.");
-    if (!profession) return setError("Sélectionnez un groupe socioprofessionnel.");
-    if (!normalizedPhone.ok) return setError("Numéro invalide. Utilisez le format international, par exemple +33612345678.");
+  function touch(field: SignupField) {
+    setTouched((current) => ({ ...current, [field]: true }));
+  }
+
+  function fieldError(field: SignupField) {
+    return touched[field] ? validationErrors[field] : undefined;
+  }
+
+  async function handleSubmit() {
+    setTouched(touchAllSignupFields());
+    if (Object.keys(validationErrors).length > 0) {
+      setGlobalError(null);
+      return;
+    }
+
+    const normalizedPhone = normalizeFrenchMobilePhoneInput(phone);
+    if (!normalizedPhone.ok || !sex) return;
+    const normalizedEmail = normalizeSignupEmail(email);
+    const parsedAge = Number(age);
 
     setLoading(true);
-    setError(null);
+    setGlobalError(null);
     const { error: signupError } = await signUpUser({
       email: normalizedEmail,
       password,
@@ -55,7 +65,7 @@ export function SignupForm() {
     setLoading(false);
 
     if (signupError) {
-      setError(signupError.message);
+      setGlobalError(signupError.message);
       return;
     }
 
@@ -68,44 +78,47 @@ export function SignupForm() {
       subtitle="Votre compte débloque la participation au-delà de la limite visiteur et prépare votre réputation citoyenne."
       maxWidth={600}
     >
-      <Field label="Email" value={email} onChangeText={setEmail} keyboardType="email-address" autoCapitalize="none" placeholder="vous@example.com" />
-      <Field label="Confirmation de l’email" value={confirmEmail} onChangeText={setConfirmEmail} keyboardType="email-address" autoCapitalize="none" placeholder="Confirmez votre email" />
-      <Field label="Mot de passe" value={password} onChangeText={setPassword} secureTextEntry placeholder="Votre mot de passe" />
+      <Field field="email" label="Email" error={fieldError("email")} value={email} onBlur={() => touch("email")} onChangeText={setEmail} keyboardType="email-address" autoCapitalize="none" placeholder="vous@example.com" />
+      <Field field="confirmEmail" label="Confirmation de l’email" error={fieldError("confirmEmail")} value={confirmEmail} onBlur={() => touch("confirmEmail")} onChangeText={setConfirmEmail} keyboardType="email-address" autoCapitalize="none" placeholder="Confirmez votre email" />
+      <Field field="password" label="Mot de passe" error={fieldError("password")} value={password} onBlur={() => touch("password")} onChangeText={setPassword} secureTextEntry placeholder="Votre mot de passe" />
       <PasswordStrengthRules password={password} />
-      <Field label="Confirmation du mot de passe" value={confirmPassword} onChangeText={setConfirmPassword} secureTextEntry placeholder="Confirmez votre mot de passe" />
+      <Field field="confirmPassword" label="Confirmation du mot de passe" error={fieldError("confirmPassword")} value={confirmPassword} onBlur={() => touch("confirmPassword")} onChangeText={setConfirmPassword} secureTextEntry placeholder="Confirmez votre mot de passe" />
 
       <View style={styles.profileBlock}>
         <Text style={styles.blockTitle}>Informations de profil</Text>
-        <SexSegmented value={sex} onChange={setSex} />
+        <SexSegmented error={fieldError("sex")} value={sex} onBlur={() => touch("sex")} onChange={(value) => { setSex(value); touch("sex"); }} />
         <View style={styles.twoCols}>
-          <Field label="Âge" value={age} onChangeText={setAge} keyboardType="number-pad" placeholder="34" />
-          <ProfessionSelect value={profession} onChange={setProfession} />
+          <Field field="age" label="Âge" error={fieldError("age")} value={age} onBlur={() => touch("age")} onChangeText={setAge} keyboardType="number-pad" placeholder="34" />
+          <ProfessionSelect error={fieldError("profession")} value={profession} onBlur={() => touch("profession")} onChange={setProfession} />
         </View>
-        <RegionSelect value={region} onChange={setRegion} />
-        <Field label="Téléphone" value={phone} onChangeText={setPhone} keyboardType="phone-pad" placeholder="+33612345678" />
+        <RegionSelect error={fieldError("region")} value={region} onBlur={() => touch("region")} onChange={setRegion} />
+        <Field field="phone" label="Téléphone" error={fieldError("phone")} value={phone} onBlur={() => touch("phone")} onChangeText={setPhone} keyboardType="phone-pad" placeholder="+33612345678" />
       </View>
 
-      {error ? <Text style={styles.error}>{error}</Text> : null}
-      <Pressable disabled={loading} onPress={handleSubmit} style={({ pressed }) => ({ ...styles.primary, ...(pressed ? styles.primaryPressed : {}) })}>
+      {globalError ? <Text accessibilityLiveRegion="polite" style={styles.globalError}>{globalError}</Text> : null}
+      <Pressable accessibilityRole="button" disabled={loading} onPress={handleSubmit} style={({ pressed }) => ({ ...styles.primary, ...(pressed ? styles.primaryPressed : {}) })}>
         {loading ? <ActivityIndicator color="#06111C" /> : <Text style={styles.primaryText}>Créer mon compte</Text>}
       </Pressable>
-      <Pressable onPress={() => router.push("/auth/login" as Href)} style={styles.link}>
+      <Pressable accessibilityRole="link" onPress={() => router.push("/auth/login" as Href)} style={styles.link}>
         <Text style={styles.linkText}>J’ai déjà un compte</Text>
       </Pressable>
     </AuthForm>
   );
 }
 
-function SexSegmented({ value, onChange }: { value: Sex | null; onChange: (value: Sex) => void }) {
+function SexSegmented({ value, error, onBlur, onChange }: { value: Sex | null; error?: string; onBlur: () => void; onChange: (value: Sex) => void }) {
   return (
     <View style={styles.field}>
       <Text style={styles.label}>Sexe</Text>
-      <View style={styles.segmented}>
+      <View accessibilityRole="radiogroup" style={StyleSheet.flatten([styles.segmented, error && styles.controlInvalid])}>
         {SEX_OPTIONS.map((option) => {
           const active = value === option.value;
           return (
             <Pressable
               key={option.value}
+              accessibilityRole="radio"
+              accessibilityState={{ checked: active }}
+              onBlur={onBlur}
               onPress={() => onChange(option.value)}
               style={{ ...styles.segment, ...(active ? styles.segmentActive : {}) }}
             >
@@ -114,22 +127,39 @@ function SexSegmented({ value, onChange }: { value: Sex | null; onChange: (value
           );
         })}
       </View>
+      {error ? <ErrorSlot message={error} /> : null}
     </View>
   );
 }
 
-function Field(props: ComponentProps<typeof TextInput> & { label: string }) {
-  const { label, ...inputProps } = props;
+function Field(props: ComponentProps<typeof TextInput> & { field: SignupField; label: string; error?: string }) {
+  const { field, label, error, ...inputProps } = props;
+  const errorId = `signup-${field}-error`;
+  const webAccessibilityProps = Platform.OS === "web"
+    ? ({ "aria-invalid": Boolean(error), "aria-describedby": error ? errorId : undefined } as ComponentProps<typeof TextInput>)
+    : {};
   return (
     <View style={styles.field}>
       <Text style={styles.label}>{label}</Text>
-      <TextInput placeholderTextColor="#64748B" style={styles.input} {...inputProps} />
+      <TextInput
+        {...webAccessibilityProps}
+        accessibilityHint={error}
+        nativeID={`signup-${field}`}
+        placeholderTextColor="#64748B"
+        style={StyleSheet.flatten([styles.input, error && styles.controlInvalid])}
+        {...inputProps}
+      />
+      {error ? <ErrorSlot nativeID={errorId} message={error} /> : null}
     </View>
   );
 }
 
+function ErrorSlot({ message, nativeID }: { message?: string; nativeID?: string }) {
+  return <View style={styles.errorSlot}>{message ? <Text nativeID={nativeID} accessibilityLiveRegion="polite" style={styles.fieldError}>{message}</Text> : null}</View>;
+}
+
 const styles = StyleSheet.create({
-  field: { gap: 7, flex: 1 },
+  field: { gap: 6, flex: 1 },
   label: { color: palette.inkSecondary, fontFamily: fontFamilyMedium, fontSize: 13 },
   input: {
     minHeight: 52,
@@ -142,6 +172,9 @@ const styles = StyleSheet.create({
     fontSize: 16,
     fontFamily: fontFamilyMedium
   },
+  controlInvalid: { borderColor: "rgba(227, 93, 106, 0.68)", backgroundColor: "rgba(91, 24, 33, 0.12)" },
+  errorSlot: { justifyContent: "center" },
+  fieldError: { color: "#F08A95", fontSize: 11, lineHeight: 15 },
   profileBlock: {
     borderTopWidth: 1,
     borderTopColor: "rgba(148, 163, 184, 0.16)",
@@ -170,7 +203,7 @@ const styles = StyleSheet.create({
   segmentActive: { backgroundColor: palette.primary },
   segmentText: { color: palette.muted, fontFamily: fontFamilyMedium },
   segmentTextActive: { color: "#FFFFFF" },
-  error: { color: "#FCA5A5", backgroundColor: "rgba(127, 29, 29, 0.26)", borderRadius: radius.sm, padding: 12 },
+  globalError: { color: "#FCA5A5", backgroundColor: "rgba(127, 29, 29, 0.26)", borderRadius: radius.sm, padding: 12 },
   primary: { minHeight: 52, borderRadius: radius.sm, backgroundColor: palette.primary, alignItems: "center", justifyContent: "center" },
   primaryPressed: { transform: [{ translateY: 1 }], backgroundColor: "#315CC2" },
   primaryText: { color: "#FFFFFF", fontFamily: fontFamilySemibold, fontSize: 15 },

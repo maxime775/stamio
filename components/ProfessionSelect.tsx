@@ -7,27 +7,37 @@ import { fontFamilyMedium, fontFamilySemibold, palette, radius } from "@/lib/des
 type Props = {
   value: string;
   onChange: (value: string) => void;
+  onBlur?: () => void;
+  error?: string;
 };
 
-export function ProfessionSelect({ value, onChange }: Props) {
+export function ProfessionSelect({ value, onChange, onBlur, error }: Props) {
   const [open, setOpen] = useState(false);
 
   function select(profession: string) {
     onChange(profession);
     setOpen(false);
+    onBlur?.();
+  }
+
+  function close() {
+    setOpen(false);
+    onBlur?.();
   }
 
   return (
     <View style={styles.wrap}>
       <Text style={styles.label}>Profession</Text>
-      <Pressable accessibilityRole="button" accessibilityState={{ expanded: open }} onPress={() => setOpen(true)} style={styles.select}>
+      <Pressable accessibilityRole="button" accessibilityHint={error} accessibilityState={{ expanded: open }} onBlur={onBlur} onPress={() => setOpen(true)} style={StyleSheet.flatten([styles.select, error && styles.selectInvalid])}>
         <Text numberOfLines={2} style={StyleSheet.flatten([styles.selectText, !value && styles.placeholder])}>{value || "Sélectionnez un groupe socioprofessionnel"}</Text>
         <ChevronDown size={18} color={palette.primaryStrong} />
       </Pressable>
 
-      <Modal transparent visible={open} animationType="fade" onRequestClose={() => setOpen(false)}>
+      {error ? <View style={styles.errorSlot}><Text accessibilityLiveRegion="polite" style={styles.error}>{error}</Text></View> : null}
+
+      <Modal transparent visible={open} animationType="fade" onRequestClose={close}>
         <View style={styles.overlay}>
-          <Pressable style={styles.scrim} onPress={() => setOpen(false)} />
+          <Pressable style={styles.scrim} onPress={close} />
           <View style={styles.menu}>
             <Text style={styles.menuTitle}>Groupe socioprofessionnel</Text>
             <Text style={styles.menuHint}>Classification en 8 groupes de l’INSEE</Text>
@@ -53,8 +63,11 @@ const styles = StyleSheet.create({
   wrap: { gap: 7, flex: 1, minWidth: 250 },
   label: { color: palette.inkSecondary, fontFamily: fontFamilyMedium, fontSize: 13 },
   select: { minHeight: 52, borderRadius: radius.sm, borderWidth: 1, borderColor: "rgba(148, 163, 184, 0.26)", backgroundColor: palette.surfaceSubtle, paddingHorizontal: 14, paddingVertical: 8, flexDirection: "row", alignItems: "center", justifyContent: "space-between", gap: 10 },
+  selectInvalid: { borderColor: "rgba(227, 93, 106, 0.68)", backgroundColor: "rgba(91, 24, 33, 0.12)" },
   selectText: { color: palette.ink, fontFamily: fontFamilyMedium, fontSize: 14, lineHeight: 18, flex: 1 },
   placeholder: { color: "#64748B" },
+  errorSlot: { justifyContent: "center" },
+  error: { color: "#F08A95", fontSize: 11, lineHeight: 15 },
   overlay: { flex: 1, justifyContent: "center", alignItems: "center", padding: 20 },
   scrim: { ...StyleSheet.absoluteFillObject, backgroundColor: "rgba(2, 6, 23, 0.76)" },
   menu: { width: "100%", maxWidth: 560, maxHeight: "82%", borderRadius: radius.md, backgroundColor: palette.surface, borderWidth: 1, borderColor: palette.lineStrong, padding: 14, gap: 5 },

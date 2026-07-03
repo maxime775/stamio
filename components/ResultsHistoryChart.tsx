@@ -12,14 +12,14 @@ type WebMouseEvent = {
   currentTarget?: { getBoundingClientRect?: () => { left: number; top: number } };
 };
 
-const TOOLTIP_WIDTH = 176;
+const TOOLTIP_WIDTH = 170;
 const WEB_HIT_DISTANCE = 18;
 const TOUCH_HIT_DISTANCE = 30;
 
 export function ResultsHistoryChart({ history, containerHeight }: Props) {
   const [width, setWidth] = useState(720);
+  const [chartHeight, setChartHeight] = useState(190);
   const [activeIndex, setActiveIndex] = useState<number | null>(null);
-  const height = containerHeight ? Math.max(174, containerHeight - 126) : 238;
   const pad = { left: 42, right: 18, top: 18, bottom: 32 };
   const timestamps = useMemo(() => [...new Set(history.map((point) => point.captured_at))].sort(), [history]);
   const series = useMemo(() => {
@@ -29,7 +29,7 @@ export function ResultsHistoryChart({ history, containerHeight }: Props) {
   }, [history]);
   const byTimestamp = useMemo(() => new Map(timestamps.map((timestamp) => [timestamp, history.filter((point) => point.captured_at === timestamp)])), [history, timestamps]);
   const plotWidth = Math.max(1, width - pad.left - pad.right);
-  const plotHeight = height - pad.top - pad.bottom;
+  const plotHeight = Math.max(1, chartHeight - pad.top - pad.bottom);
   const xForIndex = (index: number) => pad.left + (index / Math.max(1, timestamps.length - 1)) * plotWidth;
   const xFor = (date: string) => xForIndex(Math.max(0, timestamps.indexOf(date)));
   const yFor = (value: number) => pad.top + plotHeight - (Math.min(100, Math.max(0, value)) / 100) * plotHeight;
@@ -39,7 +39,7 @@ export function ResultsHistoryChart({ history, containerHeight }: Props) {
   const xTickIndexes = [...new Set([0, Math.floor((timestamps.length - 1) / 2), timestamps.length - 1])].filter((index) => index >= 0);
 
   function selectNear(locationX: number, locationY: number, threshold: number) {
-    if (timestamps.length === 0 || locationX < pad.left || locationX > width - pad.right || locationY < pad.top || locationY > height - pad.bottom) {
+    if (timestamps.length === 0 || locationX < pad.left || locationX > width - pad.right || locationY < pad.top || locationY > chartHeight - pad.bottom) {
       setActiveIndex(null);
       return;
     }
@@ -94,20 +94,20 @@ export function ResultsHistoryChart({ history, containerHeight }: Props) {
       {history.length === 0 ? (
         <View style={styles.empty}><Text style={styles.emptyText}>L’historique apparaîtra après les premiers votes.</Text></View>
       ) : (
-        <View style={styles.chartShell}>
-          <Svg width="100%" height={height} viewBox={`0 0 ${width} ${height}`}>
+        <View style={styles.chartShell} onLayout={(event) => setChartHeight(Math.max(120, event.nativeEvent.layout.height))}>
+          <Svg width="100%" height={chartHeight} viewBox={`0 0 ${width} ${chartHeight}`}>
             {[0, 25, 50, 75, 100].map((tick) => {
               const y = yFor(tick);
               return <Line key={tick} x1={pad.left} x2={width - pad.right} y1={y} y2={y} stroke="rgba(148,163,184,0.13)" strokeWidth={1} />;
             })}
             {[0, 50, 100].map((tick) => <SvgText key={tick} x={4} y={yFor(tick) + 4} fill="#718096" fontFamily={fontFamily} fontSize={11}>{tick}%</SvgText>)}
-            {xTickIndexes.map((index) => <SvgText key={timestamps[index]} x={xForIndex(index)} y={height - 9} textAnchor={index === 0 ? "start" : index === timestamps.length - 1 ? "end" : "middle"} fill={palette.muted} fontFamily={fontFamily} fontSize={10}>{new Date(timestamps[index]).toLocaleDateString("fr-FR", { day: "2-digit", month: "short" })}</SvgText>)}
+            {xTickIndexes.map((index) => <SvgText key={timestamps[index]} x={xForIndex(index)} y={chartHeight - 9} textAnchor={index === 0 ? "start" : index === timestamps.length - 1 ? "end" : "middle"} fill={palette.muted} fontFamily={fontFamily} fontSize={10}>{new Date(timestamps[index]).toLocaleDateString("fr-FR", { day: "2-digit", month: "short" })}</SvgText>)}
             {series.map((points, index) => {
               const color = choiceColors[index % choiceColors.length];
               const path = points.map((point, pointIndex) => `${pointIndex === 0 ? "M" : "L"}${xFor(point.captured_at)},${yFor(point.percentage)}`).join(" ");
               return <Path key={points[0]?.choice_id} d={path} fill="none" stroke={color} strokeWidth={2.2} strokeLinecap="round" strokeLinejoin="round" />;
             })}
-            {activeX !== null ? <Line x1={activeX} x2={activeX} y1={pad.top} y2={height - pad.bottom} stroke="rgba(220,229,255,0.48)" strokeWidth={1} strokeDasharray="4 5" /> : null}
+            {activeX !== null ? <Line x1={activeX} x2={activeX} y1={pad.top} y2={chartHeight - pad.bottom} stroke="rgba(220,229,255,0.48)" strokeWidth={1} strokeDasharray="4 5" /> : null}
             {selectedPoints.map((point) => {
               const seriesIndex = series.findIndex((points) => points[0]?.choice_id === point.choice_id);
               return <Circle key={point.choice_id} cx={activeX ?? 0} cy={yFor(point.percentage)} r={3.5} fill={choiceColors[Math.max(0, seriesIndex) % choiceColors.length]} stroke={palette.surface} strokeWidth={1.5} />;
@@ -127,6 +127,7 @@ export function ResultsHistoryChart({ history, containerHeight }: Props) {
               )
             }])}>
               <Text style={styles.tooltipDate}>{new Date(selectedTimestamp).toLocaleString("fr-FR", { day: "2-digit", month: "short", hour: "2-digit", minute: "2-digit" })}</Text>
+              <View style={styles.tooltipRule} />
               {selectedPoints.map((point) => {
                 const seriesIndex = series.findIndex((points) => points[0]?.choice_id === point.choice_id);
                 return <View key={point.choice_id} style={styles.tooltipRow}><View style={StyleSheet.flatten([styles.tooltipDot, { backgroundColor: choiceColors[Math.max(0, seriesIndex) % choiceColors.length] }])} /><Text numberOfLines={1} style={styles.tooltipLabel}>{point.label}</Text><Text style={styles.tooltipValue}>{Math.round(point.percentage)}%</Text></View>;
@@ -157,17 +158,18 @@ function distanceToSegment(
 }
 
 const styles = StyleSheet.create({
-  card: { width: "100%", borderRadius: radius.md, padding: 20, backgroundColor: palette.surface, borderWidth: 1, borderColor: palette.line, gap: 14, ...shadows.panel },
+  card: { width: "100%", boxSizing: "border-box", borderRadius: radius.md, padding: 20, backgroundColor: palette.surface, borderWidth: 1, borderColor: palette.line, gap: 12, ...shadows.panel },
   heading: { flexDirection: "row", justifyContent: "space-between", alignItems: "flex-start", gap: 12, flexWrap: "wrap" },
   kicker: { color: palette.primaryStrong, fontFamily: fontFamilySemibold, fontSize: 10, textTransform: "uppercase", letterSpacing: 1.1 },
   title: { color: palette.ink, fontFamily: fontFamilyBold, fontSize: 21, letterSpacing: -0.35, marginTop: 5 },
   hint: { color: palette.muted, fontFamily: fontFamilyMedium, fontSize: 10, paddingTop: 4 },
-  chartShell: { position: "relative", width: "100%", minHeight: 174, overflow: "hidden" },
+  chartShell: { position: "relative", width: "100%", minHeight: 120, flex: 1, overflow: "hidden" },
   pointerLayer: { ...StyleSheet.absoluteFillObject, backgroundColor: "transparent" },
-  tooltip: { position: "absolute", top: 8, width: TOOLTIP_WIDTH, borderRadius: radius.sm, paddingHorizontal: 9, paddingVertical: 8, backgroundColor: "rgba(11,16,23,0.97)", borderWidth: 1, borderColor: palette.lineStrong, gap: 5, ...shadows.panel },
-  tooltipDate: { color: palette.ink, fontFamily: fontFamilySemibold, fontSize: 10 },
-  tooltipRow: { flexDirection: "row", alignItems: "center", gap: 7 },
-  tooltipDot: { width: 5, height: 5, borderRadius: 1 }, tooltipLabel: { color: palette.inkSecondary, flex: 1, fontSize: 10 }, tooltipValue: { color: palette.ink, fontFamily: fontFamilySemibold, fontSize: 11 },
-  empty: { minHeight: 180, alignItems: "center", justifyContent: "center" }, emptyText: { color: palette.muted, fontFamily },
+  tooltip: { position: "absolute", top: 8, width: TOOLTIP_WIDTH, borderRadius: radius.sm, paddingHorizontal: 9, paddingVertical: 8, backgroundColor: "rgba(11,16,23,0.97)", borderWidth: 1, borderColor: palette.lineStrong, gap: 4, ...shadows.panel },
+  tooltipDate: { color: palette.ink, fontFamily: fontFamilySemibold, fontSize: 10, textAlign: "center" },
+  tooltipRule: { width: 34, height: 1, backgroundColor: palette.lineStrong, alignSelf: "center", marginBottom: 2 },
+  tooltipRow: { flexDirection: "row", alignItems: "center", gap: 4 },
+  tooltipDot: { width: 5, height: 5, borderRadius: 1 }, tooltipLabel: { color: palette.inkSecondary, width: 104, fontSize: 10 }, tooltipValue: { color: palette.ink, fontFamily: fontFamilySemibold, fontSize: 11, fontVariant: ["tabular-nums"] },
+  empty: { minHeight: 120, flex: 1, alignItems: "center", justifyContent: "center" }, emptyText: { color: palette.muted, fontFamily },
   legend: { flexDirection: "row", flexWrap: "wrap", gap: 18, paddingTop: 2 }, legendItem: { flexDirection: "row", alignItems: "center", gap: 7 }, legendLine: { width: 18, height: 2 }, legendText: { color: palette.inkSecondary, fontFamily, fontSize: 11 }
 });

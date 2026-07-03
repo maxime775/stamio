@@ -57,11 +57,9 @@ export function ResultsDonutSummary({ choices, results }: Props) {
           {items.map((item) => {
             const percentage = total > 0 ? Math.round((item.votes / total) * 100) : 0;
             return <View key={item.choice_id} style={styles.legendRow}>
+              <Text numberOfLines={2} style={styles.label}>{item.label}</Text>
               <View style={StyleSheet.flatten([styles.swatch, { backgroundColor: item.color }])} />
-              <View style={styles.legendCopy}>
-                <Text numberOfLines={2} style={styles.label}>{item.label}</Text>
-                <Text style={styles.percentage}>{percentage}%</Text>
-              </View>
+              <Text style={styles.percentage}>{percentage}%</Text>
             </View>;
           })}
         </View>
@@ -77,10 +75,9 @@ const styles = StyleSheet.create({
   donutCenter: { ...StyleSheet.absoluteFillObject, alignItems: "center", justifyContent: "center", paddingTop: 1 },
   total: { color: palette.ink, fontFamily: fontFamilyBold, fontSize: 22, lineHeight: 24, fontVariant: ["tabular-nums"] },
   totalLabel: { color: palette.muted, fontFamily: fontFamilyMedium, fontSize: 8, textTransform: "uppercase", letterSpacing: 0.7 },
-  legend: { flex: 1, gap: 9 },
-  legendRow: { flexDirection: "row", alignItems: "flex-start", gap: 7 },
-  swatch: { width: 10, height: 2 },
-  legendCopy: { flexShrink: 1, alignItems: "flex-start", gap: 1 },
-  label: { color: palette.inkSecondary, fontSize: 11, lineHeight: 14 },
-  percentage: { color: palette.ink, fontFamily: fontFamilySemibold, fontSize: 11, lineHeight: 14 }
+  legend: { flex: 1, alignItems: "flex-start", gap: 8 },
+  legendRow: { flexDirection: "row", alignItems: "center", gap: 6, maxWidth: "100%" },
+  swatch: { width: 12, height: 2, flexShrink: 0 },
+  label: { color: palette.inkSecondary, fontSize: 11, lineHeight: 14, flexShrink: 1 },
+  percentage: { color: palette.ink, fontFamily: fontFamilySemibold, fontSize: 11, lineHeight: 14, flexShrink: 0, fontVariant: ["tabular-nums"] }
 });

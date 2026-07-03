@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { Animated, Modal, Platform, Pressable, ScrollView, StyleSheet, Text, useWindowDimensions, View } from "react-native";
 import { LinearGradient } from "expo-linear-gradient";
 import { Check, MessagesSquare } from "lucide-react-native";
@@ -34,6 +34,9 @@ export default function PollScreen() {
   const [visitorCount, setVisitorCount] = useState(0);
   const [voteState, setVoteState] = useState<VoteStatus | null>(null);
   const [voteColumnHeight, setVoteColumnHeight] = useState(0);
+  const [discussionCtaHovered, setDiscussionCtaHovered] = useState(false);
+  const scrollRef = useRef<ScrollView>(null);
+  const discussionAnchorY = useRef(0);
   const fade = useMemo(() => new Animated.Value(0), []);
 
   useEffect(() => {
@@ -86,10 +89,14 @@ export default function PollScreen() {
     }
   }
 
+  function scrollToDiscussion() {
+    scrollRef.current?.scrollTo({ y: Math.max(0, discussionAnchorY.current - 18), animated: true });
+  }
+
   return (
     <LinearGradient colors={[palette.canvas, "#0A0E14", palette.canvas]} style={styles.root}>
       <SafeAreaView style={styles.safe}>
-        <ScrollView contentContainerStyle={styles.scroll} showsVerticalScrollIndicator={false}>
+        <ScrollView ref={scrollRef} contentContainerStyle={styles.scroll} showsVerticalScrollIndicator={false}>
           {loading ? (
             <SkeletonPoll />
           ) : poll ? (
@@ -152,9 +159,18 @@ export default function PollScreen() {
                   <Text style={styles.discussionLabelText}>Entrez dans la discussion</Text>
                   <Text style={styles.discussionIntro}>Comparez les arguments, nuancez votre position et complétez la lecture des résultats.</Text>
                 </View>
-                <Text style={styles.discussionAction}>Lire le débat ↓</Text>
+                <Pressable
+                  accessibilityRole="button"
+                  accessibilityHint="Fait défiler la page jusqu’aux commentaires"
+                  onHoverIn={() => setDiscussionCtaHovered(true)}
+                  onHoverOut={() => setDiscussionCtaHovered(false)}
+                  onPress={scrollToDiscussion}
+                  style={({ pressed }) => StyleSheet.flatten([styles.discussionAction, discussionCtaHovered && styles.discussionActionHovered, pressed && styles.discussionActionPressed])}
+                >
+                  <Text style={styles.discussionActionText}>Lire le débat ↓</Text>
+                </Pressable>
               </View>
-              <View style={styles.discussionColumn}>
+              <View onLayout={(event) => { discussionAnchorY.current = event.nativeEvent.layout.y; }} style={styles.discussionColumn}>
                 <PollDiscussion pollId={poll.id} />
               </View>
             </Animated.View>
@@ -267,14 +283,17 @@ const styles = StyleSheet.create({
   },
   mainColumn: { flexGrow: 0.72, flexBasis: 320, minWidth: 300, gap: 10 },
   analyticsColumn: { flexGrow: 1.55, flexBasis: 600, minWidth: 300 },
-  discussionBreak: { position: "relative", flexDirection: "row", alignItems: "center", flexWrap: "wrap", gap: 14, marginTop: 28, paddingHorizontal: 20, paddingVertical: 18, backgroundColor: palette.surfaceSubtle, borderWidth: 1, borderColor: palette.lineStrong, borderRadius: radius.md, overflow: "hidden", ...shadows.panel },
-  discussionAccent: { position: "absolute", left: 0, top: 0, bottom: 0, width: 3, backgroundColor: palette.primary },
-  discussionIcon: { width: 36, height: 36, borderRadius: radius.sm, alignItems: "center", justifyContent: "center", backgroundColor: palette.primarySoft, borderWidth: 1, borderColor: "rgba(91, 130, 229, 0.24)" },
+  discussionBreak: { position: "relative", flexDirection: "row", alignItems: "center", flexWrap: "wrap", gap: 14, marginTop: 24, paddingHorizontal: 4, paddingTop: 20, paddingBottom: 4, borderTopWidth: 1, borderTopColor: palette.lineStrong },
+  discussionAccent: { position: "absolute", left: 4, top: -1, width: 52, height: 2, backgroundColor: palette.primary },
+  discussionIcon: { width: 32, height: 32, borderRadius: radius.sm, alignItems: "center", justifyContent: "center", backgroundColor: palette.primarySoft },
   discussionCopy: { gap: 4, flex: 1 },
   discussionEyebrow: { color: palette.primaryStrong, fontFamily: fontFamilySemibold, fontSize: 9, textTransform: "uppercase", letterSpacing: 1.1 },
   discussionLabelText: { color: palette.ink, fontFamily: fontFamilySemibold, fontSize: 16 },
   discussionIntro: { color: palette.muted, fontSize: 12, lineHeight: 18 },
-  discussionAction: { color: palette.inkSecondary, fontFamily: fontFamilySemibold, fontSize: 11, textTransform: "uppercase", letterSpacing: 0.6 },
+  discussionAction: { minHeight: 34, paddingHorizontal: 10, borderRadius: radius.sm, alignItems: "center", justifyContent: "center", borderWidth: 1, borderColor: "transparent" },
+  discussionActionHovered: { backgroundColor: palette.primarySoft, borderColor: "rgba(91, 130, 229, 0.24)" },
+  discussionActionPressed: { opacity: 0.72 },
+  discussionActionText: { color: palette.inkSecondary, fontFamily: fontFamilySemibold, fontSize: 11, textTransform: "uppercase", letterSpacing: 0.6 },
   discussionColumn: { width: "100%" },
   voteButton: {
     minHeight: 48,
