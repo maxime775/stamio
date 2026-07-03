@@ -33,6 +33,7 @@ export default function PollScreen() {
   const [limitVisible, setLimitVisible] = useState(false);
   const [visitorCount, setVisitorCount] = useState(0);
   const [voteState, setVoteState] = useState<VoteStatus | null>(null);
+  const [voteColumnHeight, setVoteColumnHeight] = useState(0);
   const fade = useMemo(() => new Animated.Value(0), []);
 
   useEffect(() => {
@@ -108,7 +109,7 @@ export default function PollScreen() {
                 </View>
               </View>
               <View style={styles.contentGrid}>
-                <View style={styles.mainColumn}>
+                <View onLayout={(event) => setVoteColumnHeight(event.nativeEvent.layout.height)} style={styles.mainColumn}>
                 <PollCard
                   poll={poll}
                   selectedChoiceId={selectedChoiceId}
@@ -140,16 +141,18 @@ export default function PollScreen() {
                 </View>
 
                 <View style={styles.analyticsColumn}>
-                  <ResultsHistoryChart history={history} />
+                  <ResultsHistoryChart history={history} containerHeight={!compact && voteColumnHeight > 0 ? voteColumnHeight : undefined} />
                 </View>
               </View>
               <View style={styles.discussionBreak}>
                 <View style={styles.discussionAccent} />
-                <MessagesSquare size={17} color={palette.primaryStrong} />
+                <View style={styles.discussionIcon}><MessagesSquare size={18} color={palette.primaryStrong} /></View>
                 <View style={styles.discussionCopy}>
-                  <Text style={styles.discussionLabelText}>Espace de discussion</Text>
-                  <Text style={styles.discussionIntro}>Confrontez les arguments et complétez la lecture des résultats.</Text>
+                  <Text style={styles.discussionEyebrow}>Après les chiffres</Text>
+                  <Text style={styles.discussionLabelText}>Entrez dans la discussion</Text>
+                  <Text style={styles.discussionIntro}>Comparez les arguments, nuancez votre position et complétez la lecture des résultats.</Text>
                 </View>
+                <Text style={styles.discussionAction}>Lire le débat ↓</Text>
               </View>
               <View style={styles.discussionColumn}>
                 <PollDiscussion pollId={poll.id} />
@@ -259,16 +262,19 @@ const styles = StyleSheet.create({
   contentGrid: {
     gap: 18,
     flexDirection: "row",
-    alignItems: "flex-start",
+    alignItems: "stretch",
     flexWrap: "wrap"
   },
   mainColumn: { flexGrow: 0.72, flexBasis: 320, minWidth: 300, gap: 10 },
   analyticsColumn: { flexGrow: 1.55, flexBasis: 600, minWidth: 300 },
-  discussionBreak: { position: "relative", flexDirection: "row", alignItems: "center", gap: 11, marginTop: 28, paddingHorizontal: 16, paddingVertical: 20, backgroundColor: palette.surfaceSubtle, borderTopWidth: 1, borderBottomWidth: 1, borderColor: palette.lineStrong, overflow: "hidden" },
-  discussionAccent: { position: "absolute", left: 0, top: 0, bottom: 0, width: 2, backgroundColor: palette.primary },
+  discussionBreak: { position: "relative", flexDirection: "row", alignItems: "center", flexWrap: "wrap", gap: 14, marginTop: 28, paddingHorizontal: 20, paddingVertical: 18, backgroundColor: palette.surfaceSubtle, borderWidth: 1, borderColor: palette.lineStrong, borderRadius: radius.md, overflow: "hidden", ...shadows.panel },
+  discussionAccent: { position: "absolute", left: 0, top: 0, bottom: 0, width: 3, backgroundColor: palette.primary },
+  discussionIcon: { width: 36, height: 36, borderRadius: radius.sm, alignItems: "center", justifyContent: "center", backgroundColor: palette.primarySoft, borderWidth: 1, borderColor: "rgba(91, 130, 229, 0.24)" },
   discussionCopy: { gap: 4, flex: 1 },
-  discussionLabelText: { color: palette.inkSecondary, fontFamily: fontFamilySemibold, fontSize: 11, textTransform: "uppercase", letterSpacing: 1.1 },
+  discussionEyebrow: { color: palette.primaryStrong, fontFamily: fontFamilySemibold, fontSize: 9, textTransform: "uppercase", letterSpacing: 1.1 },
+  discussionLabelText: { color: palette.ink, fontFamily: fontFamilySemibold, fontSize: 16 },
   discussionIntro: { color: palette.muted, fontSize: 12, lineHeight: 18 },
+  discussionAction: { color: palette.inkSecondary, fontFamily: fontFamilySemibold, fontSize: 11, textTransform: "uppercase", letterSpacing: 0.6 },
   discussionColumn: { width: "100%" },
   voteButton: {
     minHeight: 48,

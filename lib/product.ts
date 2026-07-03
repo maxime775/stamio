@@ -49,6 +49,17 @@ export const SEX_OPTIONS: Array<{ value: Sex; label: string }> = [
   { value: "femme", label: "Femme" }
 ];
 
+export const CSP_PROFESSIONS = [
+  "Agriculteurs exploitants",
+  "Artisans, commerçants, chefs d'entreprise",
+  "Cadres et professions intellectuelles supérieures",
+  "Professions intermédiaires",
+  "Employés",
+  "Ouvriers",
+  "Retraités",
+  "Autres personnes sans activité professionnelle"
+] as const;
+
 export const VISITOR_VOTE_LIMIT = 3;
 
 export const POLL_DESCRIPTIONS: Record<string, string> = {

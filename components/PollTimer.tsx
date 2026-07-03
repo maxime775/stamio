@@ -52,5 +52,5 @@ export function PollTimer({ poll, style }: { poll: Pick<Poll, "created_at" | "cl
 const styles = StyleSheet.create({
   row: { flexDirection: "row", alignItems: "baseline" },
   base: { fontFamily: fontFamilySemibold, fontVariant: ["tabular-nums"] },
-  seconds: { color: palette.primaryStrong }
+  seconds: { color: palette.timerAccent }
 });

@@ -15,7 +15,8 @@ export const palette = {
   primaryStrong: "#5B82E5",
   primarySoft: "rgba(56, 103, 214, 0.13)",
   positive: "#2FBF91",
-  danger: "#D76672"
+  danger: "#D76672",
+  timerAccent: "#E35D6A"
 } as const;
 
 export const fontFamily = "Inter_400Regular";

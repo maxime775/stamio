@@ -1,6 +1,6 @@
 import { StyleSheet, Text, View } from "react-native";
 import Svg, { Circle } from "react-native-svg";
-import { choiceColors, fontFamilySemibold, palette } from "@/lib/design";
+import { choiceColors, fontFamilyBold, fontFamilyMedium, fontFamilySemibold, palette } from "@/lib/design";
 import type { Choice, PollResult } from "@/lib/types";
 
 type Props = {
@@ -48,14 +48,20 @@ export function ResultsDonutSummary({ choices, results }: Props) {
               />;
             }) : null}
           </Svg>
+          <View pointerEvents="none" style={styles.donutCenter}>
+            <Text style={styles.total}>{total}</Text>
+            <Text style={styles.totalLabel}>votes</Text>
+          </View>
         </View>
         <View style={styles.legend}>
           {items.map((item) => {
             const percentage = total > 0 ? Math.round((item.votes / total) * 100) : 0;
             return <View key={item.choice_id} style={styles.legendRow}>
               <View style={StyleSheet.flatten([styles.swatch, { backgroundColor: item.color }])} />
-              <Text numberOfLines={1} style={styles.label}>{item.label}</Text>
-              <Text style={styles.percentage}>{percentage}%</Text>
+              <View style={styles.legendCopy}>
+                <Text numberOfLines={2} style={styles.label}>{item.label}</Text>
+                <Text style={styles.percentage}>{percentage}%</Text>
+              </View>
             </View>;
           })}
         </View>
@@ -67,10 +73,14 @@ export function ResultsDonutSummary({ choices, results }: Props) {
 const styles = StyleSheet.create({
   card: { width: 300, maxWidth: "100%", alignSelf: "center", justifyContent: "center" },
   content: { flexDirection: "row", alignItems: "center", gap: 16 },
-  donutFrame: { width: SIZE, height: SIZE, alignItems: "center", justifyContent: "center" },
+  donutFrame: { width: SIZE, height: SIZE, alignItems: "center", justifyContent: "center", position: "relative" },
+  donutCenter: { ...StyleSheet.absoluteFillObject, alignItems: "center", justifyContent: "center", paddingTop: 1 },
+  total: { color: palette.ink, fontFamily: fontFamilyBold, fontSize: 22, lineHeight: 24, fontVariant: ["tabular-nums"] },
+  totalLabel: { color: palette.muted, fontFamily: fontFamilyMedium, fontSize: 8, textTransform: "uppercase", letterSpacing: 0.7 },
   legend: { flex: 1, gap: 9 },
-  legendRow: { flexDirection: "row", alignItems: "center", gap: 7 },
+  legendRow: { flexDirection: "row", alignItems: "flex-start", gap: 7 },
   swatch: { width: 10, height: 2 },
-  label: { color: palette.inkSecondary, flex: 1, fontSize: 11 },
-  percentage: { color: palette.ink, fontFamily: fontFamilySemibold, fontSize: 11 }
+  legendCopy: { flexShrink: 1, alignItems: "flex-start", gap: 1 },
+  label: { color: palette.inkSecondary, fontSize: 11, lineHeight: 14 },
+  percentage: { color: palette.ink, fontFamily: fontFamilySemibold, fontSize: 11, lineHeight: 14 }
 });

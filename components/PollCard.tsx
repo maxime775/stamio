@@ -1,3 +1,4 @@
+import { useState } from "react";
 import { Pressable, StyleSheet, Text, View } from "react-native";
 import { Check } from "lucide-react-native";
 import type { Poll } from "@/lib/types";
@@ -11,6 +12,7 @@ type Props = {
 
 export function PollCard({ poll, selectedChoiceId, onSelectChoice }: Props) {
   const theme = getThemeVisual(poll.theme);
+  const [hoveredChoiceId, setHoveredChoiceId] = useState<string | null>(null);
   return (
     <View style={styles.card}>
       <View style={styles.heading}>
@@ -20,21 +22,25 @@ export function PollCard({ poll, selectedChoiceId, onSelectChoice }: Props) {
       <View style={styles.options}>
         {poll.choices.map((choice, index) => {
           const selected = selectedChoiceId === choice.id;
+          const hovered = hoveredChoiceId === choice.id && !selected;
           return (
             <Pressable
               key={choice.id}
               onPress={() => onSelectChoice(choice.id)}
+              onHoverIn={() => setHoveredChoiceId(choice.id)}
+              onHoverOut={() => setHoveredChoiceId(null)}
               style={({ pressed }) =>
                 StyleSheet.flatten([
                   styles.option,
+                  hovered && styles.optionHovered,
                   selected && styles.optionSelected,
                   selected && { borderColor: theme.accent, borderLeftColor: theme.accent, backgroundColor: theme.soft },
                   pressed && styles.optionPressed
                 ])
               }
             >
-              <View style={StyleSheet.flatten([styles.optionCode, selected && { borderColor: theme.accent }])}><Text style={StyleSheet.flatten([styles.optionCodeText, selected && { color: theme.accent }])}>{String.fromCharCode(65 + index)}</Text></View>
-              <Text style={StyleSheet.flatten([styles.optionText, selected && styles.optionTextSelected, selected && { color: theme.accent }])}>{choice.label}</Text>
+              <View style={StyleSheet.flatten([styles.optionCode, hovered && styles.optionCodeHovered, selected && { borderColor: theme.accent }])}><Text style={StyleSheet.flatten([styles.optionCodeText, hovered && styles.optionCodeTextHovered, selected && { color: theme.accent }])}>{String.fromCharCode(65 + index)}</Text></View>
+              <Text style={StyleSheet.flatten([styles.optionText, hovered && styles.optionTextHovered, selected && styles.optionTextSelected, selected && { color: theme.accent }])}>{choice.label}</Text>
               {selected ? <Check size={15} color={theme.accent} /> : null}
             </Pressable>
           );
@@ -81,6 +87,7 @@ const styles = StyleSheet.create({
     borderColor: palette.primaryStrong,
     backgroundColor: palette.primarySoft
   },
+  optionHovered: { borderColor: "rgba(166, 176, 192, 0.34)", borderLeftColor: "rgba(166, 176, 192, 0.52)", backgroundColor: palette.surfaceRaised },
   optionPressed: { transform: [{ scale: 0.995 }] },
   optionCode: {
     width: 24,
@@ -92,6 +99,9 @@ const styles = StyleSheet.create({
     borderColor: palette.lineStrong
   },
   optionCodeText: { color: palette.muted, fontFamily: fontFamilySemibold, fontSize: 10 },
+  optionCodeHovered: { borderColor: "rgba(199, 206, 216, 0.42)" },
+  optionCodeTextHovered: { color: palette.inkSecondary },
   optionText: { color: palette.inkSecondary, fontSize: 14, fontFamily: fontFamilyMedium, flex: 1 },
+  optionTextHovered: { color: palette.ink },
   optionTextSelected: { color: palette.primaryStrong },
 });

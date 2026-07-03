@@ -5,6 +5,7 @@ import { useRouter, type Href } from "expo-router";
 import { AuthForm } from "@/components/AuthForm";
 import { PasswordStrengthRules, isStrongPassword } from "@/components/PasswordStrengthRules";
 import { RegionSelect } from "@/components/RegionSelect";
+import { ProfessionSelect } from "@/components/ProfessionSelect";
 import { REGIONS_FR, SEX_OPTIONS, isSex } from "@/lib/product";
 import { signUpUser } from "@/lib/api";
 import { normalizePhoneInput } from "@/lib/validation";
@@ -14,6 +15,7 @@ import { fontFamilyMedium, fontFamilySemibold, palette, radius } from "@/lib/des
 export function SignupForm() {
   const router = useRouter();
   const [email, setEmail] = useState("");
+  const [confirmEmail, setConfirmEmail] = useState("");
   const [password, setPassword] = useState("");
   const [confirmPassword, setConfirmPassword] = useState("");
   const [sex, setSex] = useState<Sex | null>(null);
@@ -27,24 +29,27 @@ export function SignupForm() {
   async function handleSubmit() {
     const parsedAge = Number.parseInt(age, 10);
     const normalizedPhone = normalizePhoneInput(phone);
+    const normalizedEmail = email.trim().toLowerCase();
+    const normalizedConfirmEmail = confirmEmail.trim().toLowerCase();
 
-    if (!email.includes("@")) return setError("Adresse email invalide.");
+    if (!normalizedEmail.includes("@")) return setError("Adresse email invalide.");
+    if (normalizedEmail !== normalizedConfirmEmail) return setError("Les adresses email ne correspondent pas.");
     if (!isStrongPassword(password)) return setError("Le mot de passe ne respecte pas les règles de sécurité.");
     if (password !== confirmPassword) return setError("Les mots de passe ne correspondent pas.");
     if (!sex || !isSex(sex)) return setError("Le champ Sexe est obligatoire.");
     if (!Number.isFinite(parsedAge) || parsedAge < 13 || parsedAge > 120) return setError("Âge invalide.");
-    if (profession.trim().length < 2) return setError("Profession requise.");
+    if (!profession) return setError("Sélectionnez un groupe socioprofessionnel.");
     if (!normalizedPhone.ok) return setError("Numéro invalide. Utilisez le format international, par exemple +33612345678.");
 
     setLoading(true);
     setError(null);
     const { error: signupError } = await signUpUser({
-      email: email.trim(),
+      email: normalizedEmail,
       password,
       sex,
       phoneLast4: normalizedPhone.value.replace(/\D/g, "").slice(-4),
       age: parsedAge,
-      profession: profession.trim(),
+      profession,
       region
     });
     setLoading(false);
@@ -54,7 +59,7 @@ export function SignupForm() {
       return;
     }
 
-    router.replace({ pathname: "/auth/verify-email", params: { email: email.trim() } } as Href);
+    router.replace({ pathname: "/auth/verify-email", params: { email: normalizedEmail } } as Href);
   }
 
   return (
@@ -64,6 +69,7 @@ export function SignupForm() {
       maxWidth={600}
     >
       <Field label="Email" value={email} onChangeText={setEmail} keyboardType="email-address" autoCapitalize="none" placeholder="vous@example.com" />
+      <Field label="Confirmation de l’email" value={confirmEmail} onChangeText={setConfirmEmail} keyboardType="email-address" autoCapitalize="none" placeholder="Confirmez votre email" />
       <Field label="Mot de passe" value={password} onChangeText={setPassword} secureTextEntry placeholder="Votre mot de passe" />
       <PasswordStrengthRules password={password} />
       <Field label="Confirmation du mot de passe" value={confirmPassword} onChangeText={setConfirmPassword} secureTextEntry placeholder="Confirmez votre mot de passe" />
@@ -73,7 +79,7 @@ export function SignupForm() {
         <SexSegmented value={sex} onChange={setSex} />
         <View style={styles.twoCols}>
           <Field label="Âge" value={age} onChangeText={setAge} keyboardType="number-pad" placeholder="34" />
-          <Field label="Profession" value={profession} onChangeText={setProfession} placeholder="Votre profession" />
+          <ProfessionSelect value={profession} onChange={setProfession} />
         </View>
         <RegionSelect value={region} onChange={setRegion} />
         <Field label="Téléphone" value={phone} onChangeText={setPhone} keyboardType="phone-pad" placeholder="+33612345678" />
