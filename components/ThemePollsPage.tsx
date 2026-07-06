@@ -16,6 +16,7 @@ type Props = {
 
 export function ThemePollsPage({ activeTheme }: Props) {
   const [polls, setPolls] = useState<PollWithStats[]>([]);
+  const [isLoading, setIsLoading] = useState(true);
   const fade = useMemo(() => new Animated.Value(0), []);
   const theme = THEMES.find((item) => item.slug === activeTheme);
   const visual = getThemeVisual(activeTheme);
@@ -23,11 +24,19 @@ export function ThemePollsPage({ activeTheme }: Props) {
 
   useEffect(() => {
     let active = true;
+    setIsLoading(true);
+    setPolls([]);
     getPollsByTheme(activeTheme).then((items) => {
       if (!active) return;
       setPolls(items);
+      setIsLoading(false);
       fade.setValue(0);
       Animated.timing(fade, { toValue: 1, duration: 360, useNativeDriver: true }).start();
+    }).catch(() => {
+      if (!active) return;
+      setPolls([]);
+      setIsLoading(false);
+      fade.setValue(1);
     });
     return () => {
       active = false;
@@ -42,11 +51,13 @@ export function ThemePollsPage({ activeTheme }: Props) {
           <Text style={styles.title}>{getThemeLabel(activeTheme)}</Text>
           <Text style={styles.intro}>{theme?.intro}</Text>
         </View>
-        <VotesMetric value={totalVotes} accent={visual.accent} />
+        {isLoading ? <View style={styles.metricPlaceholder} /> : <VotesMetric value={totalVotes} accent={visual.accent} animationKey={activeTheme} />}
       </View>
       <ThemeTabs active={activeTheme} />
       <Animated.View style={StyleSheet.flatten([styles.grid, { opacity: fade as unknown as number }])}>
-        {polls.length > 0 ? (
+        {isLoading ? (
+          [0, 1].map((index) => <View key={index} style={styles.loadingCard} />)
+        ) : polls.length > 0 ? (
           polls.map((poll) => <PollTeaserCard key={poll.id} poll={poll} compact />)
         ) : (
           <EmptyState title="Aucun sondage ouvert" message="Ce thème n’a pas encore de question active." />
@@ -62,5 +73,7 @@ const styles = StyleSheet.create({
   kicker: { color: palette.primaryStrong, fontFamily: fontFamilySemibold, textTransform: "uppercase", fontSize: 10, letterSpacing: 1.2 },
   title: { color: palette.ink, fontFamily: fontFamilyBold, fontSize: 40, lineHeight: 47, letterSpacing: -1 },
   intro: { color: palette.muted, fontSize: 16, lineHeight: 25, maxWidth: 720 },
-  grid: { flexDirection: "row", flexWrap: "wrap", gap: 16 }
+  grid: { flexDirection: "row", flexWrap: "wrap", gap: 16 },
+  metricPlaceholder: { width: 108, height: 108, borderRadius: 54, borderWidth: 8, borderColor: palette.line, opacity: 0.72 },
+  loadingCard: { width: "100%", minWidth: 280, flexBasis: 320, flexGrow: 1, minHeight: 190, borderRadius: radius.md, borderWidth: 1, borderColor: palette.line, backgroundColor: palette.surface }
 });

@@ -1,8 +1,9 @@
 import { useEffect, useRef } from "react";
-import { NativeScrollEvent, NativeSyntheticEvent, Pressable, ScrollView, StyleSheet, Text, View } from "react-native";
+import { NativeScrollEvent, NativeSyntheticEvent, Platform, ScrollView, StyleSheet, Text, View, type ViewProps } from "react-native";
 import { PollTeaserCard } from "@/components/PollTeaserCard";
 import type { PollWithStats } from "@/lib/types";
 import { fontFamilyBold, fontFamilyMedium, palette } from "@/lib/design";
+import { useReducedMotion } from "@/lib/useReducedMotion";
 
 type Props = {
   polls: PollWithStats[];
@@ -11,6 +12,7 @@ type Props = {
 const SCROLL_SPEED_PX_PER_SECOND = 30;
 
 export function TrendingPollsCarousel({ polls }: Props) {
+  const reducedMotion = useReducedMotion();
   const scrollRef = useRef<ScrollView | null>(null);
   const segmentWidthRef = useRef(1);
   const offsetRef = useRef(0);
@@ -28,7 +30,7 @@ export function TrendingPollsCarousel({ polls }: Props) {
       const delta = Math.min(timestamp - lastFrameRef.current, 32);
       lastFrameRef.current = timestamp;
       const segment = segmentWidthRef.current;
-      if (!hoverPausedRef.current && !touchPausedRef.current && segment > 1) {
+      if (!reducedMotion && !hoverPausedRef.current && !touchPausedRef.current && segment > 1) {
         let next = offsetRef.current + (SCROLL_SPEED_PX_PER_SECOND * delta) / 1000;
         if (next >= segment * 2) next -= segment;
         offsetRef.current = next;
@@ -42,7 +44,7 @@ export function TrendingPollsCarousel({ polls }: Props) {
       cancelAnimationFrame(frame);
       if (resumeTimerRef.current) clearTimeout(resumeTimerRef.current);
     };
-  }, [polls.length]);
+  }, [polls.length, reducedMotion]);
 
   function pauseTemporarily() {
     touchPausedRef.current = true;
@@ -85,9 +87,13 @@ export function TrendingPollsCarousel({ polls }: Props) {
   }
 
   const segments = polls.length > 1 ? [0, 1, 2] : [0];
+  const webHoverProps = Platform.OS === "web" ? ({
+    onMouseEnter: () => handleCardHover(true),
+    onMouseLeave: () => handleCardHover(false)
+  } as unknown as ViewProps) : {};
 
   return (
-    <Pressable onHoverIn={() => handleCardHover(true)} onHoverOut={() => handleCardHover(false)} style={styles.wrap}>
+    <View {...webHoverProps} style={styles.wrap}>
       <View style={styles.header}>
         <Text style={styles.title}>Sujets qui font l’actu</Text>
         <Text style={styles.counter}>{polls.length} questions ouvertes</Text>
@@ -108,11 +114,15 @@ export function TrendingPollsCarousel({ polls }: Props) {
       >
         {segments.map((segment) => (
           <View key={segment} style={styles.segment}>
-            {polls.map((poll) => <PollTeaserCard key={`${poll.id}-${segment}`} poll={poll} />)}
+            {polls.map((poll) => <PollTeaserCard
+              key={`${poll.id}-${segment}`}
+              poll={poll}
+              onHoverStart={() => handleCardHover(true)}
+            />)}
           </View>
         ))}
       </ScrollView>
-    </Pressable>
+    </View>
   );
 }
 

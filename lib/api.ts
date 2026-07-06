@@ -1,5 +1,5 @@
 import { supabase } from "@/lib/supabase";
-import { FALLBACK_POLLS, getPollDescription } from "@/lib/product";
+import { getPollDescription } from "@/lib/product";
 import type {
   Poll,
   PollComment,
@@ -150,18 +150,15 @@ function createUuid() {
 }
 
 export async function getFeaturedPolls(): Promise<PollWithStats[]> {
-  const polls = await fetchPollCollection({ featuredOnly: true, limit: 10 });
-  return polls.length > 0 ? polls : FALLBACK_POLLS;
+  return fetchPollCollection({ featuredOnly: true, limit: 10 });
 }
 
 export async function getPollsByTheme(theme: ThemeSlug): Promise<PollWithStats[]> {
-  const polls = await fetchPollCollection({ theme, limit: 20 });
-  return polls.length > 0 ? polls : FALLBACK_POLLS.filter((poll) => poll.theme === theme);
+  return fetchPollCollection({ theme, limit: 20 });
 }
 
 export async function getLatestResults(): Promise<PollWithStats[]> {
-  const polls = await fetchPollCollection({ limit: 10, includeResults: true });
-  return polls.length > 0 ? polls : FALLBACK_POLLS;
+  return fetchPollCollection({ limit: 10, includeResults: true });
 }
 
 export async function getCurrentUserProfile(): Promise<Profile | null> {

@@ -2,6 +2,7 @@ import { useEffect, useMemo, useState } from "react";
 import { Animated, StyleSheet, Text, View, type StyleProp, type TextStyle } from "react-native";
 import type { Poll } from "@/lib/types";
 import { fontFamilySemibold, palette } from "@/lib/design";
+import { useReducedMotion } from "@/lib/useReducedMotion";
 
 const FIVE_DAYS_MS = 5 * 24 * 60 * 60 * 1000;
 
@@ -22,24 +23,27 @@ export function formatTimeRemaining(poll: Pick<Poll, "created_at" | "closes_at" 
   const minutes = Math.floor((remaining % 3_600_000) / 60_000);
   const seconds = Math.floor((remaining % 60_000) / 1000);
   const pad = (value: number) => value.toString().padStart(2, "0");
-  return `${days}J ${pad(hours)}h ${pad(minutes)}m ${pad(seconds)}s`;
+  const time = `${pad(hours)}h ${pad(minutes)}m ${pad(seconds)}s`;
+  return days > 0 ? `${days}J ${time}` : time;
 }
 
 export function PollTimer({ poll, style }: { poll: Pick<Poll, "created_at" | "closes_at" | "status">; style?: StyleProp<TextStyle> }) {
   const [label, setLabel] = useState(() => formatTimeRemaining(poll));
   const pulse = useMemo(() => new Animated.Value(1), []);
+  const reducedMotion = useReducedMotion();
 
   useEffect(() => {
     setLabel(formatTimeRemaining(poll));
     const timer = setInterval(() => {
       setLabel(formatTimeRemaining(poll));
+      if (reducedMotion) return;
       Animated.sequence([
         Animated.timing(pulse, { toValue: 0.62, duration: 90, useNativeDriver: true }),
         Animated.timing(pulse, { toValue: 1, duration: 190, useNativeDriver: true })
       ]).start();
     }, 1_000);
     return () => clearInterval(timer);
-  }, [poll.closes_at, poll.created_at, poll.status, pulse]);
+  }, [poll.closes_at, poll.created_at, poll.status, pulse, reducedMotion]);
 
   const match = label.match(/^(.*\s)(\d{2}s)$/);
   if (!match) return <Text style={StyleSheet.flatten([style, styles.base])}>{label}</Text>;

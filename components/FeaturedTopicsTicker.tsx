@@ -2,12 +2,18 @@ import { useEffect, useMemo, useState } from "react";
 import { Animated, StyleSheet, Text, View } from "react-native";
 import { THEMES } from "@/lib/product";
 import { fontFamilyBold, fontFamilyMedium, fontFamilySemibold, getThemeVisual, palette, radius } from "@/lib/design";
+import { useReducedMotion } from "@/lib/useReducedMotion";
 
 export function FeaturedTopicsTicker({ count }: { count: number }) {
   const [index, setIndex] = useState(0);
   const motion = useMemo(() => new Animated.Value(1), []);
+  const reducedMotion = useReducedMotion();
 
   useEffect(() => {
+    if (reducedMotion) {
+      motion.setValue(1);
+      return undefined;
+    }
     const timer = setInterval(() => {
       Animated.timing(motion, { toValue: 0.18, duration: 260, useNativeDriver: true }).start(() => {
         setIndex((value) => (value + 1) % THEMES.length);
@@ -16,7 +22,7 @@ export function FeaturedTopicsTicker({ count }: { count: number }) {
       });
     }, 3200);
     return () => clearInterval(timer);
-  }, [motion]);
+  }, [motion, reducedMotion]);
 
   const theme = THEMES[index];
   const visual = getThemeVisual(theme.slug);
@@ -25,7 +31,7 @@ export function FeaturedTopicsTicker({ count }: { count: number }) {
   return (
     <View style={styles.panel}>
       <View style={styles.status}><View style={styles.statusDot} /><Text style={styles.statusText}>Signal en continu</Text></View>
-      <Text style={styles.value}>{count || 5}</Text>
+      <Text style={styles.value}>{count}</Text>
       <Text style={styles.label}>questions mises en avant</Text>
       <View style={styles.line} />
       <View style={styles.topicRow}>

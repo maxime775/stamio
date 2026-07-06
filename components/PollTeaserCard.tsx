@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { Pressable, StyleSheet, Text, View } from "react-native";
+import { Platform, Pressable, StyleSheet, Text, View, type PressableProps } from "react-native";
 import { useRouter, type Href } from "expo-router";
 import { ArrowRight, TrendingUp } from "lucide-react-native";
 import { getThemeLabel } from "@/lib/product";
@@ -10,21 +10,28 @@ import type { PollWithStats } from "@/lib/types";
 type Props = {
   poll: PollWithStats;
   compact?: boolean;
-  onHoverChange?: (hovered: boolean) => void;
+  onHoverStart?: () => void;
+  onHoverEnd?: () => void;
 };
 
-export function PollTeaserCard({ poll, compact = false, onHoverChange }: Props) {
+export function PollTeaserCard({ poll, compact = false, onHoverStart, onHoverEnd }: Props) {
   const router = useRouter();
   const [hovered, setHovered] = useState(false);
   const [ctaHovered, setCtaHovered] = useState(false);
   const theme = getThemeVisual(poll.theme);
   const openPoll = () => router.push(`/poll/${poll.id}` as Href);
+  const webCardHoverProps = Platform.OS === "web" ? ({
+    onMouseEnter: onHoverStart,
+    onMouseLeave: onHoverEnd
+  } as unknown as PressableProps) : {};
+  const webCtaHoverProps = Platform.OS === "web" ? ({ onMouseEnter: onHoverStart } as unknown as PressableProps) : {};
 
   return (
     <Pressable
+      {...webCardHoverProps}
       onPress={openPoll}
-      onHoverIn={() => { setHovered(true); onHoverChange?.(true); }}
-      onHoverOut={() => { setHovered(false); setCtaHovered(false); onHoverChange?.(false); }}
+      onHoverIn={() => { setHovered(true); onHoverStart?.(); }}
+      onHoverOut={() => { setHovered(false); setCtaHovered(false); onHoverEnd?.(); }}
       style={({ pressed }) => StyleSheet.flatten([
         styles.card,
         compact && styles.compact,
@@ -48,7 +55,7 @@ export function PollTeaserCard({ poll, compact = false, onHoverChange }: Props) 
           <Text style={styles.votes}>{poll.totalVotes} participant{poll.totalVotes > 1 ? "s" : ""}</Text>
           <PollTimer poll={poll} style={styles.timer} />
         </View>
-        <Pressable accessibilityRole="link" onPress={(event) => { event.stopPropagation(); openPoll(); }} onHoverIn={() => { setCtaHovered(true); onHoverChange?.(true); }} onHoverOut={() => { setCtaHovered(false); onHoverChange?.(false); }} style={({ pressed }) => StyleSheet.flatten([styles.cta, ctaHovered && styles.ctaHovered, pressed && styles.ctaPressed])}>
+        <Pressable {...webCtaHoverProps} accessibilityRole="link" onPress={(event) => { event.stopPropagation(); openPoll(); }} onHoverIn={() => { setCtaHovered(true); onHoverStart?.(); }} onHoverOut={() => setCtaHovered(false)} style={({ pressed }) => StyleSheet.flatten([styles.cta, ctaHovered && styles.ctaHovered, pressed && styles.ctaPressed])}>
           <Text style={StyleSheet.flatten([styles.ctaText, ctaHovered && styles.ctaTextHovered])}>J’ai un avis</Text>
           <View style={ctaHovered && styles.ctaArrowHovered}><ArrowRight size={16} color={palette.primaryStrong} /></View>
         </Pressable>
