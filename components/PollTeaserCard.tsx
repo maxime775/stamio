@@ -1,10 +1,11 @@
-import { useState } from "react";
-import { Platform, Pressable, StyleSheet, Text, View, type PressableProps } from "react-native";
+import { memo, useCallback, useState } from "react";
+import { Pressable, StyleSheet, Text, View } from "react-native";
 import { useRouter, type Href } from "expo-router";
 import { ArrowRight, TrendingUp } from "lucide-react-native";
 import { getThemeLabel } from "@/lib/product";
 import { getThemeVisual, fontFamilyBold, fontFamilyMedium, fontFamilySemibold, palette, radius, shadows } from "@/lib/design";
 import { PollTimer } from "@/components/PollTimer";
+import { prefetchPollDetail } from "@/lib/api";
 import type { PollWithStats } from "@/lib/types";
 
 type Props = {
@@ -14,24 +15,38 @@ type Props = {
   onHoverEnd?: () => void;
 };
 
-export function PollTeaserCard({ poll, compact = false, onHoverStart, onHoverEnd }: Props) {
+export const PollTeaserCard = memo(function PollTeaserCard({ poll, compact = false, onHoverStart, onHoverEnd }: Props) {
   const router = useRouter();
   const [hovered, setHovered] = useState(false);
   const [ctaHovered, setCtaHovered] = useState(false);
   const theme = getThemeVisual(poll.theme);
-  const openPoll = () => router.push(`/poll/${poll.id}` as Href);
-  const webCardHoverProps = Platform.OS === "web" ? ({
-    onMouseEnter: onHoverStart,
-    onMouseLeave: onHoverEnd
-  } as unknown as PressableProps) : {};
-  const webCtaHoverProps = Platform.OS === "web" ? ({ onMouseEnter: onHoverStart } as unknown as PressableProps) : {};
+  const warmPoll = useCallback(() => {
+    prefetchPollDetail(poll.id);
+    onHoverStart?.();
+  }, [onHoverStart, poll.id]);
+  const openPoll = useCallback(() => router.push(`/poll/${poll.id}` as Href), [poll.id, router]);
+  const handleHoverIn = useCallback(() => {
+    setHovered(true);
+    warmPoll();
+  }, [warmPoll]);
+  const handleHoverOut = useCallback(() => {
+    setHovered(false);
+    setCtaHovered(false);
+    onHoverEnd?.();
+  }, [onHoverEnd]);
+  const handleCtaHoverIn = useCallback(() => {
+    setCtaHovered(true);
+    warmPoll();
+  }, [warmPoll]);
+  const handleCtaHoverOut = useCallback(() => setCtaHovered(false), []);
 
   return (
     <Pressable
-      {...webCardHoverProps}
       onPress={openPoll}
-      onHoverIn={() => { setHovered(true); onHoverStart?.(); }}
-      onHoverOut={() => { setHovered(false); setCtaHovered(false); onHoverEnd?.(); }}
+      onPressIn={warmPoll}
+      onFocus={warmPoll}
+      onHoverIn={handleHoverIn}
+      onHoverOut={handleHoverOut}
       style={({ pressed }) => StyleSheet.flatten([
         styles.card,
         compact && styles.compact,
@@ -55,14 +70,14 @@ export function PollTeaserCard({ poll, compact = false, onHoverStart, onHoverEnd
           <Text style={styles.votes}>{poll.totalVotes} participant{poll.totalVotes > 1 ? "s" : ""}</Text>
           <PollTimer poll={poll} style={styles.timer} />
         </View>
-        <Pressable {...webCtaHoverProps} accessibilityRole="link" onPress={(event) => { event.stopPropagation(); openPoll(); }} onHoverIn={() => { setCtaHovered(true); onHoverStart?.(); }} onHoverOut={() => setCtaHovered(false)} style={({ pressed }) => StyleSheet.flatten([styles.cta, ctaHovered && styles.ctaHovered, pressed && styles.ctaPressed])}>
+        <Pressable accessibilityRole="link" onPress={(event) => { event.stopPropagation(); openPoll(); }} onPressIn={warmPoll} onFocus={warmPoll} onHoverIn={handleCtaHoverIn} onHoverOut={handleCtaHoverOut} style={({ pressed }) => StyleSheet.flatten([styles.cta, ctaHovered && styles.ctaHovered, pressed && styles.ctaPressed])}>
           <Text style={StyleSheet.flatten([styles.ctaText, ctaHovered && styles.ctaTextHovered])}>J’ai un avis</Text>
           <View style={ctaHovered && styles.ctaArrowHovered}><ArrowRight size={16} color={palette.primaryStrong} /></View>
         </Pressable>
       </View>
     </Pressable>
   );
-}
+});
 
 const styles = StyleSheet.create({
   card: {

@@ -3,6 +3,7 @@ import { Animated, Pressable, StyleSheet, Text, useWindowDimensions, View } from
 import { Link, usePathname, useRouter, type Href } from "expo-router";
 import { BarChart3, CircleUserRound, Home, Info, Layers3, LogIn } from "lucide-react-native";
 import { useAuth } from "@/components/AuthProvider";
+import { prefetchLatestResults, prefetchThemePolls } from "@/lib/api";
 import { fontFamilyBold, fontFamilyMedium, fontFamilySemibold, palette, radius } from "@/lib/design";
 
 const centerNav = [
@@ -74,7 +75,7 @@ export function AppHeader() {
             const Icon = item.icon;
             const active = item.href === "/" ? pathname === "/" : pathname.startsWith(item.href);
             return (
-              <Pressable key={item.href} onPress={() => go(item.href)} style={styles.bottomItem}>
+              <Pressable key={item.href} onPress={() => go(item.href)} onPressIn={() => warmRoute(item.href)} onFocus={() => warmRoute(item.href)} style={styles.bottomItem}>
                 <Icon size={18} color={active ? palette.primaryStrong : palette.muted} />
                 <Text style={StyleSheet.flatten([styles.bottomLabel, active && styles.bottomLabelActive])}>{item.label}</Text>
               </Pressable>
@@ -91,11 +92,16 @@ function DesktopNavLink({ item, active }: { item: (typeof centerNav)[number]; ac
   useEffect(() => { Animated.timing(line, { toValue: active ? 1 : 0, duration: 220, useNativeDriver: true }).start(); }, [active, line]);
   function hover(value: number) { Animated.timing(line, { toValue: value, duration: 220, useNativeDriver: true }).start(); }
   return <Link href={item.href as Href} asChild>
-    <Pressable onHoverIn={() => hover(1)} onHoverOut={() => hover(active ? 1 : 0)} style={styles.navItem}>
+    <Pressable onHoverIn={() => { hover(1); warmRoute(item.href); }} onFocus={() => warmRoute(item.href)} onPressIn={() => warmRoute(item.href)} onHoverOut={() => hover(active ? 1 : 0)} style={styles.navItem}>
       <Text style={StyleSheet.flatten([styles.navText, active && styles.navTextActive])}>{item.label}</Text>
       <Animated.View style={StyleSheet.flatten([styles.navLine, { transform: [{ scaleX: line }] }])} />
     </Pressable>
   </Link>;
+}
+
+function warmRoute(href: string) {
+  if (href === "/themes") prefetchThemePolls("all");
+  if (href === "/results") prefetchLatestResults();
 }
 
 const styles = StyleSheet.create({

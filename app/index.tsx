@@ -6,7 +6,7 @@ import { PageShell } from "@/components/PageShell";
 import { TrendingPollsCarousel } from "@/components/TrendingPollsCarousel";
 import { ApproachSection } from "@/components/ApproachSection";
 import { FeaturedTopicsTicker } from "@/components/FeaturedTopicsTicker";
-import { getFeaturedPolls } from "@/lib/api";
+import { getFeaturedPolls, prefetchLatestResults, prefetchThemePolls } from "@/lib/api";
 import { fontFamilyBold, fontFamilyMedium, fontFamilySemibold, palette, radius, shadows } from "@/lib/design";
 import type { PollWithStats } from "@/lib/types";
 import { useReducedMotion } from "@/lib/useReducedMotion";
@@ -16,6 +16,7 @@ const HERO_TITLE = "Exprimez votre position. Faites-la évoluer.";
 export default function Home() {
   const router = useRouter();
   const [polls, setPolls] = useState<PollWithStats[]>([]);
+  const [isLoadingPolls, setIsLoadingPolls] = useState(true);
   const [typedTitle, setTypedTitle] = useState("");
   const subtitleReveal = useMemo(() => new Animated.Value(0), []);
   const reducedMotion = useReducedMotion();
@@ -24,10 +25,17 @@ export default function Home() {
 
   useEffect(() => {
     let active = true;
-    getFeaturedPolls().then((items) => {
-      if (!active) return;
-      setPolls(items);
-    });
+    getFeaturedPolls()
+      .then((items) => {
+        if (!active) return;
+        setPolls(items);
+      })
+      .catch(() => {
+        if (active) setPolls([]);
+      })
+      .finally(() => {
+        if (active) setIsLoadingPolls(false);
+      });
     return () => {
       active = false;
     };
@@ -74,11 +82,11 @@ export default function Home() {
             Votez anonymement sur les grandes questions du moment, suivez les résultats agrégés et débattez librement. Ici, on peut hésiter, échanger et se forger une opinion.
           </Animated.Text>
           <View style={styles.actions}>
-            <Pressable onPress={() => router.push("/themes" as Href)} style={styles.primary}>
+            <Pressable onPress={() => router.push("/themes" as Href)} onPressIn={() => prefetchThemePolls("all")} onFocus={() => prefetchThemePolls("all")} onHoverIn={() => prefetchThemePolls("all")} style={styles.primary}>
               <Text style={styles.primaryText}>Découvrir les sondages</Text>
               <ArrowRight size={18} color="#FFFFFF" />
             </Pressable>
-            <Pressable onPress={() => router.push("/results" as Href)} style={styles.secondary}>
+            <Pressable onPress={() => router.push("/results" as Href)} onPressIn={prefetchLatestResults} onFocus={prefetchLatestResults} onHoverIn={prefetchLatestResults} style={styles.secondary}>
               <Text style={styles.secondaryText}>Voir les derniers résultats</Text>
             </Pressable>
           </View>
@@ -86,7 +94,7 @@ export default function Home() {
         <FeaturedTopicsTicker count={polls.length} />
       </View>
 
-      <TrendingPollsCarousel polls={polls} />
+      <TrendingPollsCarousel polls={polls} loading={isLoadingPolls} />
 
       <ApproachSection />
     </PageShell>

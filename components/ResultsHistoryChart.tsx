@@ -1,4 +1,4 @@
-import { useMemo, useState } from "react";
+import { memo, useMemo, useState } from "react";
 import { Platform, StyleSheet, Text, View, type GestureResponderEvent, type ViewProps } from "react-native";
 import Svg, { Circle, Line, Path, Text as SvgText } from "react-native-svg";
 import { choiceColors, fontFamily, fontFamilyBold, fontFamilyMedium, fontFamilySemibold, palette, radius, shadows } from "@/lib/design";
@@ -16,7 +16,7 @@ const TOOLTIP_WIDTH = 170;
 const WEB_HIT_DISTANCE = 18;
 const TOUCH_HIT_DISTANCE = 30;
 
-export function ResultsHistoryChart({ history, containerHeight }: Props) {
+export const ResultsHistoryChart = memo(function ResultsHistoryChart({ history, containerHeight }: Props) {
   const [width, setWidth] = useState(720);
   const [chartHeight, setChartHeight] = useState(190);
   const [activeIndex, setActiveIndex] = useState<number | null>(null);
@@ -83,7 +83,10 @@ export function ResultsHistoryChart({ history, containerHeight }: Props) {
     : {};
 
   return (
-    <View style={StyleSheet.flatten([styles.card, containerHeight ? { height: containerHeight } : null])} onLayout={(event) => setWidth(Math.max(240, event.nativeEvent.layout.width - 40))}>
+    <View style={StyleSheet.flatten([styles.card, containerHeight ? { height: containerHeight } : null])} onLayout={(event) => {
+      const nextWidth = Math.max(240, event.nativeEvent.layout.width - 40);
+      setWidth((current) => current === nextWidth ? current : nextWidth);
+    }}>
       <View style={styles.heading}>
         <View>
           <Text style={styles.kicker}>Évolution du vote</Text>
@@ -94,7 +97,10 @@ export function ResultsHistoryChart({ history, containerHeight }: Props) {
       {history.length === 0 ? (
         <View style={styles.empty}><Text style={styles.emptyText}>L’historique apparaîtra après les premiers votes.</Text></View>
       ) : (
-        <View style={styles.chartShell} onLayout={(event) => setChartHeight(Math.max(120, event.nativeEvent.layout.height))}>
+        <View style={styles.chartShell} onLayout={(event) => {
+          const nextHeight = Math.max(120, event.nativeEvent.layout.height);
+          setChartHeight((current) => current === nextHeight ? current : nextHeight);
+        }}>
           <Svg width="100%" height={chartHeight} viewBox={`0 0 ${width} ${chartHeight}`}>
             {[0, 25, 50, 75, 100].map((tick) => {
               const y = yFor(tick);
@@ -141,7 +147,7 @@ export function ResultsHistoryChart({ history, containerHeight }: Props) {
       </View>
     </View>
   );
-}
+});
 
 function distanceToSegment(
   x: number,

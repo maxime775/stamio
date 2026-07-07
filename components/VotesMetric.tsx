@@ -1,4 +1,4 @@
-import { useEffect, useMemo } from "react";
+import { memo, useEffect, useMemo } from "react";
 import { Animated, StyleSheet, Text, View } from "react-native";
 import Svg, { Circle } from "react-native-svg";
 import { fontFamilyBold, fontFamilyMedium, palette } from "@/lib/design";
@@ -9,7 +9,7 @@ const RADIUS = 48;
 const CIRCUMFERENCE = 2 * Math.PI * RADIUS;
 const AnimatedCircle = Animated.createAnimatedComponent(Circle);
 
-export function VotesMetric({ value, accent = palette.primaryStrong, animationKey }: { value: number; accent?: string; animationKey?: string }) {
+export const VotesMetric = memo(function VotesMetric({ value, accent = palette.primaryStrong, animationKey }: { value: number; accent?: string; animationKey?: string }) {
   const draw = useMemo(() => new Animated.Value(0), []);
   const content = useMemo(() => new Animated.Value(0), []);
   const reducedMotion = useReducedMotion();
@@ -60,7 +60,7 @@ export function VotesMetric({ value, accent = palette.primaryStrong, animationKe
       </View>
     </View>
   );
-}
+});
 
 const styles = StyleSheet.create({
   wrap: { minWidth: 120, alignItems: "center", justifyContent: "center" },

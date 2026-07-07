@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useRef, useState } from "react";
+import { memo, useEffect, useMemo, useRef, useState } from "react";
 import { Animated, Easing, Platform, StyleSheet, Text, View } from "react-native";
 import { TrustBadge } from "@/components/TrustBadge";
 import { fontFamilyBold, fontFamilyMedium, fontFamilySemibold, palette } from "@/lib/design";
@@ -12,7 +12,7 @@ const ITEMS = [
   { icon: "lock" as const, title: "Anti-doublon technique", text: "La base conserve la contrainte anti-double vote par question." }
 ];
 
-export function ApproachSection() {
+export const ApproachSection = memo(function ApproachSection() {
   const sectionRef = useRef<View | null>(null);
   const playedRef = useRef(false);
   const typingTimerRef = useRef<ReturnType<typeof setInterval> | null>(null);
@@ -121,7 +121,7 @@ export function ApproachSection() {
       </View>
     </View>
   );
-}
+});
 
 const styles = StyleSheet.create({
   section: { borderTopWidth: 1, borderTopColor: palette.lineStrong, paddingTop: 34, gap: 24 },

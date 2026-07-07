@@ -27,7 +27,18 @@ export function PollDiscussion({ pollId }: { pollId: string }) {
     setLoading(false);
   }
 
-  useEffect(() => { refresh(); }, [pollId]);
+  useEffect(() => {
+    let active = true;
+    setLoading(true);
+    getPollComments(pollId).then((items) => {
+      if (!active) return;
+      setComments(items);
+      setLoading(false);
+    });
+    return () => {
+      active = false;
+    };
+  }, [pollId]);
 
   async function like(comment: PollComment) {
     if (!user) return router.push("/auth/signup" as Href);
@@ -35,11 +46,25 @@ export function PollDiscussion({ pollId }: { pollId: string }) {
     await refresh();
   }
 
-  const roots = useMemo(() => {
-    const rootComments = comments.filter((comment) => !comment.parent_comment_id);
-    return [...rootComments].sort((a, b) => sort === "popular"
+  const { roots, repliesByParent } = useMemo(() => {
+    const rootComments: PollComment[] = [];
+    const replies = new Map<string, PollComment[]>();
+    for (const comment of comments) {
+      if (!comment.parent_comment_id) {
+        rootComments.push(comment);
+      } else {
+        replies.set(comment.parent_comment_id, [...(replies.get(comment.parent_comment_id) ?? []), comment]);
+      }
+    }
+    for (const [parentId, parentReplies] of replies) {
+      replies.set(parentId, parentReplies.sort((a, b) => a.created_at.localeCompare(b.created_at)));
+    }
+    return {
+      roots: rootComments.sort((a, b) => sort === "popular"
       ? b.likes - a.likes || b.created_at.localeCompare(a.created_at)
-      : b.created_at.localeCompare(a.created_at));
+      : b.created_at.localeCompare(a.created_at)),
+      repliesByParent: replies
+    };
   }, [comments, sort]);
 
   return (
@@ -65,14 +90,14 @@ export function PollDiscussion({ pollId }: { pollId: string }) {
         </View>
       )}
 
-      {loading ? <ActivityIndicator color={palette.primaryStrong} /> : roots.length === 0 ? (
+      {loading ? <DiscussionSkeleton /> : roots.length === 0 ? (
         <View style={styles.empty}><MessageCircle size={24} color={palette.muted} /><Text style={styles.emptyTitle}>Ouvrez la discussion</Text><Text style={styles.emptyText}>Aucun commentaire pour le moment.</Text></View>
       ) : (
         <View style={styles.list}>
           {roots.map((comment) => (
             <View key={comment.id} style={styles.thread}>
               <CommentItem comment={comment} authenticated={Boolean(user)} onLike={() => like(comment)} onReply={() => user ? setReplyTo(comment) : router.push("/auth/signup" as Href)} />
-              {comments.filter((reply) => reply.parent_comment_id === comment.id).sort((a, b) => a.created_at.localeCompare(b.created_at)).map((reply) => (
+              {(repliesByParent.get(comment.id) ?? []).map((reply) => (
                 <View key={reply.id} style={styles.reply}><CommentItem comment={reply} authenticated={Boolean(user)} onLike={() => like(reply)} onReply={() => user ? setReplyTo(comment) : router.push("/auth/signup" as Href)} /></View>
               ))}
             </View>
@@ -81,6 +106,16 @@ export function PollDiscussion({ pollId }: { pollId: string }) {
       )}
     </View>
   );
+}
+
+function DiscussionSkeleton() {
+  return <View style={styles.loadingDiscussion}>
+    {[0, 1].map((index) => <View key={index} style={styles.loadingComment}>
+      <View style={styles.loadingMeta} />
+      <View style={styles.loadingLine} />
+      <View style={styles.loadingLineShort} />
+    </View>)}
+  </View>;
 }
 
 type SelectedImage = Omit<PollCommentImage, "path"> & { uri: string; base64: string };
@@ -202,6 +237,11 @@ const styles = StyleSheet.create({
   counter: { color: "#65758A", fontSize: 11 }, error: { color: "#E8A0A0", flex: 1, minWidth: 180, fontSize: 12 },
   send: { minHeight: 38, flexDirection: "row", alignItems: "center", gap: 7, paddingHorizontal: 14, borderRadius: radius.sm, backgroundColor: palette.primary }, sendText: { color: "#FFFFFF", fontFamily: fontFamilySemibold }, disabled: { opacity: 0.45 },
   list: { borderTopWidth: 1, borderTopColor: palette.line }, thread: { gap: 0 }, reply: { marginLeft: 24, borderLeftWidth: 1, borderLeftColor: palette.lineStrong, paddingLeft: 14 },
+  loadingDiscussion: { gap: 12 },
+  loadingComment: { borderRadius: radius.sm, borderWidth: 1, borderColor: palette.line, backgroundColor: palette.surface, padding: 16, gap: 10 },
+  loadingMeta: { width: 160, height: 10, borderRadius: radius.xs, backgroundColor: palette.lineStrong },
+  loadingLine: { width: "86%", height: 13, borderRadius: radius.xs, backgroundColor: palette.line },
+  loadingLineShort: { width: "54%", height: 13, borderRadius: radius.xs, backgroundColor: palette.line },
   comment: { borderRadius: 0, backgroundColor: "transparent", borderBottomWidth: 1, borderBottomColor: palette.line, paddingVertical: 18, paddingHorizontal: 2, gap: 11, overflow: "hidden" },
   commentMeta: { flexDirection: "row", alignItems: "center", gap: 8 }, avatar: { width: 26, height: 26, borderRadius: radius.xs, alignItems: "center", justifyContent: "center", backgroundColor: palette.surfaceRaised }, avatarText: { color: palette.inkSecondary, fontFamily: fontFamilySemibold, fontSize: 12 }, author: { color: palette.ink, fontFamily: fontFamilySemibold, fontSize: 13 }, date: { color: palette.muted, fontSize: 11 },
   body: { color: "#C8D2E1", lineHeight: 22, fontSize: 14 }, deleted: { color: "#718096", fontStyle: "italic" },

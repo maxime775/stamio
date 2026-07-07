@@ -13,7 +13,7 @@ import { AppFooter } from "@/components/AppFooter";
 import { VotePanel } from "@/components/VotePanel";
 import { SkeletonPoll } from "@/components/SkeletonPoll";
 import { useAuth } from "@/components/AuthProvider";
-import { fetchPoll, getResults, getResultsHistory } from "@/lib/api";
+import { fetchPoll, getCachedPoll, getCachedResults, getCachedResultsHistory, getResults, getResultsHistory } from "@/lib/api";
 import { getPollDescription, getThemeLabel, VISITOR_VOTE_LIMIT } from "@/lib/product";
 import { fontFamilyBold, fontFamilyMedium, fontFamilySemibold, getThemeVisual, palette, radius, shadows } from "@/lib/design";
 import { getVisitorVoteCount, incrementVisitorVoteCount } from "@/lib/visitorLimit";
@@ -43,18 +43,35 @@ export default function PollScreen() {
     let active = true;
     async function load() {
       if (!pollId) return;
-      setLoading(true);
+      const cachedPoll = getCachedPoll(pollId);
+      const cachedResults = getCachedResults(pollId);
+      const cachedHistory = getCachedResultsHistory(pollId);
+      fade.stopAnimation();
+      if (cachedPoll) {
+        setPoll(cachedPoll);
+        if (cachedResults) setResults(cachedResults);
+        if (cachedHistory) setHistory(cachedHistory);
+        setLoading(false);
+        fade.setValue(1);
+      } else {
+        setPoll(null);
+        setResults([]);
+        setHistory([]);
+        setLoading(true);
+        fade.setValue(0);
+      }
+      setSelectedChoiceId(null);
       const [pollData, resultData, historyData] = await Promise.all([fetchPoll(pollId), getResults(pollId), getResultsHistory(pollId)]);
       if (!active) return;
       setPoll(pollData);
       setResults(resultData);
       setHistory(historyData);
       setLoading(false);
-      Animated.timing(fade, { toValue: 1, duration: 480, useNativeDriver: true }).start();
+      if (!cachedPoll) Animated.timing(fade, { toValue: 1, duration: 320, useNativeDriver: true }).start();
     }
     load();
     const timer = setInterval(async () => {
-      if (pollId) setResults(await getResults(pollId));
+      if (pollId) setResults(await getResults(pollId, { force: true, label: "pollResultsRefresh" }));
     }, 4500);
     return () => {
       active = false;
@@ -80,7 +97,7 @@ export default function PollScreen() {
   async function handleVoteFinished(status: VoteStatus, nextResults?: PollResult[]) {
     setVoteState(status);
     if (nextResults) setResults(nextResults);
-    if (status.status === "accepted" && pollId) setHistory(await getResultsHistory(pollId));
+    if (status.status === "accepted" && pollId) setHistory(await getResultsHistory(pollId, { force: true, label: "getResultsHistoryAfterVote" }));
     if (status.status === "duplicate") {
       setPanelVisible(false);
     }

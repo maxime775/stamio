@@ -1,4 +1,4 @@
-import { useEffect, useRef } from "react";
+import { memo, useCallback, useEffect, useMemo, useRef } from "react";
 import { NativeScrollEvent, NativeSyntheticEvent, Platform, ScrollView, StyleSheet, Text, View, type ViewProps } from "react-native";
 import { PollTeaserCard } from "@/components/PollTeaserCard";
 import type { PollWithStats } from "@/lib/types";
@@ -7,11 +7,12 @@ import { useReducedMotion } from "@/lib/useReducedMotion";
 
 type Props = {
   polls: PollWithStats[];
+  loading?: boolean;
 };
 
 const SCROLL_SPEED_PX_PER_SECOND = 30;
 
-export function TrendingPollsCarousel({ polls }: Props) {
+export const TrendingPollsCarousel = memo(function TrendingPollsCarousel({ polls, loading = false }: Props) {
   const reducedMotion = useReducedMotion();
   const scrollRef = useRef<ScrollView | null>(null);
   const segmentWidthRef = useRef(1);
@@ -46,18 +47,21 @@ export function TrendingPollsCarousel({ polls }: Props) {
     };
   }, [polls.length, reducedMotion]);
 
-  function pauseTemporarily() {
+  const pauseTemporarily = useCallback(() => {
     touchPausedRef.current = true;
     if (resumeTimerRef.current) clearTimeout(resumeTimerRef.current);
     resumeTimerRef.current = setTimeout(() => {
       touchPausedRef.current = false;
     }, 2600);
-  }
+  }, []);
 
-  function handleCardHover(value: boolean) {
+  const handleCardHover = useCallback((value: boolean) => {
     hoverPausedRef.current = value;
     lastFrameRef.current = 0;
-  }
+  }, []);
+
+  const handleCardHoverStart = useCallback(() => handleCardHover(true), [handleCardHover]);
+  const handleCardHoverEnd = useCallback(() => handleCardHover(false), [handleCardHover]);
 
   function handleScroll(event: NativeSyntheticEvent<NativeScrollEvent>) {
     const { contentOffset, contentSize, layoutMeasurement } = event.nativeEvent;
@@ -86,19 +90,29 @@ export function TrendingPollsCarousel({ polls }: Props) {
     }
   }
 
-  const segments = polls.length > 1 ? [0, 1, 2] : [0];
+  const segments = useMemo(() => polls.length > 1 ? [0, 1, 2] : [0], [polls.length]);
   const webHoverProps = Platform.OS === "web" ? ({
-    onMouseEnter: () => handleCardHover(true),
-    onMouseLeave: () => handleCardHover(false)
+    onMouseEnter: handleCardHoverStart,
+    onMouseLeave: handleCardHoverEnd
   } as unknown as ViewProps) : {};
 
   return (
     <View {...webHoverProps} style={styles.wrap}>
       <View style={styles.header}>
         <Text style={styles.title}>Sujets qui font l’actu</Text>
-        <Text style={styles.counter}>{polls.length} questions ouvertes</Text>
+        <Text style={styles.counter}>{loading ? "Chargement" : `${polls.length} questions ouvertes`}</Text>
       </View>
-      <ScrollView
+      {loading ? (
+        <View style={styles.skeletonRail}>
+          {[0, 1, 2].map((index) => <View key={index} style={styles.skeletonCard}>
+            <View style={styles.skeletonLabel} />
+            <View style={styles.skeletonTitle} />
+            <View style={styles.skeletonTitleShort} />
+            <View style={styles.skeletonFooter} />
+          </View>)}
+        </View>
+      ) : null}
+      {!loading ? <ScrollView
         ref={scrollRef}
         style={styles.scroller}
         horizontal
@@ -117,14 +131,15 @@ export function TrendingPollsCarousel({ polls }: Props) {
             {polls.map((poll) => <PollTeaserCard
               key={`${poll.id}-${segment}`}
               poll={poll}
-              onHoverStart={() => handleCardHover(true)}
+              onHoverStart={handleCardHoverStart}
+              onHoverEnd={handleCardHoverEnd}
             />)}
           </View>
         ))}
-      </ScrollView>
+      </ScrollView> : null}
     </View>
   );
-}
+});
 
 const styles = StyleSheet.create({
   wrap: { width: "100%", maxWidth: "100%", gap: 16, overflow: "hidden" },
@@ -133,5 +148,11 @@ const styles = StyleSheet.create({
   title: { color: palette.ink, fontFamily: fontFamilyBold, fontSize: 26, lineHeight: 32, letterSpacing: -0.5 },
   counter: { color: palette.muted, fontFamily: fontFamilyMedium, fontSize: 12 },
   rail: { paddingVertical: 6 },
-  segment: { flexDirection: "row", gap: 16, paddingRight: 16 }
+  segment: { flexDirection: "row", gap: 16, paddingRight: 16 },
+  skeletonRail: { flexDirection: "row", gap: 16, paddingVertical: 6 },
+  skeletonCard: { width: 320, minHeight: 238, borderRadius: 8, borderWidth: 1, borderColor: palette.line, backgroundColor: palette.surface, padding: 20, gap: 14 },
+  skeletonLabel: { width: 86, height: 9, borderRadius: 3, backgroundColor: palette.lineStrong },
+  skeletonTitle: { width: "86%", height: 18, borderRadius: 3, backgroundColor: palette.lineStrong, marginTop: 18 },
+  skeletonTitleShort: { width: "62%", height: 18, borderRadius: 3, backgroundColor: palette.lineStrong },
+  skeletonFooter: { width: 140, height: 12, borderRadius: 3, backgroundColor: palette.line, marginTop: "auto" }
 });

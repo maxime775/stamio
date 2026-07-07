@@ -1,4 +1,4 @@
-import { useEffect, useId, useMemo, useState } from "react";
+import { memo, useEffect, useId, useMemo, useState } from "react";
 import { Animated, StyleSheet, Text, View } from "react-native";
 import Svg, { Circle, Defs, G, Mask } from "react-native-svg";
 import { choiceColors, fontFamilyBold, fontFamilyMedium, fontFamilySemibold, palette } from "@/lib/design";
@@ -16,14 +16,16 @@ const RADIUS = 43;
 const CIRCUMFERENCE = 2 * Math.PI * RADIUS;
 const AnimatedCircle = Animated.createAnimatedComponent(Circle);
 
-export function ResultsDonutSummary({ choices, results }: Props) {
-  const resultByChoice = new Map(results.map((result) => [result.choice_id, result]));
-  const items = (choices.length > 0 ? choices.map((choice) => ({
-    choice_id: choice.id,
-    label: choice.label,
-    votes: resultByChoice.get(choice.id)?.votes ?? 0
-  })) : results).map((item, index) => ({ ...item, color: choiceColors[index % choiceColors.length] }));
-  const total = items.reduce((sum, item) => sum + item.votes, 0);
+export const ResultsDonutSummary = memo(function ResultsDonutSummary({ choices, results }: Props) {
+  const items = useMemo(() => {
+    const resultByChoice = new Map(results.map((result) => [result.choice_id, result]));
+    return (choices.length > 0 ? choices.map((choice) => ({
+      choice_id: choice.id,
+      label: choice.label,
+      votes: resultByChoice.get(choice.id)?.votes ?? 0
+    })) : results).map((item, index) => ({ ...item, color: choiceColors[index % choiceColors.length] }));
+  }, [choices, results]);
+  const total = useMemo(() => items.reduce((sum, item) => sum + item.votes, 0), [items]);
   const draw = useMemo(() => new Animated.Value(0), []);
   const reveal = useMemo(() => new Animated.Value(0), []);
   const counter = useMemo(() => new Animated.Value(0), []);
@@ -68,22 +70,24 @@ export function ResultsDonutSummary({ choices, results }: Props) {
     };
   }, [counter, draw, reducedMotion, reveal]);
 
-  const lastPositiveIndex = items.reduce((last, item, index) => item.votes > 0 ? index : last, -1);
-  let accumulatedLength = 0;
-  const segments = items.map((item, index) => {
-    if (total <= 0 || item.votes <= 0) return { ...item, length: 0, offset: accumulatedLength, fullCircle: false };
-    const length = index === lastPositiveIndex
-      ? Math.max(0, CIRCUMFERENCE - accumulatedLength)
-      : (item.votes / total) * CIRCUMFERENCE;
-    const segment = {
-      ...item,
-      length,
-      offset: accumulatedLength,
-      fullCircle: item.votes === total
-    };
-    accumulatedLength += length;
-    return segment;
-  });
+  const segments = useMemo(() => {
+    const lastPositiveIndex = items.reduce((last, item, index) => item.votes > 0 ? index : last, -1);
+    let accumulatedLength = 0;
+    return items.map((item, index) => {
+      if (total <= 0 || item.votes <= 0) return { ...item, length: 0, offset: accumulatedLength, fullCircle: false };
+      const length = index === lastPositiveIndex
+        ? Math.max(0, CIRCUMFERENCE - accumulatedLength)
+        : (item.votes / total) * CIRCUMFERENCE;
+      const segment = {
+        ...item,
+        length,
+        offset: accumulatedLength,
+        fullCircle: item.votes === total
+      };
+      accumulatedLength += length;
+      return segment;
+    });
+  }, [items, total]);
 
   return (
     <View accessibilityLabel={`${total} votes. ${items.map((item) => `${item.label} ${Math.round((item.votes / Math.max(total, 1)) * 100)} pour cent`).join(", ")}`} style={styles.card}>
@@ -147,7 +151,7 @@ export function ResultsDonutSummary({ choices, results }: Props) {
       </View>
     </View>
   );
-}
+});
 
 const styles = StyleSheet.create({
   card: { width: 300, maxWidth: "100%", alignSelf: "center", justifyContent: "center" },

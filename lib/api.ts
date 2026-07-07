@@ -30,23 +30,51 @@ type SubmitPayload = {
   otp_code: string;
 };
 
-export async function fetchPoll(pollId: string): Promise<Poll | null> {
-  const enriched = await supabase
-    .from("polls")
-    .select("id, question, description, status, theme, featured, trend_label, created_at, closes_at, choices(id, poll_id, label, position)")
-    .eq("id", pollId)
-    .maybeSingle();
+const PUBLIC_CACHE_TTL_MS = 45_000;
+const isDevRuntime = typeof __DEV__ !== "undefined" ? __DEV__ : process.env.NODE_ENV !== "production";
 
-  if (!enriched.error && enriched.data) return normalizePoll(enriched.data);
+type CacheOptions = {
+  force?: boolean;
+  ttlMs?: number;
+  label?: string;
+};
 
-  const { data, error } = await supabase
-    .from("polls")
-    .select("id, question, status, theme, featured, trend_label, created_at, closes_at, choices(id, poll_id, label, position)")
-    .eq("id", pollId)
-    .maybeSingle();
+type CacheEntry<T> = {
+  value?: T;
+  expiresAt: number;
+  promise?: Promise<T>;
+};
 
-  if (error || !data) return null;
-  return normalizePoll(data);
+const publicCache = new Map<string, CacheEntry<unknown>>();
+
+const cacheKeys = {
+  poll: (pollId: string) => `poll:${pollId}`,
+  results: (pollId: string) => `results:${pollId}`,
+  history: (pollId: string) => `history:${pollId}`,
+  comments: (pollId: string) => `comments:${pollId}`,
+  collection: (options: { theme?: ThemeSlug; featuredOnly?: boolean; limit: number; includeResults?: boolean }) =>
+    `collection:${options.theme ?? "all"}:${options.featuredOnly ? "featured" : "any"}:${options.limit}:${options.includeResults ? "results" : "stats"}`
+};
+
+export async function fetchPoll(pollId: string, options: CacheOptions = {}): Promise<Poll | null> {
+  return cached(cacheKeys.poll(pollId), async () => {
+    const enriched = await supabase
+      .from("polls")
+      .select("id, question, description, status, theme, featured, trend_label, created_at, closes_at, choices(id, poll_id, label, position)")
+      .eq("id", pollId)
+      .maybeSingle();
+
+    if (!enriched.error && enriched.data) return normalizePoll(enriched.data);
+
+    const { data, error } = await supabase
+      .from("polls")
+      .select("id, question, status, theme, featured, trend_label, created_at, closes_at, choices(id, poll_id, label, position)")
+      .eq("id", pollId)
+      .maybeSingle();
+
+    if (error || !data) return null;
+    return normalizePoll(data);
+  }, { ...options, label: options.label ?? "fetchPoll" });
 }
 
 export async function startVerification(payload: StartPayload): Promise<StartVerificationResponse> {
@@ -67,33 +95,40 @@ export async function submitVote(payload: SubmitPayload): Promise<VoteStatus> {
   return errorPayload ?? { status: "error", message: error?.message };
 }
 
-export async function getResults(pollId: string): Promise<PollResult[]> {
-  const { data, error } = await supabase.functions.invoke<{ results: PollResult[] }>("get-results", {
-    body: { poll_id: pollId }
-  });
-  if (error || !data) return [];
-  return data.results;
+export async function getResults(pollId: string, options: CacheOptions = {}): Promise<PollResult[]> {
+  return cached(cacheKeys.results(pollId), async () => {
+    const { data, error } = await supabase.functions.invoke<{ results: PollResult[] }>("get-results", {
+      body: { poll_id: pollId }
+    });
+    if (error || !data) return [];
+    return data.results;
+  }, { ...options, label: options.label ?? "getResults" });
 }
 
-export async function getResultsHistory(pollId: string): Promise<PollHistoryPoint[]> {
-  const { data, error } = await supabase.functions.invoke<{ history: PollHistoryPoint[] }>("get-results-history", {
-    body: { poll_id: pollId }
-  });
-  if (error || !data) return [];
-  return data.history.map((point) => ({ ...point, votes: Number(point.votes), percentage: Number(point.percentage) }));
+export async function getResultsHistory(pollId: string, options: CacheOptions = {}): Promise<PollHistoryPoint[]> {
+  return cached(cacheKeys.history(pollId), async () => {
+    const { data, error } = await supabase.functions.invoke<{ history: PollHistoryPoint[] }>("get-results-history", {
+      body: { poll_id: pollId }
+    });
+    if (error || !data) return [];
+    return data.history.map((point) => ({ ...point, votes: Number(point.votes), percentage: Number(point.percentage) }));
+  }, { ...options, label: options.label ?? "getResultsHistory" });
 }
 
-export async function getPollComments(pollId: string): Promise<PollComment[]> {
-  const { data, error } = await supabase.rpc("get_poll_comments_v2", { p_poll_id: pollId });
-  if (error || !data) return [];
-  return data.map((comment: Record<string, unknown>) => {
-    const imagePath = typeof comment.image_path === "string" ? comment.image_path : null;
-    const imageUrl = imagePath ? supabase.storage.from(COMMENT_IMAGE_BUCKET).getPublicUrl(imagePath).data.publicUrl : null;
-    return { ...comment, likes: Number(comment.likes), image_size: comment.image_size ? Number(comment.image_size) : null, image_url: imageUrl };
-  }) as PollComment[];
+export async function getPollComments(pollId: string, options: CacheOptions = {}): Promise<PollComment[]> {
+  return cached(cacheKeys.comments(pollId), async () => {
+    const { data, error } = await supabase.rpc("get_poll_comments_v2", { p_poll_id: pollId });
+    if (error || !data) return [];
+    return data.map((comment: Record<string, unknown>) => {
+      const imagePath = typeof comment.image_path === "string" ? comment.image_path : null;
+      const imageUrl = imagePath ? supabase.storage.from(COMMENT_IMAGE_BUCKET).getPublicUrl(imagePath).data.publicUrl : null;
+      return { ...comment, likes: Number(comment.likes), image_size: comment.image_size ? Number(comment.image_size) : null, image_url: imageUrl };
+    }) as PollComment[];
+  }, { ...options, label: options.label ?? "getPollComments" });
 }
 
 export async function createPollComment(pollId: string, body: string, parentCommentId: string | null = null, image?: PollCommentImage) {
+  invalidatePollComments(pollId);
   if (image) {
     return supabase.rpc("create_poll_comment_with_image", {
       p_poll_id: pollId,
@@ -112,6 +147,7 @@ export async function createPollComment(pollId: string, body: string, parentComm
 }
 
 export async function togglePollCommentLike(commentId: string) {
+  invalidateCommentCaches();
   return supabase.rpc("toggle_poll_comment_like", { p_comment_id: commentId });
 }
 
@@ -157,8 +193,47 @@ export async function getPollsByTheme(theme: ThemeSlug): Promise<PollWithStats[]
   return fetchPollCollection({ theme, limit: 20 });
 }
 
+export async function getOpenPolls(): Promise<PollWithStats[]> {
+  return fetchPollCollection({ limit: 40 });
+}
+
 export async function getLatestResults(): Promise<PollWithStats[]> {
   return fetchPollCollection({ limit: 10, includeResults: true });
+}
+
+export function getCachedPoll(pollId: string): Poll | null {
+  return readCache<Poll | null>(cacheKeys.poll(pollId)) ?? null;
+}
+
+export function getCachedResults(pollId: string): PollResult[] | null {
+  return readCache<PollResult[]>(cacheKeys.results(pollId));
+}
+
+export function getCachedResultsHistory(pollId: string): PollHistoryPoint[] | null {
+  return readCache<PollHistoryPoint[]>(cacheKeys.history(pollId));
+}
+
+export function prefetchPollDetail(pollId: string) {
+  void Promise.allSettled([
+    fetchPoll(pollId, { label: "prefetchPoll" }),
+    getResults(pollId, { label: "prefetchResults" }),
+    getResultsHistory(pollId, { label: "prefetchResultsHistory" })
+  ]);
+}
+
+export function prefetchThemePolls(theme: ThemeSlug | "all") {
+  void (theme === "all" ? getOpenPolls() : getPollsByTheme(theme));
+}
+
+export function prefetchLatestResults() {
+  void getLatestResults();
+}
+
+export function invalidatePollCaches(pollId: string) {
+  publicCache.delete(cacheKeys.poll(pollId));
+  publicCache.delete(cacheKeys.results(pollId));
+  publicCache.delete(cacheKeys.history(pollId));
+  invalidateCollectionCaches();
 }
 
 export async function getCurrentUserProfile(): Promise<Profile | null> {
@@ -226,31 +301,36 @@ async function fetchPollCollection(options: {
   limit: number;
   includeResults?: boolean;
 }) {
-  let query = supabase
-    .from("polls")
-    .select("id, question, status, theme, featured, trend_label, created_at, closes_at, choices(id, poll_id, label, position)")
-    .eq("status", "open")
-    .order("created_at", { ascending: false })
-    .limit(options.limit);
+  return cached(cacheKeys.collection(options), async () => {
+    let query = supabase
+      .from("polls")
+      .select("id, question, description, status, theme, featured, trend_label, created_at, closes_at, choices(id, poll_id, label, position)")
+      .eq("status", "open")
+      .order("created_at", { ascending: false })
+      .limit(options.limit);
 
-  if (options.theme) query = query.eq("theme", options.theme);
-  if (options.featuredOnly) query = query.eq("featured", true);
+    if (options.theme) query = query.eq("theme", options.theme);
+    if (options.featuredOnly) query = query.eq("featured", true);
 
-  const { data, error } = await query;
-  if (error || !data) return [];
+    const { data, error } = await query;
+    if (error || !data) return [];
 
-  const polls = data.map(normalizePoll) as PollWithStats[];
-  return Promise.all(
-    polls.map(async (poll) => {
-      const results = await getResults(poll.id);
-      const totalVotes = results.reduce((sum, result) => sum + result.votes, 0);
-      return {
-        ...poll,
-        totalVotes,
-        results: options.includeResults ? results : undefined
-      };
-    })
-  );
+    const polls = data.map(normalizePoll) as PollWithStats[];
+    const withStats = await Promise.all(
+      polls.map(async (poll) => {
+        writeCache(cacheKeys.poll(poll.id), poll);
+        const results = await getResults(poll.id);
+        const totalVotes = results.reduce((sum, result) => sum + result.votes, 0);
+        return {
+          ...poll,
+          totalVotes,
+          results: options.includeResults ? results : undefined
+        };
+      })
+    );
+
+    return withStats;
+  }, { label: "fetchPollCollection" });
 }
 
 function normalizePoll(data: Record<string, unknown>): Poll {
@@ -267,4 +347,65 @@ async function readFunctionError<T>(error: unknown): Promise<T | null> {
   const context = (error as { context?: unknown }).context;
   if (!(context instanceof Response)) return null;
   return context.clone().json().catch(() => null) as Promise<T | null>;
+}
+
+function readCache<T>(key: string): T | null {
+  const entry = publicCache.get(key) as CacheEntry<T> | undefined;
+  if (!entry || entry.value === undefined || entry.expiresAt <= Date.now()) return null;
+  return entry.value;
+}
+
+function writeCache<T>(key: string, value: T, ttlMs = PUBLIC_CACHE_TTL_MS) {
+  publicCache.set(key, { value, expiresAt: Date.now() + ttlMs });
+}
+
+function cached<T>(key: string, loader: () => Promise<T>, options: CacheOptions = {}) {
+  const ttlMs = options.ttlMs ?? PUBLIC_CACHE_TTL_MS;
+  const existing = publicCache.get(key) as CacheEntry<T> | undefined;
+  if (!options.force) {
+    if (existing?.value !== undefined && existing.expiresAt > Date.now()) return Promise.resolve(existing.value);
+    if (existing?.promise) return existing.promise;
+  }
+
+  const startedAt = nowMs();
+  const promise = loader()
+    .then((value) => {
+      writeCache(key, value, ttlMs);
+      logPerf(options.label ?? key, startedAt);
+      return value;
+    })
+    .catch((error) => {
+      publicCache.delete(key);
+      logPerf(`${options.label ?? key} failed`, startedAt);
+      throw error;
+    });
+
+  publicCache.set(key, { value: existing?.value, expiresAt: existing?.expiresAt ?? 0, promise });
+  return promise;
+}
+
+function invalidateCollectionCaches() {
+  for (const key of publicCache.keys()) {
+    if (key.startsWith("collection:")) publicCache.delete(key);
+  }
+}
+
+function invalidatePollComments(pollId: string) {
+  publicCache.delete(cacheKeys.comments(pollId));
+}
+
+function invalidateCommentCaches() {
+  for (const key of publicCache.keys()) {
+    if (key.startsWith("comments:")) publicCache.delete(key);
+  }
+}
+
+function nowMs() {
+  return globalThis.performance?.now?.() ?? Date.now();
+}
+
+function logPerf(label: string, startedAt: number) {
+  if (!isDevRuntime) return;
+  const elapsed = Math.round(nowMs() - startedAt);
+  console.info(`[perf] ${label} ${elapsed}ms`);
 }

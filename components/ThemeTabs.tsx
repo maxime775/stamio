@@ -1,6 +1,7 @@
 import { Pressable, ScrollView, StyleSheet, Text, View } from "react-native";
 import { useRouter, type Href } from "expo-router";
 import { THEMES } from "@/lib/product";
+import { prefetchThemePolls } from "@/lib/api";
 import type { ThemeSlug } from "@/lib/types";
 import { fontFamilyMedium, fontFamilySemibold, getThemeVisual, palette } from "@/lib/design";
 
@@ -32,6 +33,9 @@ export function ThemeTabs({ active = "all", includeAll = false, onSelect }: Prop
             <Pressable
               key={item.slug}
               onPress={() => handleSelect(item.slug)}
+              onPressIn={() => prefetchThemePolls(item.slug)}
+              onFocus={() => prefetchThemePolls(item.slug)}
+              onHoverIn={() => prefetchThemePolls(item.slug)}
               style={({ pressed }) => StyleSheet.flatten([styles.tab, selected && styles.tabActive, selected && { borderBottomColor: visual.accent }, pressed && styles.tabPressed])}
             >
               <Text style={StyleSheet.flatten([styles.label, selected && styles.labelActive, selected && { color: visual.accent }])}>{item.label}</Text>

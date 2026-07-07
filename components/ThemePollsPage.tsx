@@ -20,7 +20,7 @@ export function ThemePollsPage({ activeTheme }: Props) {
   const fade = useMemo(() => new Animated.Value(0), []);
   const theme = THEMES.find((item) => item.slug === activeTheme);
   const visual = getThemeVisual(activeTheme);
-  const totalVotes = polls.reduce((sum, poll) => sum + poll.totalVotes, 0);
+  const totalVotes = useMemo(() => polls.reduce((sum, poll) => sum + poll.totalVotes, 0), [polls]);
 
   useEffect(() => {
     let active = true;

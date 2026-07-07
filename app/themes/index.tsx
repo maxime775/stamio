@@ -1,14 +1,13 @@
-import { useEffect, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { StyleSheet, Text, View } from "react-native";
 import { EmptyState } from "@/components/EmptyState";
 import { PageShell } from "@/components/PageShell";
 import { PollTeaserCard } from "@/components/PollTeaserCard";
 import { ThemeTabs } from "@/components/ThemeTabs";
 import { VotesMetric } from "@/components/VotesMetric";
-import { THEMES } from "@/lib/product";
-import { getPollsByTheme } from "@/lib/api";
+import { getOpenPolls, getPollsByTheme } from "@/lib/api";
 import type { PollWithStats, ThemeSlug } from "@/lib/types";
-import { fontFamilyBold, fontFamilyMedium, fontFamilySemibold, palette, radius } from "@/lib/design";
+import { fontFamilyBold, fontFamilySemibold, palette, radius } from "@/lib/design";
 
 export default function ThemesIndex() {
   const [activeTheme, setActiveTheme] = useState<ThemeSlug | "all">("all");
@@ -22,9 +21,7 @@ export default function ThemesIndex() {
 
     async function load() {
       try {
-        const items = activeTheme === "all"
-          ? (await Promise.all(THEMES.map((theme) => getPollsByTheme(theme.slug)))).flat()
-          : await getPollsByTheme(activeTheme);
+        const items = activeTheme === "all" ? await getOpenPolls() : await getPollsByTheme(activeTheme);
         if (active) setPolls(items);
       } catch {
         if (active) setPolls([]);
@@ -39,7 +36,7 @@ export default function ThemesIndex() {
     };
   }, [activeTheme]);
 
-  const totalVotes = polls.reduce((sum, poll) => sum + poll.totalVotes, 0);
+  const totalVotes = useMemo(() => polls.reduce((sum, poll) => sum + poll.totalVotes, 0), [polls]);
 
   return (
     <PageShell>

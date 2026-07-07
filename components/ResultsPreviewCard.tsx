@@ -1,3 +1,4 @@
+import { memo, useCallback } from "react";
 import { Pressable, StyleSheet, Text, View } from "react-native";
 import { useRouter, type Href } from "expo-router";
 import { ArrowRight } from "lucide-react-native";
@@ -5,16 +6,19 @@ import { ResultsBars } from "@/components/ResultsBars";
 import { getThemeLabel } from "@/lib/product";
 import { fontFamilyBold, fontFamilyMedium, fontFamilySemibold, getThemeVisual, palette, radius } from "@/lib/design";
 import { PollTimer } from "@/components/PollTimer";
+import { prefetchPollDetail } from "@/lib/api";
 import type { PollWithStats } from "@/lib/types";
 
 type Props = {
   poll: PollWithStats;
 };
 
-export function ResultsPreviewCard({ poll }: Props) {
+export const ResultsPreviewCard = memo(function ResultsPreviewCard({ poll }: Props) {
   const router = useRouter();
   const date = poll.created_at ? new Date(poll.created_at).toLocaleDateString("fr-FR") : "Date non disponible";
   const visual = getThemeVisual(poll.theme);
+  const warmPoll = useCallback(() => prefetchPollDetail(poll.id), [poll.id]);
+  const openPoll = useCallback(() => router.push(`/poll/${poll.id}` as Href), [poll.id, router]);
 
   return (
     <View style={styles.card}>
@@ -28,13 +32,13 @@ export function ResultsPreviewCard({ poll }: Props) {
       ) : (
         <Text style={styles.empty}>Aucun vote comptabilisé pour le moment.</Text>
       )}
-      <Pressable onPress={() => router.push(`/poll/${poll.id}` as Href)} style={styles.link}>
+      <Pressable onPress={openPoll} onPressIn={warmPoll} onFocus={warmPoll} onHoverIn={warmPoll} style={styles.link}>
         <Text style={styles.linkText}>Voir le détail</Text>
         <ArrowRight size={16} color={palette.primaryStrong} />
       </Pressable>
     </View>
   );
-}
+});
 
 const styles = StyleSheet.create({
   card: {

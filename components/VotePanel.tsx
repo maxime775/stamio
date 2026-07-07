@@ -3,7 +3,7 @@ import { ActivityIndicator, Animated, Modal, Pressable, StyleSheet, Text, TextIn
 import { CheckCircle2, Send, X } from "lucide-react-native";
 import { OtpInput } from "@/components/OtpInput";
 import { Turnstile } from "@/components/Turnstile";
-import { getResults, startVerification, submitVote } from "@/lib/api";
+import { getResults, invalidatePollCaches, startVerification, submitVote } from "@/lib/api";
 import { normalizeFrenchMobilePhoneInput, validateOtp } from "@/lib/validation";
 import type { PollResult, VoteStatus } from "@/lib/types";
 import { fontFamilyBold, fontFamilyMedium, fontFamilySemibold, palette, radius, shadows } from "@/lib/design";
@@ -96,7 +96,8 @@ export function VotePanel({ visible, pollId, choiceId, choiceLabel, platform, on
       phone_e164: normalized.value,
       otp_code: otp
     });
-    const results = await getResults(pollId);
+    if (response.status === "accepted") invalidatePollCaches(pollId);
+    const results = await getResults(pollId, { force: response.status === "accepted", label: "getResultsAfterVote" });
     setLoading(false);
     onFinished(response, results);
 

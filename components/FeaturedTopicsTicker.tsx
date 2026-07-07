@@ -1,10 +1,10 @@
-import { useEffect, useMemo, useState } from "react";
+import { memo, useEffect, useMemo, useState } from "react";
 import { Animated, StyleSheet, Text, View } from "react-native";
 import { THEMES } from "@/lib/product";
 import { fontFamilyBold, fontFamilyMedium, fontFamilySemibold, getThemeVisual, palette, radius } from "@/lib/design";
 import { useReducedMotion } from "@/lib/useReducedMotion";
 
-export function FeaturedTopicsTicker({ count }: { count: number }) {
+export const FeaturedTopicsTicker = memo(function FeaturedTopicsTicker({ count }: { count: number }) {
   const [index, setIndex] = useState(0);
   const motion = useMemo(() => new Animated.Value(1), []);
   const reducedMotion = useReducedMotion();
@@ -42,7 +42,7 @@ export function FeaturedTopicsTicker({ count }: { count: number }) {
       <Text style={styles.note}>Une lecture structurée des sujets qui traversent le débat.</Text>
     </View>
   );
-}
+});
 
 const styles = StyleSheet.create({
   panel: { width: 280, maxWidth: "100%", borderRadius: radius.md, backgroundColor: palette.surface, padding: 20, gap: 8, borderWidth: 1, borderColor: palette.line },
