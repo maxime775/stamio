@@ -2,7 +2,7 @@ import { useState } from "react";
 import { Modal, Pressable, ScrollView, StyleSheet, Text, View } from "react-native";
 import { ChevronDown } from "lucide-react-native";
 import { REGIONS_FR } from "@/lib/product";
-import { fontFamilyMedium, fontFamilySemibold, palette, radius } from "@/lib/design";
+import { authField, fontFamilyMedium, fontFamilySemibold, palette, radius } from "@/lib/design";
 
 type Props = {
   value: string;
@@ -13,22 +13,25 @@ type Props = {
 
 export function RegionSelect({ value, onChange, onBlur, error }: Props) {
   const [open, setOpen] = useState(false);
+  const [hoveredOption, setHoveredOption] = useState<string | null>(null);
 
   function select(region: string) {
     onChange(region);
     setOpen(false);
+    setHoveredOption(null);
     onBlur?.();
   }
 
   function close() {
     setOpen(false);
+    setHoveredOption(null);
     onBlur?.();
   }
 
   return (
     <View style={styles.wrap}>
       <Text style={styles.label}>Région de résidence</Text>
-      <Pressable accessibilityRole="button" accessibilityHint={error} accessibilityState={{ expanded: open }} onPress={() => setOpen(true)} style={StyleSheet.flatten([styles.select, error && styles.selectInvalid])}>
+      <Pressable accessibilityRole="button" accessibilityHint={error} accessibilityState={{ expanded: open }} onPress={() => setOpen(true)} style={StyleSheet.flatten([styles.select, open && styles.selectFocused, error && styles.selectInvalid])}>
         <Text style={styles.selectText}>{value}</Text>
         <ChevronDown size={18} color={palette.primaryStrong} />
       </Pressable>
@@ -46,8 +49,10 @@ export function RegionSelect({ value, onChange, onBlur, error }: Props) {
                 return (
                   <Pressable
                     key={region}
+                    onHoverIn={() => setHoveredOption(region)}
+                    onHoverOut={() => setHoveredOption((current) => current === region ? null : current)}
                     onPress={() => select(region)}
-                    style={StyleSheet.flatten([styles.option, active && styles.optionActive])}
+                    style={StyleSheet.flatten([styles.option, hoveredOption === region && !active && styles.optionHovered, active && styles.optionActive])}
                   >
                     <Text style={StyleSheet.flatten([styles.optionText, active && styles.optionTextActive])}>{region}</Text>
                   </Pressable>
@@ -65,18 +70,19 @@ const styles = StyleSheet.create({
   wrap: { gap: 8 },
   label: { color: palette.inkSecondary, fontFamily: fontFamilyMedium, fontSize: 13 },
   select: {
-    minHeight: 52,
-    borderRadius: radius.sm,
-    borderWidth: 1,
-    borderColor: "rgba(148, 163, 184, 0.26)",
-    backgroundColor: palette.surfaceSubtle,
+    minHeight: 48,
+    borderRadius: authField.borderRadius,
+    borderWidth: authField.borderWidth,
+    borderColor: "transparent",
+    backgroundColor: authField.background,
     paddingHorizontal: 14,
     flexDirection: "row",
     alignItems: "center",
     justifyContent: "space-between",
     gap: 12
   },
-  selectInvalid: { borderColor: "rgba(227, 93, 106, 0.68)", backgroundColor: "rgba(91, 24, 33, 0.12)" },
+  selectFocused: { borderColor: authField.focusBorderColor, backgroundColor: authField.backgroundFocused },
+  selectInvalid: { borderColor: authField.invalidBorderColor, backgroundColor: authField.backgroundInvalid },
   errorSlot: { justifyContent: "center" },
   error: { color: "#F08A95", fontSize: 11, lineHeight: 15 },
   selectText: { color: palette.ink, fontFamily: fontFamilyMedium, fontSize: 15, flex: 1 },
@@ -101,6 +107,7 @@ const styles = StyleSheet.create({
     paddingHorizontal: 12,
     justifyContent: "center"
   },
+  optionHovered: { backgroundColor: palette.surfaceRaised },
   optionActive: { backgroundColor: palette.primarySoft },
   optionText: { color: palette.inkSecondary, fontFamily: fontFamilyMedium, fontSize: 14 },
   optionTextActive: { color: palette.primaryStrong }

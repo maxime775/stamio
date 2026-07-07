@@ -1,6 +1,5 @@
-import { useState } from "react";
-import type { ComponentProps } from "react";
-import { ActivityIndicator, Platform, Pressable, StyleSheet, Text, TextInput, View } from "react-native";
+import { useState, type ComponentProps } from "react";
+import { ActivityIndicator, Platform, Pressable, StyleSheet, Text, TextInput, View, type StyleProp, type ViewStyle } from "react-native";
 import { useRouter, type Href } from "expo-router";
 import { AuthForm } from "@/components/AuthForm";
 import { PasswordStrengthRules } from "@/components/PasswordStrengthRules";
@@ -11,7 +10,7 @@ import { signUpUser } from "@/lib/api";
 import { normalizeFrenchMobilePhoneInput } from "@/lib/validation";
 import { getVisibleSignupError, normalizeSignupEmail, touchAllSignupFields, validateSignup, type SignupField, type SignupTouched, type SignupValues } from "@/lib/signupValidation";
 import type { Sex } from "@/lib/types";
-import { fontFamilyMedium, fontFamilySemibold, palette, radius } from "@/lib/design";
+import { authField, fontFamilyMedium, fontFamilySemibold, palette, radius } from "@/lib/design";
 
 export function SignupForm() {
   const router = useRouter();
@@ -39,6 +38,8 @@ export function SignupForm() {
   function edit(field: SignupField, action: () => void) {
     action();
     setSubmitted((current) => ({ ...current, [field]: false }));
+    setTouched((current) => ({ ...current, [field]: false }));
+    setGlobalError(null);
   }
 
   function fieldError(field: SignupField) {
@@ -81,13 +82,14 @@ export function SignupForm() {
 
   return (
     <AuthForm
-      title="S’inscrire"
+      title="S'inscrire"
       subtitle="Votre compte débloque la participation au-delà de la limite visiteur et prépare votre réputation citoyenne."
-      maxWidth={600}
+      maxWidth={460}
+      compact
     >
-      <Field field="email" label="Email" error={fieldError("email")} value={email} onBlur={() => touch("email")} onChangeText={(value) => edit("email", () => setEmail(value))} keyboardType="email-address" autoCapitalize="none" placeholder="vous@example.com" />
-      <Field field="confirmEmail" label="Confirmation de l’email" error={fieldError("confirmEmail")} value={confirmEmail} onBlur={() => touch("confirmEmail")} onChangeText={(value) => edit("confirmEmail", () => setConfirmEmail(value))} keyboardType="email-address" autoCapitalize="none" placeholder="Confirmez votre email" />
-      <Field field="password" label="Mot de passe" error={fieldError("password")} value={password} onBlur={() => touch("password")} onChangeText={(value) => edit("password", () => setPassword(value))} secureTextEntry placeholder="Votre mot de passe" />
+      <Field field="email" label="Adresse e-mail" error={fieldError("email")} value={email} onBlur={() => touch("email")} onChangeText={(value) => edit("email", () => setEmail(value))} keyboardType="email-address" autoCapitalize="none" placeholder="Saisissez votre adresse e-mail" />
+      <Field field="confirmEmail" label="Confirmation de l'email" error={fieldError("confirmEmail")} value={confirmEmail} onBlur={() => touch("confirmEmail")} onChangeText={(value) => edit("confirmEmail", () => setConfirmEmail(value))} keyboardType="email-address" autoCapitalize="none" placeholder="Confirmez votre adresse e-mail" />
+      <Field field="password" label="Mot de passe" error={fieldError("password")} value={password} onBlur={() => touch("password")} onChangeText={(value) => edit("password", () => setPassword(value))} secureTextEntry placeholder="Choisissez votre mot de passe" />
       {!fieldError("password") ? <PasswordStrengthRules password={password} /> : null}
       <Field field="confirmPassword" label="Confirmation du mot de passe" error={fieldError("confirmPassword")} value={confirmPassword} onBlur={() => touch("confirmPassword")} onChangeText={(value) => edit("confirmPassword", () => setConfirmPassword(value))} secureTextEntry placeholder="Confirmez votre mot de passe" />
 
@@ -95,7 +97,7 @@ export function SignupForm() {
         <Text style={styles.blockTitle}>Informations de profil</Text>
         <SexSegmented error={fieldError("sex")} value={sex} onBlur={() => touch("sex")} onChange={(value) => { edit("sex", () => setSex(value)); touch("sex"); }} />
         <View style={styles.twoCols}>
-          <Field field="age" label="Âge" error={fieldError("age")} value={age} onBlur={() => touch("age")} onChangeText={(value) => edit("age", () => setAge(value))} keyboardType="number-pad" placeholder="34" />
+          <Field field="age" label="Âge" error={fieldError("age")} value={age} onBlur={() => touch("age")} onChangeText={(value) => edit("age", () => setAge(value))} keyboardType="number-pad" placeholder="34" containerStyle={styles.twoColField} />
           <ProfessionSelect error={fieldError("profession")} value={profession} onBlur={() => touch("profession")} onChange={(value) => edit("profession", () => setProfession(value))} />
         </View>
         <RegionSelect error={fieldError("region")} value={region} onBlur={() => touch("region")} onChange={(value) => edit("region", () => setRegion(value))} />
@@ -104,20 +106,25 @@ export function SignupForm() {
 
       {globalError ? <Text accessibilityLiveRegion="polite" style={styles.globalError}>{globalError}</Text> : null}
       <Pressable accessibilityRole="button" disabled={loading} onPress={handleSubmit} style={({ pressed }) => ({ ...styles.primary, ...(pressed ? styles.primaryPressed : {}) })}>
-        {loading ? <ActivityIndicator color="#06111C" /> : <Text style={styles.primaryText}>S’inscrire</Text>}
+        {loading ? <ActivityIndicator color="#FFFFFF" /> : <Text style={styles.primaryText}>S'inscrire</Text>}
       </Pressable>
-      <Pressable accessibilityRole="link" onPress={() => router.push("/auth/login" as Href)} style={styles.link}>
-        <Text style={styles.linkText}>J’ai déjà un compte</Text>
-      </Pressable>
+      <View style={styles.separator} />
+      <View style={styles.loginPrompt}>
+        <Text style={styles.loginPromptText}>Vous avez déjà un compte ?</Text>
+        <Pressable accessibilityRole="link" onPress={() => router.push("/auth/login" as Href)} style={styles.loginPromptLink}>
+          <Text style={styles.loginPromptLinkText}>Connectez-vous</Text>
+        </Pressable>
+      </View>
     </AuthForm>
   );
 }
 
 function SexSegmented({ value, error, onBlur, onChange }: { value: Sex | null; error?: string; onBlur: () => void; onChange: (value: Sex) => void }) {
+  const [focused, setFocused] = useState(false);
   return (
     <View style={styles.field}>
       <Text style={styles.label}>Sexe</Text>
-      <View accessibilityRole="radiogroup" style={StyleSheet.flatten([styles.segmented, error && styles.controlInvalid])}>
+      <View accessibilityRole="radiogroup" style={StyleSheet.flatten([styles.segmented, focused && styles.controlFocused, error && styles.controlInvalid])}>
         {SEX_OPTIONS.map((option) => {
           const active = value === option.value;
           return (
@@ -125,7 +132,11 @@ function SexSegmented({ value, error, onBlur, onChange }: { value: Sex | null; e
               key={option.value}
               accessibilityRole="radio"
               accessibilityState={{ checked: active }}
-              onBlur={onBlur}
+              onFocus={() => setFocused(true)}
+              onBlur={() => {
+                setFocused(false);
+                onBlur();
+              }}
               onPress={() => onChange(option.value)}
               style={{ ...styles.segment, ...(active ? styles.segmentActive : {}) }}
             >
@@ -139,21 +150,30 @@ function SexSegmented({ value, error, onBlur, onChange }: { value: Sex | null; e
   );
 }
 
-function Field(props: ComponentProps<typeof TextInput> & { field: SignupField; label: string; error?: string }) {
-  const { field, label, error, ...inputProps } = props;
+function Field(props: ComponentProps<typeof TextInput> & { field: SignupField; label: string; error?: string; containerStyle?: StyleProp<ViewStyle> }) {
+  const { field, label, error, style, containerStyle, onFocus, onBlur, ...inputProps } = props;
+  const [focused, setFocused] = useState(false);
   const errorId = `signup-${field}-error`;
   const webAccessibilityProps = Platform.OS === "web"
     ? ({ "aria-invalid": Boolean(error), "aria-describedby": error ? errorId : undefined } as ComponentProps<typeof TextInput>)
     : {};
   return (
-    <View style={styles.field}>
+    <View style={StyleSheet.flatten([styles.field, containerStyle])}>
       <Text style={styles.label}>{label}</Text>
       <TextInput
         {...webAccessibilityProps}
         accessibilityHint={error}
         nativeID={`signup-${field}`}
-        placeholderTextColor="#64748B"
-        style={StyleSheet.flatten([styles.input, error && styles.controlInvalid])}
+        onFocus={(event) => {
+          setFocused(true);
+          onFocus?.(event);
+        }}
+        onBlur={(event) => {
+          setFocused(false);
+          onBlur?.(event);
+        }}
+        placeholderTextColor={authField.placeholderColor}
+        style={StyleSheet.flatten([styles.input, webInputReset, focused && styles.controlFocused, error && styles.controlInvalid, style])}
         {...inputProps}
       />
       {error ? <ErrorSlot nativeID={errorId} message={error} /> : null}
@@ -166,20 +186,21 @@ function ErrorSlot({ message, nativeID }: { message?: string; nativeID?: string 
 }
 
 const styles = StyleSheet.create({
-  field: { gap: 6, flex: 1 },
+  field: { gap: 6, flex: 1, minWidth: 0 },
   label: { color: palette.inkSecondary, fontFamily: fontFamilyMedium, fontSize: 13 },
   input: {
-    minHeight: 52,
-    borderRadius: radius.sm,
-    borderWidth: 1,
-    borderColor: "rgba(148, 163, 184, 0.26)",
-    backgroundColor: palette.surfaceSubtle,
+    minHeight: 48,
+    borderRadius: authField.borderRadius,
+    borderWidth: authField.borderWidth,
+    borderColor: "transparent",
+    backgroundColor: authField.background,
     paddingHorizontal: 14,
     color: "#F8FAFC",
-    fontSize: 16,
+    fontSize: 15,
     fontFamily: fontFamilyMedium
   },
-  controlInvalid: { borderColor: "rgba(227, 93, 106, 0.68)", backgroundColor: "rgba(91, 24, 33, 0.12)" },
+  controlFocused: { borderColor: authField.focusBorderColor, backgroundColor: authField.backgroundFocused },
+  controlInvalid: { borderColor: authField.invalidBorderColor, backgroundColor: authField.backgroundInvalid },
   errorSlot: { justifyContent: "center" },
   fieldError: { color: "#F08A95", fontSize: 11, lineHeight: 15 },
   profileBlock: {
@@ -189,13 +210,14 @@ const styles = StyleSheet.create({
     gap: 13
   },
   blockTitle: { color: palette.ink, fontFamily: fontFamilySemibold, fontSize: 15 },
-  twoCols: { flexDirection: "row", gap: 12, flexWrap: "wrap" },
+  twoCols: { flexDirection: "row", alignItems: "flex-start", gap: 12, flexWrap: "wrap" },
+  twoColField: { flexGrow: 1, flexBasis: 0, minWidth: 150 },
   segmented: {
     minHeight: 48,
-    borderRadius: radius.sm,
-    backgroundColor: palette.surfaceSubtle,
-    borderWidth: 1,
-    borderColor: "rgba(148, 163, 184, 0.26)",
+    borderRadius: authField.borderRadius,
+    backgroundColor: authField.background,
+    borderWidth: authField.borderWidth,
+    borderColor: "transparent",
     padding: 4,
     flexDirection: "row",
     gap: 4
@@ -211,9 +233,16 @@ const styles = StyleSheet.create({
   segmentText: { color: palette.muted, fontFamily: fontFamilyMedium },
   segmentTextActive: { color: "#FFFFFF" },
   globalError: { color: "#FCA5A5", backgroundColor: "rgba(127, 29, 29, 0.26)", borderRadius: radius.sm, padding: 12 },
-  primary: { minHeight: 52, borderRadius: radius.sm, backgroundColor: palette.primary, alignItems: "center", justifyContent: "center" },
+  primary: { minHeight: 44, borderRadius: radius.sm, backgroundColor: palette.primary, alignItems: "center", justifyContent: "center" },
   primaryPressed: { transform: [{ translateY: 1 }], backgroundColor: "#315CC2" },
   primaryText: { color: "#FFFFFF", fontFamily: fontFamilySemibold, fontSize: 15 },
-  link: { alignItems: "center", padding: 8 },
-  linkText: { color: palette.primaryStrong, fontFamily: fontFamilySemibold }
+  separator: { height: 1, width: "100%", backgroundColor: authField.separatorColor, marginTop: 6, marginBottom: 2 },
+  loginPrompt: { flexDirection: "row", justifyContent: "center", alignItems: "center", gap: 5, flexWrap: "wrap", paddingTop: 2 },
+  loginPromptText: { color: palette.inkSecondary, fontFamily: fontFamilyMedium, fontSize: 13 },
+  loginPromptLink: { paddingVertical: 3 },
+  loginPromptLinkText: { color: palette.primaryStrong, fontFamily: fontFamilySemibold, fontSize: 13 }
 });
+
+const webInputReset = Platform.OS === "web"
+  ? ({ outlineStyle: "none" } as unknown as ComponentProps<typeof TextInput>["style"])
+  : null;

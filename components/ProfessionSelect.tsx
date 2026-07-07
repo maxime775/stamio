@@ -2,7 +2,7 @@ import { useState } from "react";
 import { Modal, Pressable, ScrollView, StyleSheet, Text, View } from "react-native";
 import { Check, ChevronDown } from "lucide-react-native";
 import { CSP_PROFESSIONS } from "@/lib/product";
-import { fontFamilyMedium, fontFamilySemibold, palette, radius } from "@/lib/design";
+import { authField, fontFamilyMedium, fontFamilySemibold, palette, radius } from "@/lib/design";
 
 type Props = {
   value: string;
@@ -13,23 +13,26 @@ type Props = {
 
 export function ProfessionSelect({ value, onChange, onBlur, error }: Props) {
   const [open, setOpen] = useState(false);
+  const [hoveredOption, setHoveredOption] = useState<string | null>(null);
 
   function select(profession: string) {
     onChange(profession);
     setOpen(false);
+    setHoveredOption(null);
     onBlur?.();
   }
 
   function close() {
     setOpen(false);
+    setHoveredOption(null);
     onBlur?.();
   }
 
   return (
     <View style={styles.wrap}>
-      <Text style={styles.label}>Profession</Text>
-      <Pressable accessibilityRole="button" accessibilityHint={error} accessibilityState={{ expanded: open }} onPress={() => setOpen(true)} style={StyleSheet.flatten([styles.select, error && styles.selectInvalid])}>
-        <Text numberOfLines={2} style={StyleSheet.flatten([styles.selectText, !value && styles.placeholder])}>{value || "Sélectionnez un groupe socioprofessionnel"}</Text>
+      <Text style={styles.label}>Votre profession</Text>
+      <Pressable accessibilityRole="button" accessibilityHint={error} accessibilityState={{ expanded: open }} onPress={() => setOpen(true)} style={StyleSheet.flatten([styles.select, open && styles.selectFocused, error && styles.selectInvalid])}>
+        <Text numberOfLines={1} style={StyleSheet.flatten([styles.selectText, !value && styles.placeholder])}>{value || "Sélectionnez votre profession"}</Text>
         <ChevronDown size={18} color={palette.primaryStrong} />
       </Pressable>
 
@@ -39,13 +42,18 @@ export function ProfessionSelect({ value, onChange, onBlur, error }: Props) {
         <View style={styles.overlay}>
           <Pressable style={styles.scrim} onPress={close} />
           <View style={styles.menu}>
-            <Text style={styles.menuTitle}>Groupe socioprofessionnel</Text>
-            <Text style={styles.menuHint}>Classification en 8 groupes de l’INSEE</Text>
+            <Text style={styles.menuTitle}>Votre profession</Text>
             <ScrollView style={styles.menuScroll} showsVerticalScrollIndicator={false}>
               {CSP_PROFESSIONS.map((profession) => {
                 const active = value === profession;
                 return (
-                  <Pressable key={profession} onPress={() => select(profession)} style={StyleSheet.flatten([styles.option, active && styles.optionActive])}>
+                  <Pressable
+                    key={profession}
+                    onHoverIn={() => setHoveredOption(profession)}
+                    onHoverOut={() => setHoveredOption((current) => current === profession ? null : current)}
+                    onPress={() => select(profession)}
+                    style={StyleSheet.flatten([styles.option, hoveredOption === profession && !active && styles.optionHovered, active && styles.optionActive])}
+                  >
                     <Text style={StyleSheet.flatten([styles.optionText, active && styles.optionTextActive])}>{profession}</Text>
                     {active ? <Check size={16} color={palette.primaryStrong} /> : null}
                   </Pressable>
@@ -60,21 +68,22 @@ export function ProfessionSelect({ value, onChange, onBlur, error }: Props) {
 }
 
 const styles = StyleSheet.create({
-  wrap: { gap: 7, flex: 1, minWidth: 250 },
+  wrap: { gap: 6, flex: 1, flexBasis: 0, minWidth: 190 },
   label: { color: palette.inkSecondary, fontFamily: fontFamilyMedium, fontSize: 13 },
-  select: { minHeight: 52, borderRadius: radius.sm, borderWidth: 1, borderColor: "rgba(148, 163, 184, 0.26)", backgroundColor: palette.surfaceSubtle, paddingHorizontal: 14, paddingVertical: 8, flexDirection: "row", alignItems: "center", justifyContent: "space-between", gap: 10 },
-  selectInvalid: { borderColor: "rgba(227, 93, 106, 0.68)", backgroundColor: "rgba(91, 24, 33, 0.12)" },
-  selectText: { color: palette.ink, fontFamily: fontFamilyMedium, fontSize: 14, lineHeight: 18, flex: 1 },
-  placeholder: { color: "#64748B" },
+  select: { minHeight: 48, borderRadius: authField.borderRadius, borderWidth: authField.borderWidth, borderColor: "transparent", backgroundColor: authField.background, paddingHorizontal: 14, paddingVertical: 8, flexDirection: "row", alignItems: "center", justifyContent: "space-between", gap: 10 },
+  selectFocused: { borderColor: authField.focusBorderColor, backgroundColor: authField.backgroundFocused },
+  selectInvalid: { borderColor: authField.invalidBorderColor, backgroundColor: authField.backgroundInvalid },
+  selectText: { color: palette.ink, fontFamily: fontFamilyMedium, fontSize: 15, lineHeight: 20, flex: 1 },
+  placeholder: { color: authField.placeholderColor },
   errorSlot: { justifyContent: "center" },
   error: { color: "#F08A95", fontSize: 11, lineHeight: 15 },
   overlay: { flex: 1, justifyContent: "center", alignItems: "center", padding: 20 },
   scrim: { ...StyleSheet.absoluteFillObject, backgroundColor: "rgba(2, 6, 23, 0.76)" },
-  menu: { width: "100%", maxWidth: 560, maxHeight: "82%", borderRadius: radius.md, backgroundColor: palette.surface, borderWidth: 1, borderColor: palette.lineStrong, padding: 14, gap: 5 },
+  menu: { width: "100%", maxWidth: 520, maxHeight: "82%", borderRadius: radius.md, backgroundColor: palette.surface, borderWidth: 1, borderColor: palette.lineStrong, padding: 14, gap: 8 },
   menuTitle: { color: palette.ink, fontFamily: fontFamilySemibold, fontSize: 17, paddingHorizontal: 4 },
-  menuHint: { color: palette.muted, fontSize: 12, paddingHorizontal: 4, marginBottom: 6 },
   menuScroll: { maxHeight: 520 },
   option: { minHeight: 48, borderRadius: radius.sm, paddingHorizontal: 12, paddingVertical: 9, flexDirection: "row", alignItems: "center", gap: 10 },
+  optionHovered: { backgroundColor: palette.surfaceRaised },
   optionActive: { backgroundColor: palette.primarySoft },
   optionText: { color: palette.inkSecondary, fontFamily: fontFamilyMedium, fontSize: 14, lineHeight: 19, flex: 1 },
   optionTextActive: { color: palette.primaryStrong }

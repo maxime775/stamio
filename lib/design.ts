@@ -33,6 +33,18 @@ export const radius = {
   round: 999
 } as const;
 
+export const authField = {
+  borderWidth: 2,
+  borderRadius: radius.sm,
+  background: "#101721",
+  backgroundFocused: "rgba(20, 27, 37, 0.92)",
+  backgroundInvalid: "rgba(91, 24, 33, 0.12)",
+  focusBorderColor: palette.primary,
+  invalidBorderColor: "rgba(227, 93, 106, 0.68)",
+  placeholderColor: "#64748B",
+  separatorColor: "rgba(226, 232, 240, 0.2)"
+} as const;
+
 export const spacing = {
   xs: 4,
   sm: 8,

@@ -11,6 +11,9 @@ export function isValidEmail(value: string) {
 export type LoginField = "email" | "password";
 export type LoginValues = { email: string; password: string };
 export type LoginErrors = Partial<Record<LoginField, string>>;
+export type AuthEmailField = "email";
+export type AuthEmailValues = { email: string };
+export type AuthEmailErrors = Partial<Record<AuthEmailField, string>>;
 
 export function validateLogin(values: LoginValues): LoginErrors {
   const errors: LoginErrors = {};
@@ -25,4 +28,22 @@ export function getVisibleLoginError(field: LoginField, values: LoginValues, tou
   if (!error) return undefined;
   if (!values[field].trim()) return submitted[field] ? error : undefined;
   return touched[field] || submitted[field] ? error : undefined;
+}
+
+export function validateAuthEmail(values: AuthEmailValues): AuthEmailErrors {
+  const errors: AuthEmailErrors = {};
+  if (!values.email.trim()) errors.email = "L'adresse email est obligatoire.";
+  else if (!isValidEmail(values.email)) errors.email = "Veuillez saisir une adresse email valide.";
+  return errors;
+}
+
+export function getVisibleAuthEmailError(
+  values: AuthEmailValues,
+  touched: Partial<Record<AuthEmailField, boolean>>,
+  submitted: Partial<Record<AuthEmailField, boolean>>
+) {
+  const error = validateAuthEmail(values).email;
+  if (!error) return undefined;
+  if (!values.email.trim()) return submitted.email ? error : undefined;
+  return touched.email || submitted.email ? error : undefined;
 }
