@@ -1,9 +1,9 @@
-import { useEffect, useRef } from "react";
+import { useEffect, useRef, useState } from "react";
 import { Animated, Pressable, StyleSheet, Text, useWindowDimensions, View } from "react-native";
 import { Link, usePathname, useRouter, type Href } from "expo-router";
-import { BarChart3, CircleUserRound, Home, Info, Layers3, LogIn } from "lucide-react-native";
+import { BarChart3, CircleUserRound, Home, Info, Layers3, LogIn, ShieldCheck } from "lucide-react-native";
 import { useAuth } from "@/components/AuthProvider";
-import { prefetchLatestResults, prefetchThemePolls } from "@/lib/api";
+import { getAdminStatus, prefetchLatestResults, prefetchThemePolls } from "@/lib/api";
 import { fontFamilyBold, fontFamilyMedium, fontFamilySemibold, palette, radius } from "@/lib/design";
 
 const centerNav = [
@@ -24,6 +24,23 @@ export function AppHeader() {
   const { user, emailVerified } = useAuth();
   const { width } = useWindowDimensions();
   const compact = width < 760;
+  const [isAdmin, setIsAdmin] = useState(false);
+
+  useEffect(() => {
+    let active = true;
+    if (!user || !emailVerified) {
+      setIsAdmin(false);
+      return () => {
+        active = false;
+      };
+    }
+    getAdminStatus().then((value) => {
+      if (active) setIsAdmin(value);
+    });
+    return () => {
+      active = false;
+    };
+  }, [emailVerified, user]);
 
   function go(href: string) {
     router.push(href as Href);
@@ -49,15 +66,23 @@ export function AppHeader() {
 
         <View style={styles.account}>
           {user && emailVerified ? (
-            <Pressable onPress={() => go("/account")} style={styles.accountButton}>
-              <CircleUserRound size={17} color="#E2E8F0" />
-              {!compact ? <Text style={styles.accountText}>Mon compte</Text> : null}
-            </Pressable>
+            <>
+              {isAdmin && !compact ? (
+                <Pressable onPress={() => go("/admin")} style={styles.secondaryButton}>
+                  <ShieldCheck size={16} color={palette.primaryStrong} />
+                  <Text style={styles.secondaryText}>Admin</Text>
+                </Pressable>
+              ) : null}
+              <Pressable onPress={() => go("/account")} style={styles.accountButton}>
+                <CircleUserRound size={17} color={palette.inkSecondary} />
+                {!compact ? <Text style={styles.accountText}>Mon compte</Text> : null}
+              </Pressable>
+            </>
           ) : (
             <>
               {!compact ? (
                 <Pressable onPress={() => go("/auth/login")} style={styles.secondaryButton}>
-                  <LogIn size={16} color="#CBD5E1" />
+                  <LogIn size={16} color={palette.inkSecondary} />
                   <Text style={styles.secondaryText}>Se connecter</Text>
                 </Pressable>
               ) : null}
@@ -134,7 +159,7 @@ const styles = StyleSheet.create({
   navItem: { paddingHorizontal: 14, paddingVertical: 11, position: "relative" },
   navLine: { position: "absolute", left: 14, right: 14, bottom: 4, height: 2, borderRadius: 1, backgroundColor: palette.primaryStrong },
   navText: { color: palette.muted, fontFamily: fontFamilyMedium, fontSize: 13 },
-  navTextActive: { color: "#DCE5FF" },
+  navTextActive: { color: palette.ink },
   account: { minWidth: 128, flexDirection: "row", alignItems: "center", justifyContent: "flex-end", gap: 8 },
   accountButton: {
     minHeight: 40,
@@ -170,7 +195,7 @@ const styles = StyleSheet.create({
     justifyContent: "center",
     backgroundColor: palette.primary,
   },
-  primaryText: { color: "#FFFFFF", fontFamily: fontFamilySemibold },
+  primaryText: { color: palette.onPrimary, fontFamily: fontFamilySemibold },
   bottomNav: {
     position: "absolute",
     left: 0,

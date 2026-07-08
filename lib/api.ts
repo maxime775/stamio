@@ -8,6 +8,12 @@ import type {
   PollResult,
   PollWithStats,
   Profile,
+  AdminCreatePollInput,
+  AdminPollDetail,
+  AdminPollSummary,
+  AdminRelaunchPollInput,
+  AdminSeriesHistoryPoint,
+  AdminUpdatePollInput,
   SignupPayload,
   StartVerificationResponse,
   ThemeSlug,
@@ -52,15 +58,17 @@ const cacheKeys = {
   results: (pollId: string) => `results:${pollId}`,
   history: (pollId: string) => `history:${pollId}`,
   comments: (pollId: string) => `comments:${pollId}`,
-  collection: (options: { theme?: ThemeSlug; featuredOnly?: boolean; limit: number; includeResults?: boolean }) =>
-    `collection:${options.theme ?? "all"}:${options.featuredOnly ? "featured" : "any"}:${options.limit}:${options.includeResults ? "results" : "stats"}`
+  collection: (options: { theme?: ThemeSlug; featuredOnly?: boolean; limit: number; includeResults?: boolean; status?: "open" | "closed"; showInResultsOnly?: boolean }) =>
+    `collection:${options.status ?? "open"}:${options.theme ?? "all"}:${options.featuredOnly ? "featured" : "any"}:${options.showInResultsOnly ? "visible-results" : "any"}:${options.limit}:${options.includeResults ? "results" : "stats"}`
 };
+
+const POLL_SELECT = "id, series_id, wave_number, question, description, status, theme, featured, show_in_results, archived, trend_label, created_at, launched_at, closes_at, choices(id, poll_id, label, position, choice_key)";
 
 export async function fetchPoll(pollId: string, options: CacheOptions = {}): Promise<Poll | null> {
   return cached(cacheKeys.poll(pollId), async () => {
     const enriched = await supabase
       .from("polls")
-      .select("id, question, description, status, theme, featured, trend_label, created_at, closes_at, choices(id, poll_id, label, position)")
+      .select(POLL_SELECT)
       .eq("id", pollId)
       .maybeSingle();
 
@@ -198,7 +206,7 @@ export async function getOpenPolls(): Promise<PollWithStats[]> {
 }
 
 export async function getLatestResults(): Promise<PollWithStats[]> {
-  return fetchPollCollection({ limit: 10, includeResults: true });
+  return fetchPollCollection({ limit: 10, includeResults: true, status: "closed", showInResultsOnly: true });
 }
 
 export function getCachedPoll(pollId: string): Poll | null {
@@ -234,6 +242,126 @@ export function invalidatePollCaches(pollId: string) {
   publicCache.delete(cacheKeys.results(pollId));
   publicCache.delete(cacheKeys.history(pollId));
   invalidateCollectionCaches();
+}
+
+export async function getAdminStatus(): Promise<boolean> {
+  const { data, error } = await supabase.rpc("admin_get_status");
+  if (error) return false;
+  return data === true;
+}
+
+export async function adminCreatePoll(input: AdminCreatePollInput): Promise<{ pollId: string | null; error?: string }> {
+  const { data, error } = await supabase.rpc("admin_create_poll", {
+    p_question: input.question,
+    p_description: input.description,
+    p_theme: input.theme,
+    p_choices: input.choices,
+    p_closes_at: input.closes_at,
+    p_status: input.status,
+    p_featured: input.featured,
+    p_trend_label: input.trend_label ?? null,
+    p_series_id: input.series_id ?? null,
+    p_choice_keys: input.choice_keys ?? null,
+    p_show_in_results: input.show_in_results ?? false
+  });
+
+  if (error) return { pollId: null, error: error.message };
+  invalidatePublicCaches();
+
+  const first = Array.isArray(data) ? data[0] : data;
+  if (typeof first === "string") return { pollId: first };
+  if (first && typeof first === "object" && "poll_id" in first && typeof first.poll_id === "string") {
+    return { pollId: first.poll_id };
+  }
+  return { pollId: null, error: "Réponse admin_create_poll inattendue." };
+}
+
+export async function adminListPolls(): Promise<AdminPollSummary[]> {
+  const { data, error } = await supabase.rpc("admin_list_polls");
+  if (error || !data) return [];
+  return (data as AdminPollSummary[]).map((poll) => ({
+    ...poll,
+    choice_count: Number(poll.choice_count ?? 0),
+    total_votes: Number(poll.total_votes ?? 0)
+  }));
+}
+
+export async function adminGetPoll(pollId: string): Promise<AdminPollDetail | null> {
+  const { data, error } = await supabase.rpc("admin_get_poll", { p_poll_id: pollId });
+  if (error || !data || typeof data !== "object") return null;
+  const detail = data as unknown as AdminPollDetail;
+  return {
+    ...detail,
+    choices: [...(detail.choices ?? [])].sort((a, b) => Number(a.position) - Number(b.position)),
+    total_votes: Number(detail.total_votes ?? 0)
+  };
+}
+
+export async function adminRelaunchPoll(input: AdminRelaunchPollInput): Promise<{ pollId: string | null; error?: string }> {
+  const { data, error } = await supabase.rpc("admin_relaunch_poll", {
+    p_poll_id: input.poll_id,
+    p_closes_at: input.closes_at,
+    p_status: input.status ?? "open",
+    p_featured: input.featured ?? false
+  });
+
+  if (error) return { pollId: null, error: error.message };
+  invalidatePublicCaches(input.poll_id);
+  const first = Array.isArray(data) ? data[0] : data;
+  if (first && typeof first === "object" && "poll_id" in first && typeof first.poll_id === "string") {
+    invalidatePollCaches(first.poll_id);
+    return { pollId: first.poll_id };
+  }
+  return { pollId: null, error: "Unexpected admin_relaunch_poll response." };
+}
+
+export async function adminUpdatePoll(input: AdminUpdatePollInput): Promise<{ ok: boolean; error?: string }> {
+  const { error } = await supabase.rpc("admin_update_poll", {
+    p_poll_id: input.poll_id,
+    p_question: input.question,
+    p_description: input.description,
+    p_theme: input.theme,
+    p_closes_at: input.closes_at,
+    p_status: input.status,
+    p_featured: input.featured,
+    p_show_in_results: input.show_in_results,
+    p_choices: input.choices ?? null,
+    p_choice_keys: input.choice_keys ?? null
+  });
+  if (error) return { ok: false, error: error.message };
+  invalidatePublicCaches(input.poll_id);
+  return { ok: true };
+}
+
+export async function adminClosePoll(pollId: string): Promise<{ ok: boolean; error?: string }> {
+  const { error } = await supabase.rpc("admin_close_poll", { p_poll_id: pollId });
+  if (error) return { ok: false, error: error.message };
+  invalidatePublicCaches(pollId);
+  return { ok: true };
+}
+
+export async function adminSetPollResultsVisibility(pollId: string, show: boolean): Promise<{ ok: boolean; error?: string }> {
+  const { error } = await supabase.rpc("admin_set_poll_results_visibility", { p_poll_id: pollId, p_show: show });
+  if (error) return { ok: false, error: error.message };
+  invalidatePublicCaches(pollId);
+  return { ok: true };
+}
+
+export async function adminDeleteOrArchivePoll(pollId: string): Promise<{ action: "deleted" | "archived" | null; error?: string }> {
+  const { data, error } = await supabase.rpc("admin_delete_or_archive_poll", { p_poll_id: pollId });
+  if (error) return { action: null, error: error.message };
+  invalidatePublicCaches(pollId);
+  return { action: data === "deleted" ? "deleted" : "archived" };
+}
+
+export async function adminGetSeriesHistory(seriesId: string): Promise<AdminSeriesHistoryPoint[]> {
+  const { data, error } = await supabase.rpc("admin_get_series_history", { p_series_id: seriesId });
+  if (error || !data) return [];
+  return (data as AdminSeriesHistoryPoint[]).map((point) => ({
+    ...point,
+    total_votes: Number(point.total_votes ?? 0),
+    results: Array.isArray(point.results) ? point.results.map((result) => ({ ...result, votes: Number(result.votes ?? 0) })) : []
+  }));
 }
 
 export async function getCurrentUserProfile(): Promise<Profile | null> {
@@ -310,17 +438,23 @@ async function fetchPollCollection(options: {
   featuredOnly?: boolean;
   limit: number;
   includeResults?: boolean;
+  status?: "open" | "closed";
+  showInResultsOnly?: boolean;
 }) {
   return cached(cacheKeys.collection(options), async () => {
+    const status = options.status ?? "open";
     let query = supabase
       .from("polls")
-      .select("id, question, description, status, theme, featured, trend_label, created_at, closes_at, choices(id, poll_id, label, position)")
-      .eq("status", "open")
+      .select(POLL_SELECT)
+      .eq("status", status)
+      .eq("archived", false)
       .order("created_at", { ascending: false })
       .limit(options.limit);
 
     if (options.theme) query = query.eq("theme", options.theme);
     if (options.featuredOnly) query = query.eq("featured", true);
+    if (options.showInResultsOnly) query = query.eq("show_in_results", true);
+    if (status === "open") query = query.or(`closes_at.is.null,closes_at.gt.${new Date().toISOString()}`);
 
     const { data, error } = await query;
     if (error || !data) return [];
@@ -398,6 +532,15 @@ function invalidateCollectionCaches() {
   for (const key of publicCache.keys()) {
     if (key.startsWith("collection:")) publicCache.delete(key);
   }
+}
+
+function invalidatePublicCaches(pollId?: string) {
+  if (pollId) {
+    publicCache.delete(cacheKeys.poll(pollId));
+    publicCache.delete(cacheKeys.results(pollId));
+    publicCache.delete(cacheKeys.history(pollId));
+  }
+  invalidateCollectionCaches();
 }
 
 function invalidatePollComments(pollId: string) {

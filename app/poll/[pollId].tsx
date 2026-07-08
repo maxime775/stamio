@@ -85,8 +85,10 @@ export default function PollScreen() {
 
   const selectedChoice = poll?.choices.find((choice) => choice.id === selectedChoiceId) ?? null;
   const isVerifiedUser = Boolean(user && emailVerified);
+  const isPollOpen = Boolean(poll && poll.status === "open" && (!poll.closes_at || new Date(poll.closes_at).getTime() > Date.now()));
 
   async function handleOpenVotePanel() {
+    if (!isPollOpen) return;
     if (!isVerifiedUser && visitorCount >= VISITOR_VOTE_LIMIT) {
       setLimitVisible(true);
       return;
@@ -134,25 +136,34 @@ export default function PollScreen() {
               </View>
               <View style={styles.contentGrid}>
                 <View onLayout={(event) => setVoteColumnHeight(event.nativeEvent.layout.height)} style={styles.mainColumn}>
-                <PollCard
-                  poll={poll}
-                  selectedChoiceId={selectedChoiceId}
-                  onSelectChoice={setSelectedChoiceId}
-                />
-                <Pressable
-                  disabled={!selectedChoiceId}
-                  onPress={handleOpenVotePanel}
-                  style={({ pressed }) =>
-                    StyleSheet.flatten([
-                      styles.voteButton,
-                      !selectedChoiceId && styles.voteButtonDisabled,
-                      pressed && selectedChoiceId && styles.voteButtonPressed
-                    ])
-                  }
-                >
-                  <Check size={17} color="#FFFFFF" />
-                  <Text style={styles.voteButtonText}>Valider mon vote</Text>
-                </Pressable>
+                {isPollOpen ? (
+                  <>
+                    <PollCard
+                      poll={poll}
+                      selectedChoiceId={selectedChoiceId}
+                      onSelectChoice={setSelectedChoiceId}
+                    />
+                    <Pressable
+                      disabled={!selectedChoiceId}
+                      onPress={handleOpenVotePanel}
+                      style={({ pressed }) =>
+                        StyleSheet.flatten([
+                          styles.voteButton,
+                          !selectedChoiceId && styles.voteButtonDisabled,
+                          pressed && selectedChoiceId && styles.voteButtonPressed
+                        ])
+                      }
+                    >
+                      <Check size={17} color={palette.onPrimary} />
+                      <Text style={styles.voteButtonText}>Valider mon vote</Text>
+                    </Pressable>
+                  </>
+                ) : (
+                  <View style={styles.closedBox}>
+                    <Text style={styles.closedTitle}>Sondage cloture</Text>
+                    <Text style={styles.closedText}>Cette vague est consultable pour ses resultats. Pour revoter sur cette question, une nouvelle vague doit etre creee.</Text>
+                  </View>
+                )}
                 {voteState?.status === "duplicate" ? (
                   <Text style={styles.duplicate}>Ce numéro a déjà été utilisé pour cette question.</Text>
                 ) : null}
@@ -200,7 +211,7 @@ export default function PollScreen() {
           <AppFooter />
         </ScrollView>
 
-        {poll && selectedChoice ? (
+        {poll && selectedChoice && isPollOpen ? (
           <VotePanel
             visible={panelVisible}
             pollId={poll.id}
@@ -308,7 +319,7 @@ const styles = StyleSheet.create({
   discussionLabelText: { color: palette.ink, fontFamily: fontFamilySemibold, fontSize: 16 },
   discussionIntro: { color: palette.muted, fontSize: 12, lineHeight: 18 },
   discussionAction: { minHeight: 34, paddingHorizontal: 10, borderRadius: radius.sm, alignItems: "center", justifyContent: "center", borderWidth: 1, borderColor: "transparent" },
-  discussionActionHovered: { backgroundColor: palette.primarySoft, borderColor: "rgba(91, 130, 229, 0.24)" },
+  discussionActionHovered: { backgroundColor: palette.primarySoft, borderColor: palette.lineStrong },
   discussionActionPressed: { opacity: 0.72 },
   discussionActionText: { color: palette.inkSecondary, fontFamily: fontFamilySemibold, fontSize: 11, textTransform: "uppercase", letterSpacing: 0.6 },
   discussionColumn: { width: "100%" },
@@ -324,27 +335,37 @@ const styles = StyleSheet.create({
   },
   voteButtonPressed: { transform: [{ translateY: 1 }] },
   voteButtonDisabled: { backgroundColor: "rgba(148, 163, 184, 0.28)", shadowOpacity: 0 },
-  voteButtonText: { color: "#FFFFFF", fontFamily: fontFamilySemibold, fontSize: 14 },
+  voteButtonText: { color: palette.onPrimary, fontFamily: fontFamilySemibold, fontSize: 14 },
   duplicate: {
-    color: "#FCA5A5",
+    color: palette.dangerText,
     fontSize: 14,
     fontFamily: fontFamilyMedium,
-    backgroundColor: "rgba(239, 68, 68, 0.12)",
+    backgroundColor: palette.dangerSoft,
     borderWidth: 1,
-    borderColor: "rgba(252, 165, 165, 0.22)",
+    borderColor: palette.dangerLine,
     borderRadius: radius.sm,
     padding: 14
   },
   receiptBox: {
     borderRadius: radius.sm,
     borderWidth: 1,
-    borderColor: "rgba(167, 243, 208, 0.28)",
-    backgroundColor: "rgba(16, 185, 129, 0.1)",
+    borderColor: palette.positiveLine,
+    backgroundColor: palette.positiveSoft,
     padding: 14,
     gap: 6
   },
-  receiptLabel: { color: palette.positive, fontFamily: fontFamilySemibold, fontSize: 11, textTransform: "uppercase" },
-  receiptHash: { color: "#E2E8F0", fontSize: 12, lineHeight: 18 },
+  receiptLabel: { color: palette.positiveText, fontFamily: fontFamilySemibold, fontSize: 11, textTransform: "uppercase" },
+  receiptHash: { color: palette.inkSecondary, fontSize: 12, lineHeight: 18 },
+  closedBox: {
+    borderRadius: radius.sm,
+    borderWidth: 1,
+    borderColor: palette.lineStrong,
+    backgroundColor: palette.surface,
+    padding: 16,
+    gap: 7
+  },
+  closedTitle: { color: palette.ink, fontFamily: fontFamilySemibold, fontSize: 16 },
+  closedText: { color: palette.inkSecondary, fontSize: 14, lineHeight: 21 },
   emptyState: {
     padding: 28,
     borderRadius: radius.md,
@@ -353,7 +374,7 @@ const styles = StyleSheet.create({
     backgroundColor: palette.surface
   },
   emptyTitle: { color: palette.ink, fontFamily: fontFamilyBold, fontSize: 21 },
-  emptyText: { color: "#94A3B8", marginTop: 8 },
+  emptyText: { color: palette.muted, marginTop: 8 },
   limitOverlay: { flex: 1, alignItems: "center", justifyContent: "center", padding: 20 },
   limitScrim: { ...StyleSheet.absoluteFillObject, backgroundColor: "rgba(2, 6, 23, 0.62)" },
   limitCard: {
@@ -371,7 +392,7 @@ const styles = StyleSheet.create({
   limitText: { color: palette.inkSecondary, fontSize: 15, lineHeight: 23 },
   limitActions: { flexDirection: "row", flexWrap: "wrap", gap: 10 },
   limitPrimary: { minHeight: 46, borderRadius: radius.sm, backgroundColor: palette.primary, paddingHorizontal: 16, alignItems: "center", justifyContent: "center" },
-  limitPrimaryText: { color: "#FFFFFF", fontFamily: fontFamilySemibold },
+  limitPrimaryText: { color: palette.onPrimary, fontFamily: fontFamilySemibold },
   limitSecondary: { minHeight: 46, borderRadius: radius.sm, backgroundColor: "transparent", borderWidth: 1, borderColor: palette.lineStrong, paddingHorizontal: 16, alignItems: "center", justifyContent: "center" },
   limitSecondaryText: { color: palette.inkSecondary, fontFamily: fontFamilyMedium }
 });

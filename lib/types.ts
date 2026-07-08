@@ -3,6 +3,7 @@ export type Choice = {
   poll_id: string;
   label: string;
   position: number;
+  choice_key?: string | null;
 };
 
 export type ThemeSlug = "politique" | "economie" | "societe" | "sport";
@@ -11,13 +12,18 @@ export type Sex = "homme" | "femme";
 
 export type Poll = {
   id: string;
+  series_id?: string | null;
+  wave_number?: number | null;
   question: string;
   description?: string | null;
   status: "open" | "closed";
   theme?: ThemeSlug;
   featured?: boolean;
+  show_in_results?: boolean;
+  archived?: boolean;
   trend_label?: string | null;
   created_at?: string;
+  launched_at?: string | null;
   closes_at: string | null;
   choices: Choice[];
 };
@@ -62,6 +68,103 @@ export type PollCommentImage = {
 export type PollWithStats = Poll & {
   totalVotes: number;
   results?: PollResult[];
+};
+
+export type AdminCreatePollInput = {
+  series_id?: string | null;
+  question: string;
+  description: string;
+  theme: ThemeSlug;
+  choices: string[];
+  choice_keys?: string[];
+  closes_at: string;
+  status: "open" | "closed";
+  featured: boolean;
+  show_in_results?: boolean;
+  trend_label?: string | null;
+};
+
+export type AdminPollSummary = {
+  id: string;
+  series_id: string | null;
+  wave_number: number | null;
+  question: string;
+  description: string | null;
+  theme: ThemeSlug;
+  status: "open" | "closed";
+  closes_at: string | null;
+  created_at: string;
+  launched_at: string | null;
+  featured: boolean;
+  show_in_results: boolean;
+  archived: boolean;
+  trend_label: string | null;
+  choice_count: number;
+  total_votes: number;
+};
+
+export type AdminPollDetail = {
+  poll: Poll & {
+    choice_count?: number;
+    total_votes?: number;
+  };
+  series: {
+    id: string;
+    canonical_question: string;
+    canonical_description: string | null;
+    theme: ThemeSlug;
+    archived: boolean;
+    created_at: string;
+    updated_at: string;
+  } | null;
+  choices: Choice[];
+  total_votes: number;
+};
+
+export type AdminSeriesSummary = {
+  series_id: string;
+  question: string;
+  theme: ThemeSlug;
+  waveCount: number;
+  lastWave: AdminPollSummary;
+  polls: AdminPollSummary[];
+};
+
+export type AdminRelaunchPollInput = {
+  poll_id: string;
+  closes_at: string;
+  status?: "open" | "closed";
+  featured?: boolean;
+};
+
+export type AdminUpdatePollInput = {
+  poll_id: string;
+  question: string;
+  description: string;
+  theme: ThemeSlug;
+  choices?: string[];
+  choice_keys?: string[];
+  closes_at: string;
+  status: "open" | "closed";
+  featured: boolean;
+  show_in_results: boolean;
+};
+
+export type AdminSeriesHistoryPoint = {
+  poll_id: string;
+  wave_number: number | null;
+  status: "open" | "closed";
+  created_at: string;
+  closes_at: string | null;
+  show_in_results: boolean;
+  archived: boolean;
+  total_votes: number;
+  results: Array<{
+    choice_id: string;
+    choice_key: string | null;
+    label: string;
+    votes: number;
+  }>;
 };
 
 export type Profile = {
