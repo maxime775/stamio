@@ -130,7 +130,7 @@ export function VotePanel({ visible, pollId, choiceId, choiceLabel, platform, on
               <Text style={styles.title}>{choiceLabel}</Text>
             </View>
             <Pressable onPress={onClose} style={styles.iconButton}>
-              <X size={18} color="#E2E8F0" />
+              <X size={18} color={palette.inkSecondary} />
             </Pressable>
           </View>
 
@@ -141,7 +141,7 @@ export function VotePanel({ visible, pollId, choiceId, choiceLabel, platform, on
                 value={phone}
                 onChangeText={setPhone}
                 placeholder="+33612345678"
-                placeholderTextColor="#94A3B8"
+                placeholderTextColor={palette.muted}
                 keyboardType="phone-pad"
                 autoComplete="tel"
                 textContentType="telephoneNumber"
@@ -150,7 +150,7 @@ export function VotePanel({ visible, pollId, choiceId, choiceLabel, platform, on
               {platform === "web" ? <Turnstile siteKey={siteKey} onToken={setTurnstileToken} /> : null}
               {phoneError ? <Text style={styles.error}>{phoneError}</Text> : null}
               <Pressable disabled={loading} onPress={handleStart} style={styles.primaryButton}>
-                {loading ? <ActivityIndicator color="#FFFFFF" /> : <Send size={18} color="#FFFFFF" />}
+                {loading ? <ActivityIndicator color={palette.onPrimary} /> : <Send size={18} color={palette.onPrimary} />}
                 <Text style={styles.primaryText}>Recevoir le code SMS</Text>
               </Pressable>
             </View>
@@ -162,7 +162,7 @@ export function VotePanel({ visible, pollId, choiceId, choiceLabel, platform, on
               <OtpInput value={otp} onChange={setOtp} />
               {otpError ? <Text style={styles.error}>{otpError}</Text> : null}
               <Pressable disabled={loading} onPress={handleSubmit} style={styles.primaryButton}>
-                {loading ? <ActivityIndicator color="#FFFFFF" /> : <CheckCircle2 size={18} color="#FFFFFF" />}
+                {loading ? <ActivityIndicator color={palette.onPrimary} /> : <CheckCircle2 size={18} color={palette.onPrimary} />}
                 <Text style={styles.primaryText}>Comptabiliser mon vote</Text>
               </Pressable>
             </View>
@@ -170,7 +170,7 @@ export function VotePanel({ visible, pollId, choiceId, choiceLabel, platform, on
 
           {step === "success" ? (
             <View style={styles.success}>
-              <CheckCircle2 size={46} color="#059669" />
+              <CheckCircle2 size={46} color={palette.positive} />
               <Text style={styles.successTitle}>Vote validé</Text>
             </View>
           ) : null}
@@ -225,16 +225,16 @@ const styles = StyleSheet.create({
     minHeight: 56,
     borderRadius: radius.sm,
     borderWidth: 1,
-    borderColor: "rgba(148, 163, 184, 0.26)",
+    borderColor: palette.lineStrong,
     paddingHorizontal: 16,
-    color: "#F8FAFC",
+    color: palette.ink,
     fontSize: 18,
     fontFamily: fontFamilyMedium,
     backgroundColor: palette.surfaceSubtle
   },
   error: {
-    color: "#FCA5A5",
-    backgroundColor: "rgba(127, 29, 29, 0.26)",
+    color: palette.dangerText,
+    backgroundColor: palette.dangerSoft,
     borderRadius: radius.sm,
     padding: 12,
     fontSize: 13,
@@ -249,7 +249,7 @@ const styles = StyleSheet.create({
     flexDirection: "row",
     gap: 10
   },
-  primaryText: { color: "#FFFFFF", fontFamily: fontFamilySemibold, fontSize: 15 },
+  primaryText: { color: palette.onPrimary, fontFamily: fontFamilySemibold, fontSize: 15 },
   success: { alignItems: "center", justifyContent: "center", paddingVertical: 30, gap: 12 },
   successTitle: { color: palette.positive, fontFamily: fontFamilyBold, fontSize: 23 }
 });

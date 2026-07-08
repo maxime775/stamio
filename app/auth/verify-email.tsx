@@ -34,7 +34,7 @@ export default function VerifyEmailPage() {
         {message ? <Text style={styles.message}>{message}</Text> : null}
         <View style={styles.actions}>
           <Pressable onPress={resend} disabled={loading} style={styles.primary}>
-            {loading ? <ActivityIndicator color="#FFFFFF" /> : <Text style={styles.primaryText}>Renvoyer l’email</Text>}
+            {loading ? <ActivityIndicator color={palette.onPrimary} /> : <Text style={styles.primaryText}>Renvoyer l’email</Text>}
           </Pressable>
           <Pressable onPress={() => router.push("/auth/login" as Href)} style={styles.secondary}>
             <Text style={styles.secondaryText}>J’ai vérifié mon email</Text>
@@ -50,10 +50,10 @@ const styles = StyleSheet.create({
   icon: { width: 54, height: 54, borderRadius: radius.md, backgroundColor: palette.primarySoft, alignItems: "center", justifyContent: "center" },
   title: { color: palette.ink, fontFamily: fontFamilyBold, fontSize: 29, lineHeight: 36, textAlign: "center" },
   text: { color: palette.muted, fontSize: 15, lineHeight: 24, textAlign: "center" },
-  message: { color: palette.positive, backgroundColor: "rgba(47,191,145,0.1)", borderRadius: radius.sm, padding: 12, fontFamily: fontFamilyMedium },
+  message: { color: palette.positiveText, backgroundColor: palette.positiveSoft, borderRadius: radius.sm, padding: 12, fontFamily: fontFamilyMedium },
   actions: { flexDirection: "row", flexWrap: "wrap", justifyContent: "center", gap: 12 },
   primary: { minHeight: 48, borderRadius: radius.sm, backgroundColor: palette.primary, paddingHorizontal: 18, alignItems: "center", justifyContent: "center" },
-  primaryText: { color: "#FFFFFF", fontFamily: fontFamilySemibold },
+  primaryText: { color: palette.onPrimary, fontFamily: fontFamilySemibold },
   secondary: { minHeight: 48, borderRadius: radius.sm, backgroundColor: "transparent", borderWidth: 1, borderColor: palette.lineStrong, paddingHorizontal: 18, alignItems: "center", justifyContent: "center" },
   secondaryText: { color: palette.inkSecondary, fontFamily: fontFamilyMedium }
 });

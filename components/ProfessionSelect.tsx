@@ -76,7 +76,7 @@ const styles = StyleSheet.create({
   selectText: { color: palette.ink, fontFamily: fontFamilyMedium, fontSize: 15, lineHeight: 20, flex: 1 },
   placeholder: { color: authField.placeholderColor },
   errorSlot: { justifyContent: "center" },
-  error: { color: "#F08A95", fontSize: 11, lineHeight: 15 },
+  error: { color: palette.fieldError, fontSize: 11, lineHeight: 15 },
   overlay: { flex: 1, justifyContent: "center", alignItems: "center", padding: 20 },
   scrim: { ...StyleSheet.absoluteFillObject, backgroundColor: "rgba(2, 6, 23, 0.76)" },
   menu: { width: "100%", maxWidth: 520, maxHeight: "82%", borderRadius: radius.md, backgroundColor: palette.surface, borderWidth: 1, borderColor: palette.lineStrong, padding: 14, gap: 8 },

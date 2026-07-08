@@ -84,7 +84,7 @@ const styles = StyleSheet.create({
   selectFocused: { borderColor: authField.focusBorderColor, backgroundColor: authField.backgroundFocused },
   selectInvalid: { borderColor: authField.invalidBorderColor, backgroundColor: authField.backgroundInvalid },
   errorSlot: { justifyContent: "center" },
-  error: { color: "#F08A95", fontSize: 11, lineHeight: 15 },
+  error: { color: palette.fieldError, fontSize: 11, lineHeight: 15 },
   selectText: { color: palette.ink, fontFamily: fontFamilyMedium, fontSize: 15, flex: 1 },
   overlay: { flex: 1, justifyContent: "center", alignItems: "center", padding: 20 },
   scrim: { ...StyleSheet.absoluteFillObject, backgroundColor: "rgba(2, 6, 23, 0.72)" },

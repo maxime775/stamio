@@ -107,7 +107,7 @@ export function LoginForm() {
       </Pressable>
       {globalError ? <Text accessibilityLiveRegion="polite" style={styles.error}>{globalError}</Text> : null}
       <Pressable accessibilityRole="button" disabled={loading} onPress={handleSubmit} style={({ pressed }) => StyleSheet.flatten([styles.primary, pressed && !loading && styles.primaryPressed, loading && styles.primaryDisabled])}>
-        {loading ? <ActivityIndicator color="#FFFFFF" /> : <Text style={styles.primaryText}>Se connecter</Text>}
+        {loading ? <ActivityIndicator color={palette.onPrimary} /> : <Text style={styles.primaryText}>Se connecter</Text>}
       </Pressable>
       <View style={styles.separator} />
       <View style={styles.signupPrompt}>
@@ -180,17 +180,17 @@ const styles = StyleSheet.create({
     flex: 1,
     paddingHorizontal: 14,
     borderWidth: 0,
-    color: "#F8FAFC",
+    color: palette.ink,
     fontSize: 15,
     fontFamily: fontFamilyMedium
   },
   inputWithAction: { paddingRight: 6 },
   inputFocused: { borderColor: authField.focusBorderColor, backgroundColor: authField.backgroundFocused },
   inputInvalid: { borderColor: authField.invalidBorderColor, backgroundColor: authField.backgroundInvalid },
-  fieldError: { color: "#F08A95", fontSize: 11, lineHeight: 15 },
+  fieldError: { color: palette.fieldError, fontSize: 11, lineHeight: 15 },
   error: {
-    color: "#FCA5A5",
-    backgroundColor: "rgba(127, 29, 29, 0.26)",
+    color: palette.dangerText,
+    backgroundColor: palette.dangerSoft,
     borderRadius: radius.sm,
     padding: 11,
     fontFamily: fontFamilyMedium,
@@ -205,9 +205,9 @@ const styles = StyleSheet.create({
     justifyContent: "center",
     marginTop: 2
   },
-  primaryPressed: { transform: [{ translateY: 1 }], backgroundColor: "#315CC2" },
+  primaryPressed: { transform: [{ translateY: 1 }], backgroundColor: palette.primaryPressed },
   primaryDisabled: { opacity: 0.72 },
-  primaryText: { color: "#FFFFFF", fontFamily: fontFamilySemibold, fontSize: 15 },
+  primaryText: { color: palette.onPrimary, fontFamily: fontFamilySemibold, fontSize: 15 },
   eyeButton: { width: 40, minHeight: 44, alignItems: "center", justifyContent: "center", borderRadius: radius.xs, borderWidth: 0, backgroundColor: "transparent" },
   eyeButtonPressed: { backgroundColor: "rgba(148, 163, 184, 0.1)" },
   forgotLink: { alignSelf: "flex-end", paddingVertical: 2, paddingHorizontal: 2, marginTop: -4 },

@@ -47,5 +47,5 @@ const styles = StyleSheet.create({
   title: { color: palette.ink, fontFamily: fontFamilyBold, fontSize: 19 },
   message: { color: palette.muted, fontSize: 14, lineHeight: 22, maxWidth: 620 },
   button: { marginTop: 6, borderRadius: radius.sm, backgroundColor: palette.primary, paddingHorizontal: 16, paddingVertical: 11 },
-  buttonText: { color: "#FFFFFF", fontFamily: fontFamilySemibold }
+  buttonText: { color: palette.onPrimary, fontFamily: fontFamilySemibold }
 });

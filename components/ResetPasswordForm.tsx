@@ -100,7 +100,7 @@ export function ResetPasswordForm() {
       {status ? <Text accessibilityLiveRegion="polite" style={styles.success}>{status}</Text> : null}
       {globalError ? <Text accessibilityLiveRegion="polite" style={styles.error}>{globalError}</Text> : null}
       <Pressable accessibilityRole="button" disabled={loading} onPress={handleSubmit} style={({ pressed }) => StyleSheet.flatten([styles.primary, pressed && !loading && styles.primaryPressed, loading && styles.primaryDisabled])}>
-        {loading ? <ActivityIndicator color="#FFFFFF" /> : <Text style={styles.primaryText}>Mettre à jour le mot de passe</Text>}
+        {loading ? <ActivityIndicator color={palette.onPrimary} /> : <Text style={styles.primaryText}>Mettre à jour le mot de passe</Text>}
       </Pressable>
       <Pressable accessibilityRole="link" onPress={() => router.replace("/auth/login" as Href)} style={styles.link}>
         <Text style={styles.linkText}>Retour à la connexion</Text>
@@ -193,27 +193,27 @@ const styles = StyleSheet.create({
     flex: 1,
     paddingHorizontal: 14,
     borderWidth: 0,
-    color: "#F8FAFC",
+    color: palette.ink,
     fontSize: 15,
     fontFamily: fontFamilyMedium
   },
   inputWithAction: { paddingRight: 6 },
   inputFocused: { borderColor: authField.focusBorderColor, backgroundColor: authField.backgroundFocused },
   inputInvalid: { borderColor: authField.invalidBorderColor, backgroundColor: authField.backgroundInvalid },
-  fieldError: { color: "#F08A95", fontSize: 11, lineHeight: 15 },
+  fieldError: { color: palette.fieldError, fontSize: 11, lineHeight: 15 },
   success: {
-    color: "#A7F3D0",
-    backgroundColor: "rgba(16, 185, 129, 0.1)",
+    color: palette.positiveText,
+    backgroundColor: palette.positiveSoft,
     borderWidth: 1,
-    borderColor: "rgba(167, 243, 208, 0.22)",
+    borderColor: palette.positiveLine,
     borderRadius: radius.sm,
     padding: 11,
     fontSize: 13,
     lineHeight: 19
   },
   error: {
-    color: "#FCA5A5",
-    backgroundColor: "rgba(127, 29, 29, 0.26)",
+    color: palette.dangerText,
+    backgroundColor: palette.dangerSoft,
     borderRadius: radius.sm,
     padding: 11,
     fontSize: 13,
@@ -226,9 +226,9 @@ const styles = StyleSheet.create({
     alignItems: "center",
     justifyContent: "center"
   },
-  primaryPressed: { transform: [{ translateY: 1 }], backgroundColor: "#315CC2" },
+  primaryPressed: { transform: [{ translateY: 1 }], backgroundColor: palette.primaryPressed },
   primaryDisabled: { opacity: 0.72 },
-  primaryText: { color: "#FFFFFF", fontFamily: fontFamilySemibold, fontSize: 14 },
+  primaryText: { color: palette.onPrimary, fontFamily: fontFamilySemibold, fontSize: 14 },
   eyeButton: { width: 40, minHeight: 44, alignItems: "center", justifyContent: "center", borderRadius: radius.xs, borderWidth: 0, backgroundColor: "transparent" },
   eyeButtonPressed: { backgroundColor: "rgba(148, 163, 184, 0.1)" },
   link: { alignItems: "center", padding: 7 },

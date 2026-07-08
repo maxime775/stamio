@@ -106,7 +106,7 @@ export function SignupForm() {
 
       {globalError ? <Text accessibilityLiveRegion="polite" style={styles.globalError}>{globalError}</Text> : null}
       <Pressable accessibilityRole="button" disabled={loading} onPress={handleSubmit} style={({ pressed }) => ({ ...styles.primary, ...(pressed ? styles.primaryPressed : {}) })}>
-        {loading ? <ActivityIndicator color="#FFFFFF" /> : <Text style={styles.primaryText}>S'inscrire</Text>}
+        {loading ? <ActivityIndicator color={palette.onPrimary} /> : <Text style={styles.primaryText}>S'inscrire</Text>}
       </Pressable>
       <View style={styles.separator} />
       <View style={styles.loginPrompt}>
@@ -195,14 +195,14 @@ const styles = StyleSheet.create({
     borderColor: "transparent",
     backgroundColor: authField.background,
     paddingHorizontal: 14,
-    color: "#F8FAFC",
+    color: palette.ink,
     fontSize: 15,
     fontFamily: fontFamilyMedium
   },
   controlFocused: { borderColor: authField.focusBorderColor, backgroundColor: authField.backgroundFocused },
   controlInvalid: { borderColor: authField.invalidBorderColor, backgroundColor: authField.backgroundInvalid },
   errorSlot: { justifyContent: "center" },
-  fieldError: { color: "#F08A95", fontSize: 11, lineHeight: 15 },
+  fieldError: { color: palette.fieldError, fontSize: 11, lineHeight: 15 },
   profileBlock: {
     borderTopWidth: 1,
     borderTopColor: "rgba(148, 163, 184, 0.16)",
@@ -231,11 +231,11 @@ const styles = StyleSheet.create({
   },
   segmentActive: { backgroundColor: palette.primary },
   segmentText: { color: palette.muted, fontFamily: fontFamilyMedium },
-  segmentTextActive: { color: "#FFFFFF" },
-  globalError: { color: "#FCA5A5", backgroundColor: "rgba(127, 29, 29, 0.26)", borderRadius: radius.sm, padding: 12 },
+  segmentTextActive: { color: palette.onPrimary },
+  globalError: { color: palette.dangerText, backgroundColor: palette.dangerSoft, borderRadius: radius.sm, padding: 12 },
   primary: { minHeight: 44, borderRadius: radius.sm, backgroundColor: palette.primary, alignItems: "center", justifyContent: "center" },
-  primaryPressed: { transform: [{ translateY: 1 }], backgroundColor: "#315CC2" },
-  primaryText: { color: "#FFFFFF", fontFamily: fontFamilySemibold, fontSize: 15 },
+  primaryPressed: { transform: [{ translateY: 1 }], backgroundColor: palette.primaryPressed },
+  primaryText: { color: palette.onPrimary, fontFamily: fontFamilySemibold, fontSize: 15 },
   separator: { height: 1, width: "100%", backgroundColor: authField.separatorColor, marginTop: 6, marginBottom: 2 },
   loginPrompt: { flexDirection: "row", justifyContent: "center", alignItems: "center", gap: 5, flexWrap: "wrap", paddingTop: 2 },
   loginPromptText: { color: palette.inkSecondary, fontFamily: fontFamilyMedium, fontSize: 13 },

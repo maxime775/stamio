@@ -84,7 +84,7 @@ export default function Home() {
           <View style={styles.actions}>
             <Pressable onPress={() => router.push("/themes" as Href)} onPressIn={() => prefetchThemePolls("all")} onFocus={() => prefetchThemePolls("all")} onHoverIn={() => prefetchThemePolls("all")} style={styles.primary}>
               <Text style={styles.primaryText}>Découvrir les sondages</Text>
-              <ArrowRight size={18} color="#FFFFFF" />
+              <ArrowRight size={18} color={palette.onPrimary} />
             </Pressable>
             <Pressable onPress={() => router.push("/results" as Href)} onPressIn={prefetchLatestResults} onFocus={prefetchLatestResults} onHoverIn={prefetchLatestResults} style={styles.secondary}>
               <Text style={styles.secondaryText}>Voir les derniers résultats</Text>
@@ -126,7 +126,7 @@ const styles = StyleSheet.create({
   subtitle: { color: palette.inkSecondary, fontSize: 17, lineHeight: 27, maxWidth: 680 },
   actions: { flexDirection: "row", gap: 12, flexWrap: "wrap", marginTop: 8 },
   primary: { minHeight: 48, borderRadius: radius.sm, backgroundColor: palette.primary, paddingHorizontal: 18, flexDirection: "row", alignItems: "center", gap: 10, ...shadows.panel },
-  primaryText: { color: "#FFFFFF", fontFamily: fontFamilySemibold, fontSize: 14 },
+  primaryText: { color: palette.onPrimary, fontFamily: fontFamilySemibold, fontSize: 14 },
   secondary: { minHeight: 48, borderRadius: radius.sm, backgroundColor: "transparent", paddingHorizontal: 18, justifyContent: "center", borderWidth: 1, borderColor: palette.lineStrong },
   secondaryText: { color: palette.inkSecondary, fontFamily: fontFamilyMedium, fontSize: 14 }
 });
