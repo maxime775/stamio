@@ -3,6 +3,7 @@ import { Animated, Pressable, StyleSheet, Text, useWindowDimensions, View } from
 import { Link, usePathname, useRouter, type Href } from "expo-router";
 import { BarChart3, CircleUserRound, Home, Info, Layers3, LogIn, ShieldCheck } from "lucide-react-native";
 import { useAuth } from "@/components/AuthProvider";
+import { StamioLogo } from "@/components/StamioLogo";
 import { getAdminStatus, prefetchLatestResults, prefetchThemePolls } from "@/lib/api";
 import { fontFamilyBold, fontFamilyMedium, fontFamilySemibold, palette, radius } from "@/lib/design";
 
@@ -49,11 +50,9 @@ export function AppHeader() {
   return (
     <>
       <View style={styles.header}>
-        <Pressable onPress={() => go("/")} style={styles.brand}>
-          <View style={styles.brandMark}>
-            <Text style={styles.brandMarkText}>S</Text>
-          </View>
-          <Text style={styles.brandText}>Sayit</Text>
+        <Pressable accessibilityLabel="Stamio" onPress={() => go("/")} style={styles.brand}>
+          <StamioLogo height={32} />
+          <Text style={styles.brandText}>Stamio</Text>
         </Pressable>
 
         {!compact ? (
@@ -143,17 +142,6 @@ const styles = StyleSheet.create({
     zIndex: 5
   },
   brand: { flexDirection: "row", alignItems: "center", gap: 10, minWidth: 128 },
-  brandMark: {
-    width: 32,
-    height: 32,
-    borderRadius: radius.sm,
-    alignItems: "center",
-    justifyContent: "center",
-    backgroundColor: palette.primarySoft,
-    borderWidth: 1,
-    borderColor: palette.lineStrong
-  },
-  brandMarkText: { color: palette.primaryStrong, fontFamily: fontFamilyBold, fontSize: 16 },
   brandText: { color: palette.ink, fontFamily: fontFamilyBold, fontSize: 19, letterSpacing: -0.3 },
   centerNav: { flexDirection: "row", alignItems: "center", justifyContent: "center", gap: 6, flex: 1 },
   navItem: { paddingHorizontal: 14, paddingVertical: 11, position: "relative" },

@@ -1,5 +1,6 @@
 import { Pressable, StyleSheet, Text, View } from "react-native";
 import { useRouter, type Href } from "expo-router";
+import { StamioLogo } from "@/components/StamioLogo";
 import { fontFamily, fontFamilyBold, fontFamilyMedium, palette } from "@/lib/design";
 
 const links = [
@@ -21,7 +22,10 @@ export function AppFooter() {
   return (
     <View style={styles.footer}>
       <View style={styles.brandBlock}>
-        <Text style={styles.brand}>Sayit</Text>
+        <View style={styles.brandRow}>
+          <StamioLogo height={30} />
+          <Text style={styles.brand}>Stamio</Text>
+        </View>
         <Text style={styles.tagline}>Des opinions vérifiées. Des débats ouverts. Une lecture plus claire de ce que nous pensons.</Text>
       </View>
       <View style={styles.links}>
@@ -36,7 +40,7 @@ export function AppFooter() {
           <Text style={styles.legalLink}>{label}</Text>
         </Pressable>)}
       </View>
-      <Text style={styles.copyright}>© 2026 Sayit. Tous droits réservés.</Text>
+      <Text style={styles.copyright}>© 2026 Stamio. Tous droits réservés.</Text>
     </View>
   );
 }
@@ -44,6 +48,7 @@ export function AppFooter() {
 const styles = StyleSheet.create({
   footer: { marginTop: 56, paddingTop: 28, paddingBottom: 24, borderTopWidth: 1, borderTopColor: palette.line, gap: 20 },
   brandBlock: { maxWidth: 620, gap: 7 },
+  brandRow: { flexDirection: "row", alignItems: "center", gap: 10 },
   brand: { color: palette.ink, fontFamily: fontFamilyBold, fontSize: 21 },
   tagline: { color: palette.muted, fontFamily, fontSize: 14, lineHeight: 22 },
   links: { flexDirection: "row", flexWrap: "wrap", gap: 8 },

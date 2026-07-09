@@ -9,7 +9,7 @@ export default function AboutPage() {
         <Text style={styles.kicker}>Qui sommes-nous</Text>
         <Text style={styles.title}>Une plateforme de sondages interactifs vérifiés.</Text>
         <Text style={styles.subtitle}>
-          Sayit vise à rendre les résultats de sondages web plus fiables grâce à une validation de participation, un anti-doublon par question et des résultats transparents.
+          Stamio vise à rendre les résultats de sondages web plus fiables grâce à une validation de participation, un anti-doublon par question et des résultats transparents.
         </Text>
       </View>
 

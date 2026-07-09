@@ -63,7 +63,7 @@ export function ResetPasswordForm() {
   }
 
   return (
-    <AuthForm title="Nouveau mot de passe" subtitle="Choisissez un mot de passe robuste pour sécuriser votre compte Sayit." maxWidth={390} compact>
+    <AuthForm title="Nouveau mot de passe" subtitle="Choisissez un mot de passe robuste pour sécuriser votre compte Stamio." maxWidth={390} compact>
       <PasswordInput
         field="password"
         label="Nouveau mot de passe"

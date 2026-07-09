@@ -52,7 +52,7 @@ export function ForgotPasswordForm() {
   return (
     <AuthForm
       title="Réinitialisez votre mot de passe"
-      subtitle="Vous avez oublié votre mot de passe ? Saisissez l'adresse e-mail que vous utilisez habituellement pour vous connecter à Sayit."
+      subtitle="Vous avez oublié votre mot de passe ? Saisissez l'adresse e-mail que vous utilisez habituellement pour vous connecter à Stamio."
       maxWidth={390}
       compact
     >
