@@ -15,6 +15,7 @@ export function AccountSummary({ profile, email }: Props) {
     <View style={styles.card}>
       <Text style={styles.title}>Profil</Text>
       <View style={styles.grid}>
+        <Field label="Pseudo" value={profile?.username ?? "Non renseigné"} />
         <Field label="Email" value={profile?.email ?? email ?? "Non renseigné"} />
         <Field label="Sexe" value={getSexLabel(profile?.sex)} />
         <Field label="Âge" value={profile?.age ? `${profile.age} ans` : "Non renseigné"} />
@@ -36,10 +37,10 @@ function Field({ label, value }: { label: string; value: string }) {
 }
 
 const styles = StyleSheet.create({
-  card: { borderRadius: radius.md, backgroundColor: palette.surface, borderWidth: 1, borderColor: palette.line, padding: 20, gap: 18 },
-  title: { color: palette.ink, fontFamily: fontFamilyBold, fontSize: 20 },
-  grid: { flexDirection: "row", flexWrap: "wrap", gap: 12 },
-  field: { minWidth: 190, flex: 1, borderRadius: radius.sm, backgroundColor: palette.surfaceSubtle, padding: 14, gap: 5 },
+  card: { borderRadius: radius.md, backgroundColor: palette.surface, borderWidth: 1, borderColor: palette.line, padding: 16, gap: 14 },
+  title: { color: palette.ink, fontFamily: fontFamilyBold, fontSize: 19 },
+  grid: { flexDirection: "row", flexWrap: "wrap", gap: 10 },
+  field: { minWidth: 160, flex: 1, borderRadius: radius.sm, backgroundColor: palette.surfaceSubtle, padding: 12, gap: 4 },
   label: { color: palette.muted, fontFamily: fontFamilyMedium, fontSize: 10, letterSpacing: 0.8, textTransform: "uppercase" },
   value: { color: palette.ink, fontFamily: fontFamilySemibold, fontSize: 14 }
 });

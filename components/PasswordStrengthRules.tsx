@@ -24,8 +24,8 @@ export function PasswordStrengthRules({ password }: { password: string }) {
 const styles = StyleSheet.create({
   help: {
     color: palette.muted,
-    fontSize: 12,
-    lineHeight: 18,
+    fontSize: 10,
+    lineHeight: 15,
     marginTop: -4
   }
 });

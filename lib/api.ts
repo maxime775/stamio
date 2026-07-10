@@ -8,6 +8,7 @@ import type {
   PollResult,
   PollWithStats,
   Profile,
+  AccountStats,
   AdminCreatePollInput,
   AdminPollDetail,
   AdminPollSummary,
@@ -371,11 +372,20 @@ export async function getCurrentUserProfile(): Promise<Profile | null> {
 
   const { data, error } = await supabase
     .from("profiles")
-    .select("id, email, sex, phone_last4, age, profession, region, reputation_score, created_at, updated_at")
+    .select("id, email, username, username_normalized, sex, phone_last4, age, profession, region, reputation_score, created_at, updated_at")
     .eq("id", user.id)
     .maybeSingle();
 
-  if (error || !data) return null;
+  if (error) {
+    const fallback = await supabase
+      .from("profiles")
+      .select("id, email, sex, phone_last4, age, profession, region, reputation_score, created_at, updated_at")
+      .eq("id", user.id)
+      .maybeSingle();
+    if (fallback.error || !fallback.data) return null;
+    return { ...fallback.data, username: null, username_normalized: null } as Profile;
+  }
+  if (!data) return null;
   return data as Profile;
 }
 
@@ -399,12 +409,48 @@ export async function getLatestUserAnswers(): Promise<UserPollAnswer[]> {
   })) as unknown as UserPollAnswer[];
 }
 
+export async function getMyAccountStats(): Promise<AccountStats> {
+  const empty = createEmptyAccountStats();
+  const { data, error } = await supabase.rpc("get_my_account_stats");
+  if (error || !data || typeof data !== "object") return empty;
+
+  const payload = data as Partial<AccountStats>;
+  const participationByTheme = Array.isArray(payload.participation_by_theme)
+    ? payload.participation_by_theme
+      .filter((item) => item && typeof item === "object")
+      .map((item) => {
+        const row = item as Partial<AccountStats["participation_by_theme"][number]>;
+        return {
+          theme: row.theme === "politique" || row.theme === "economie" || row.theme === "societe" || row.theme === "sport" ? row.theme : "societe",
+          label: typeof row.label === "string" ? row.label : "",
+          count: Number(row.count ?? 0),
+          percentage: Number(row.percentage ?? 0)
+        };
+      })
+    : empty.participation_by_theme;
+
+  return {
+    participations_30_days: Number(payload.participations_30_days ?? 0),
+    participation_by_theme: participationByTheme
+  };
+}
+
+export async function checkUsernameAvailability(username: string): Promise<{ available: boolean | null; error?: string }> {
+  const normalized = username.trim().toLowerCase();
+  if (!/^[a-z0-9_]{3,20}$/.test(normalized)) return { available: false };
+
+  const { data, error } = await supabase.rpc("check_username_available", { p_username: normalized });
+  if (error) return { available: null, error: error.message };
+  return { available: data === true };
+}
+
 export async function signUpUser(payload: SignupPayload) {
   return supabase.auth.signUp({
     email: payload.email,
     password: payload.password,
     options: {
       data: {
+        username: payload.username,
         sex: payload.sex,
         phone_last4: payload.phoneLast4,
         age: payload.age,
@@ -555,6 +601,18 @@ function invalidateCommentCaches() {
 
 function nowMs() {
   return globalThis.performance?.now?.() ?? Date.now();
+}
+
+function createEmptyAccountStats(): AccountStats {
+  return {
+    participations_30_days: 0,
+    participation_by_theme: [
+      { theme: "politique", label: "Politique", count: 0, percentage: 0 },
+      { theme: "economie", label: "Economie", count: 0, percentage: 0 },
+      { theme: "societe", label: "Societe", count: 0, percentage: 0 },
+      { theme: "sport", label: "Sport", count: 0, percentage: 0 }
+    ]
+  };
 }
 
 function logPerf(label: string, startedAt: number) {

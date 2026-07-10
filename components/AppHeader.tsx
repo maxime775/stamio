@@ -1,10 +1,10 @@
 import { useEffect, useRef, useState } from "react";
 import { Animated, Pressable, StyleSheet, Text, useWindowDimensions, View } from "react-native";
 import { Link, usePathname, useRouter, type Href } from "expo-router";
-import { BarChart3, CircleUserRound, Home, Info, Layers3, LogIn, ShieldCheck } from "lucide-react-native";
+import { BarChart3, CircleUserRound, Home, Info, Layers3, LogIn, LogOut, ShieldCheck, UserRound } from "lucide-react-native";
 import { useAuth } from "@/components/AuthProvider";
 import { StamioLogo } from "@/components/StamioLogo";
-import { getAdminStatus, prefetchLatestResults, prefetchThemePolls } from "@/lib/api";
+import { getAdminStatus, prefetchLatestResults, prefetchThemePolls, signOutUser } from "@/lib/api";
 import { fontFamilyBold, fontFamilyMedium, fontFamilySemibold, palette, radius } from "@/lib/design";
 
 const centerNav = [
@@ -26,6 +26,7 @@ export function AppHeader() {
   const { width } = useWindowDimensions();
   const compact = width < 760;
   const [isAdmin, setIsAdmin] = useState(false);
+  const [accountMenuOpen, setAccountMenuOpen] = useState(false);
 
   useEffect(() => {
     let active = true;
@@ -43,8 +44,19 @@ export function AppHeader() {
     };
   }, [emailVerified, user]);
 
+  useEffect(() => {
+    setAccountMenuOpen(false);
+  }, [pathname]);
+
   function go(href: string) {
+    setAccountMenuOpen(false);
     router.push(href as Href);
+  }
+
+  async function handleSignOut() {
+    setAccountMenuOpen(false);
+    await signOutUser();
+    router.replace("/" as Href);
   }
 
   return (
@@ -72,10 +84,30 @@ export function AppHeader() {
                   <Text style={styles.secondaryText}>Admin</Text>
                 </Pressable>
               ) : null}
-              <Pressable onPress={() => go("/account")} style={styles.accountButton}>
-                <CircleUserRound size={17} color={palette.inkSecondary} />
-                {!compact ? <Text style={styles.accountText}>Mon compte</Text> : null}
-              </Pressable>
+              <View style={styles.accountMenuWrap}>
+                <Pressable
+                  accessibilityRole="button"
+                  accessibilityState={{ expanded: accountMenuOpen }}
+                  onPress={() => setAccountMenuOpen((open) => !open)}
+                  style={styles.accountButton}
+                >
+                  <CircleUserRound size={17} color={palette.inkSecondary} />
+                  {!compact ? <Text style={styles.accountText}>Mon compte</Text> : null}
+                </Pressable>
+                {accountMenuOpen ? (
+                  <View style={styles.accountMenu}>
+                    <Pressable onPress={() => go("/account")} style={styles.menuItem}>
+                      <UserRound size={15} color={palette.inkSecondary} />
+                      <Text style={styles.menuItemText}>Mes informations</Text>
+                    </Pressable>
+                    <View style={styles.menuSeparator} />
+                    <Pressable onPress={handleSignOut} style={styles.menuItem}>
+                      <LogOut size={15} color={palette.dangerText} />
+                      <Text style={styles.menuDangerText}>Se déconnecter</Text>
+                    </Pressable>
+                  </View>
+                ) : null}
+              </View>
             </>
           ) : (
             <>
@@ -92,6 +124,8 @@ export function AppHeader() {
           )}
         </View>
       </View>
+
+      {accountMenuOpen ? <Pressable accessibilityLabel="Fermer le menu compte" onPress={() => setAccountMenuOpen(false)} style={styles.menuBackdrop} /> : null}
 
       {compact ? (
         <View style={styles.bottomNav}>
@@ -149,6 +183,7 @@ const styles = StyleSheet.create({
   navText: { color: palette.muted, fontFamily: fontFamilyMedium, fontSize: 13 },
   navTextActive: { color: palette.ink },
   account: { minWidth: 128, flexDirection: "row", alignItems: "center", justifyContent: "flex-end", gap: 8 },
+  accountMenuWrap: { position: "relative", zIndex: 30 },
   accountButton: {
     minHeight: 40,
     borderRadius: radius.sm,
@@ -161,6 +196,27 @@ const styles = StyleSheet.create({
     borderColor: "rgba(148, 163, 184, 0.18)"
   },
   accountText: { color: palette.inkSecondary, fontFamily: fontFamilyMedium },
+  accountMenu: {
+    position: "absolute",
+    top: 46,
+    right: 0,
+    width: 190,
+    borderRadius: radius.sm,
+    backgroundColor: "rgba(10, 16, 23, 0.98)",
+    borderWidth: 1,
+    borderColor: palette.lineStrong,
+    paddingVertical: 6,
+    zIndex: 35,
+    shadowColor: "#000000",
+    shadowOpacity: 0.22,
+    shadowRadius: 18,
+    shadowOffset: { width: 0, height: 10 }
+  },
+  menuItem: { minHeight: 40, paddingHorizontal: 12, flexDirection: "row", alignItems: "center", gap: 9 },
+  menuItemText: { color: palette.inkSecondary, fontFamily: fontFamilyMedium, fontSize: 13 },
+  menuDangerText: { color: palette.dangerText, fontFamily: fontFamilyMedium, fontSize: 13 },
+  menuSeparator: { height: 1, backgroundColor: palette.line, marginVertical: 4 },
+  menuBackdrop: { position: "absolute", top: 64, left: 0, right: 0, bottom: 0, zIndex: 4, backgroundColor: "transparent" },
   secondaryButton: {
     minHeight: 40,
     paddingHorizontal: 13,

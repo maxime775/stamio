@@ -170,6 +170,8 @@ export type AdminSeriesHistoryPoint = {
 export type Profile = {
   id: string;
   email: string | null;
+  username: string | null;
+  username_normalized: string | null;
   sex: Sex;
   phone_last4: string | null;
   age: number | null;
@@ -178,6 +180,18 @@ export type Profile = {
   reputation_score: number;
   created_at: string;
   updated_at: string;
+};
+
+export type AccountThemeParticipation = {
+  theme: ThemeSlug;
+  label: string;
+  count: number;
+  percentage: number;
+};
+
+export type AccountStats = {
+  participations_30_days: number;
+  participation_by_theme: AccountThemeParticipation[];
 };
 
 export type UserPollAnswer = {
@@ -198,6 +212,7 @@ export type UserPollAnswer = {
 export type SignupPayload = {
   email: string;
   password: string;
+  username: string;
   sex: Sex;
   phoneLast4: string;
   age: number;

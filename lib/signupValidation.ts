@@ -8,6 +8,7 @@ export const SIGNUP_FIELDS = [
   "confirmEmail",
   "password",
   "confirmPassword",
+  "username",
   "sex",
   "age",
   "profession",
@@ -22,6 +23,7 @@ export type SignupValues = {
   confirmEmail: string;
   password: string;
   confirmPassword: string;
+  username: string;
   sex: Sex | null;
   age: string;
   profession: string;
@@ -54,6 +56,14 @@ export function isStrongSignupPassword(password: string) {
   return getPasswordIssues(password).every(Boolean);
 }
 
+export function normalizeSignupUsername(value: string) {
+  return value.trim().toLowerCase();
+}
+
+export function isValidSignupUsername(value: string) {
+  return /^[a-z0-9_]{3,20}$/.test(normalizeSignupUsername(value));
+}
+
 export function validateSignupField(field: SignupField, values: SignupValues): string | null {
   switch (field) {
     case "email":
@@ -72,6 +82,11 @@ export function validateSignupField(field: SignupField, values: SignupValues): s
     case "confirmPassword":
       if (!values.confirmPassword) return "La confirmation du mot de passe est obligatoire.";
       return values.password === values.confirmPassword ? null : "Les mots de passe ne correspondent pas.";
+    case "username":
+      if (!values.username.trim()) return "Le pseudo est obligatoire.";
+      return isValidSignupUsername(values.username)
+        ? null
+        : "Le pseudo doit contenir entre 3 et 20 caractères, sans espace.";
     case "sex":
       return values.sex === "homme" || values.sex === "femme" ? null : "Veuillez sélectionner votre sexe.";
     case "age": {

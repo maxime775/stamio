@@ -70,7 +70,7 @@ export default function Home() {
     <PageShell>
       <View style={StyleSheet.flatten([styles.hero, compact && styles.heroCompact, compact && { maxWidth: Math.max(280, width - 40) }])}>
         <View style={styles.heroCopy}>
-          <Text style={styles.kicker}>Signal d’opinion</Text>
+          <Text style={styles.kicker}>Là où l’opinion prend forme</Text>
           <View accessible accessibilityRole="header" accessibilityLabel={HERO_TITLE} style={styles.titleFrame}>
             <Text accessibilityElementsHidden importantForAccessibility="no-hide-descendants" style={StyleSheet.flatten([styles.title, compact && styles.titleCompact, styles.titleMeasure])}>{HERO_TITLE}</Text>
             <Text accessibilityElementsHidden importantForAccessibility="no-hide-descendants" style={StyleSheet.flatten([styles.title, compact && styles.titleCompact, styles.typedTitle])}>{typedTitle}</Text>
@@ -79,8 +79,10 @@ export default function Home() {
             opacity: subtitleReveal,
             transform: [{ translateY: subtitleReveal.interpolate({ inputRange: [0, 1], outputRange: [8, 0] }) }]
           }])}>
-            Votez anonymement sur les grandes questions du moment, suivez les résultats agrégés et débattez librement. Ici, on peut hésiter, échanger et se forger une opinion.
+            Faites entendre votre voix, prenez part au débat.{"\n"}
+            Exprimez-vous sur les sujets qui vous animent et façonnez votre pensée. Ici on échange, on s’interroge, on réfléchit toujours.
           </Animated.Text>
+          <Text style={styles.privacyNote}>Les participations sont toujours anonymisées</Text>
           <View style={styles.actions}>
             <Pressable onPress={() => router.push("/themes" as Href)} onPressIn={() => prefetchThemePolls("all")} onFocus={() => prefetchThemePolls("all")} onHoverIn={() => prefetchThemePolls("all")} style={styles.primary}>
               <Text style={styles.primaryText}>Découvrir les sondages</Text>
@@ -124,6 +126,7 @@ const styles = StyleSheet.create({
   typedTitle: { position: "absolute", left: 0, top: 0, right: 0 },
   titleCompact: { fontSize: 36, lineHeight: 43, letterSpacing: -0.9 },
   subtitle: { color: palette.inkSecondary, fontSize: 17, lineHeight: 27, maxWidth: 680 },
+  privacyNote: { color: palette.muted, fontFamily: fontFamilyMedium, fontSize: 13, lineHeight: 18, maxWidth: 680 },
   actions: { flexDirection: "row", gap: 12, flexWrap: "wrap", marginTop: 8 },
   primary: { minHeight: 48, borderRadius: radius.sm, backgroundColor: palette.primary, paddingHorizontal: 18, flexDirection: "row", alignItems: "center", gap: 10, ...shadows.panel },
   primaryText: { color: palette.onPrimary, fontFamily: fontFamilySemibold, fontSize: 14 },
