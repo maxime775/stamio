@@ -1,11 +1,12 @@
-import { useEffect, useState, type ComponentProps } from "react";
-import { ActivityIndicator, Platform, Pressable, StyleSheet, Text, TextInput, View, type StyleProp, type ViewStyle } from "react-native";
+import { useEffect, useState } from "react";
+import { ActivityIndicator, Pressable, StyleSheet, Text, View } from "react-native";
 import { useRouter, type Href } from "expo-router";
+import { AuthSexSegmented, AuthTextField } from "@/components/AuthFields";
 import { AuthForm } from "@/components/AuthForm";
 import { PasswordStrengthRules } from "@/components/PasswordStrengthRules";
 import { RegionSelect } from "@/components/RegionSelect";
 import { ProfessionSelect } from "@/components/ProfessionSelect";
-import { REGIONS_FR, SEX_OPTIONS } from "@/lib/product";
+import { REGIONS_FR } from "@/lib/product";
 import { checkUsernameAvailability, signUpUser } from "@/lib/api";
 import { formatFrenchMobilePhoneDisplay, normalizeFrenchMobilePhoneInput } from "@/lib/validation";
 import { getVisibleSignupError, isValidSignupUsername, normalizeSignupEmail, normalizeSignupUsername, touchAllSignupFields, validateSignup, type SignupField, type SignupTouched, type SignupValues } from "@/lib/signupValidation";
@@ -158,7 +159,7 @@ export function SignupForm() {
         <Field field="username" label="Pseudo" error={usernameError()} value={username} onBlur={() => touch("username")} onChangeText={(value) => edit("username", () => setUsername(value))} autoCapitalize="none" placeholder="Choisissez votre pseudo" />
         {usernameStatus === "checking" ? <Text accessibilityLiveRegion="polite" style={styles.availabilityPending}>Vérification en cours...</Text> : null}
         {usernameStatus === "available" && !usernameError() ? <Text accessibilityLiveRegion="polite" style={styles.availabilityOk}>Ce pseudo est disponible.</Text> : null}
-        <SexSegmented error={fieldError("sex")} value={sex} onBlur={() => touch("sex")} onChange={(value) => { edit("sex", () => setSex(value)); touch("sex"); }} />
+        <AuthSexSegmented error={fieldError("sex")} value={sex} onBlur={() => touch("sex")} onChange={(value) => { edit("sex", () => setSex(value)); touch("sex"); }} />
         <View style={styles.twoCols}>
           <Field field="age" label="Âge" error={fieldError("age")} value={age} onBlur={() => touch("age")} onChangeText={(value) => edit("age", () => setAge(value))} keyboardType="number-pad" placeholder="34" containerStyle={styles.twoColField} />
           <ProfessionSelect error={fieldError("profession")} value={profession} onBlur={() => touch("profession")} onChange={(value) => edit("profession", () => setProfession(value))} />
@@ -185,90 +186,9 @@ export function SignupForm() {
   );
 }
 
-function SexSegmented({ value, error, onBlur, onChange }: { value: Sex | null; error?: string; onBlur: () => void; onChange: (value: Sex) => void }) {
-  const [focused, setFocused] = useState(false);
-  return (
-    <View style={styles.field}>
-      <Text style={styles.label}>Sexe</Text>
-      <View accessibilityRole="radiogroup" style={StyleSheet.flatten([styles.segmented, focused && styles.controlFocused, error && styles.controlInvalid])}>
-        {SEX_OPTIONS.map((option) => {
-          const active = value === option.value;
-          return (
-            <Pressable
-              key={option.value}
-              accessibilityRole="radio"
-              accessibilityState={{ checked: active }}
-              onFocus={() => setFocused(true)}
-              onBlur={() => {
-                setFocused(false);
-                onBlur();
-              }}
-              onPress={() => onChange(option.value)}
-              style={{ ...styles.segment, ...(active ? styles.segmentActive : {}) }}
-            >
-              <Text style={{ ...styles.segmentText, ...(active ? styles.segmentTextActive : {}) }}>{option.label}</Text>
-            </Pressable>
-          );
-        })}
-      </View>
-      {error ? <ErrorSlot message={error} /> : null}
-    </View>
-  );
-}
-
-function Field(props: ComponentProps<typeof TextInput> & { field: SignupField; label: string; error?: string; containerStyle?: StyleProp<ViewStyle> }) {
-  const { field, label, error, style, containerStyle, onFocus, onBlur, ...inputProps } = props;
-  const [focused, setFocused] = useState(false);
-  const errorId = `signup-${field}-error`;
-  const webAccessibilityProps = Platform.OS === "web"
-    ? ({ "aria-invalid": Boolean(error), "aria-describedby": error ? errorId : undefined } as ComponentProps<typeof TextInput>)
-    : {};
-  return (
-    <View style={StyleSheet.flatten([styles.field, containerStyle])}>
-      <Text style={styles.label}>{label}</Text>
-      <TextInput
-        {...webAccessibilityProps}
-        accessibilityHint={error}
-        nativeID={`signup-${field}`}
-        onFocus={(event) => {
-          setFocused(true);
-          onFocus?.(event);
-        }}
-        onBlur={(event) => {
-          setFocused(false);
-          onBlur?.(event);
-        }}
-        placeholderTextColor={authField.placeholderColor}
-        style={StyleSheet.flatten([styles.input, webInputReset, focused && styles.controlFocused, error && styles.controlInvalid, style])}
-        {...inputProps}
-      />
-      {error ? <ErrorSlot nativeID={errorId} message={error} /> : null}
-    </View>
-  );
-}
-
-function ErrorSlot({ message, nativeID }: { message?: string; nativeID?: string }) {
-  return <View style={styles.errorSlot}>{message ? <Text nativeID={nativeID} accessibilityLiveRegion="polite" style={styles.fieldError}>{message}</Text> : null}</View>;
-}
+const Field = AuthTextField;
 
 const styles = StyleSheet.create({
-  field: { gap: 6, flex: 1, minWidth: 0 },
-  label: { color: palette.inkSecondary, fontFamily: fontFamilyMedium, fontSize: 13 },
-  input: {
-    minHeight: 48,
-    borderRadius: authField.borderRadius,
-    borderWidth: authField.borderWidth,
-    borderColor: "transparent",
-    backgroundColor: authField.background,
-    paddingHorizontal: 14,
-    color: palette.ink,
-    fontSize: 15,
-    fontFamily: fontFamilyMedium
-  },
-  controlFocused: { borderColor: authField.focusBorderColor, backgroundColor: authField.backgroundFocused },
-  controlInvalid: { borderColor: authField.invalidBorderColor, backgroundColor: authField.backgroundInvalid },
-  errorSlot: { justifyContent: "center" },
-  fieldError: { color: palette.fieldError, fontSize: 11, lineHeight: 15 },
   profileBlock: {
     borderTopWidth: 1,
     borderTopColor: "rgba(148, 163, 184, 0.16)",
@@ -278,26 +198,6 @@ const styles = StyleSheet.create({
   blockTitle: { color: palette.ink, fontFamily: fontFamilySemibold, fontSize: 15 },
   twoCols: { flexDirection: "row", alignItems: "flex-start", gap: 12, flexWrap: "wrap" },
   twoColField: { flexGrow: 1, flexBasis: 0, minWidth: 150 },
-  segmented: {
-    minHeight: 48,
-    borderRadius: authField.borderRadius,
-    backgroundColor: authField.background,
-    borderWidth: authField.borderWidth,
-    borderColor: "transparent",
-    padding: 4,
-    flexDirection: "row",
-    gap: 4
-  },
-  segment: {
-    flex: 1,
-    borderRadius: radius.xs,
-    alignItems: "center",
-    justifyContent: "center",
-    paddingVertical: 10
-  },
-  segmentActive: { backgroundColor: palette.primary },
-  segmentText: { color: palette.muted, fontFamily: fontFamilyMedium },
-  segmentTextActive: { color: palette.onPrimary },
   availabilityPending: { color: palette.muted, fontSize: 11, lineHeight: 15, marginTop: -8 },
   availabilityOk: { color: palette.positiveText, fontSize: 11, lineHeight: 15, marginTop: -8 },
   globalError: { color: palette.dangerText, backgroundColor: palette.dangerSoft, borderRadius: radius.sm, padding: 12 },
@@ -312,7 +212,3 @@ const styles = StyleSheet.create({
   loginPromptLink: { paddingVertical: 3 },
   loginPromptLinkText: { color: palette.primaryStrong, fontFamily: fontFamilySemibold, fontSize: 13 }
 });
-
-const webInputReset = Platform.OS === "web"
-  ? ({ outlineStyle: "none" } as unknown as ComponentProps<typeof TextInput>["style"])
-  : null;

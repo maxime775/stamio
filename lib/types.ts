@@ -182,6 +182,8 @@ export type Profile = {
   updated_at: string;
 };
 
+export type ProfileUpdateField = "username" | "sex" | "age" | "profession" | "region";
+
 export type AccountThemeParticipation = {
   theme: ThemeSlug;
   label: string;
@@ -193,6 +195,15 @@ export type AccountStats = {
   participations_30_days: number;
   participation_by_theme: AccountThemeParticipation[];
 };
+
+export type UserReputationStatus = "Observateur" | "Participant" | "Contributeur" | "Référent";
+
+export function getUserReputationStatus(score: number): UserReputationStatus {
+  if (score >= 100) return "Référent";
+  if (score >= 25) return "Contributeur";
+  if (score >= 5) return "Participant";
+  return "Observateur";
+}
 
 export type UserPollAnswer = {
   id: string;

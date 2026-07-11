@@ -1,7 +1,7 @@
 import { useEffect, useRef, useState } from "react";
 import { Animated, Pressable, StyleSheet, Text, useWindowDimensions, View } from "react-native";
 import { Link, usePathname, useRouter, type Href } from "expo-router";
-import { BarChart3, CircleUserRound, Home, Info, Layers3, LogIn, LogOut, ShieldCheck, UserRound } from "lucide-react-native";
+import { BarChart3, CircleUserRound, Home, Info, Layers3, LayoutDashboard, LogIn, LogOut, ShieldCheck, UserRound } from "lucide-react-native";
 import { useAuth } from "@/components/AuthProvider";
 import { StamioLogo } from "@/components/StamioLogo";
 import { getAdminStatus, prefetchLatestResults, prefetchThemePolls, signOutUser } from "@/lib/api";
@@ -97,6 +97,10 @@ export function AppHeader() {
                 {accountMenuOpen ? (
                   <View style={styles.accountMenu}>
                     <Pressable onPress={() => go("/account")} style={styles.menuItem}>
+                      <LayoutDashboard size={15} color={palette.inkSecondary} />
+                      <Text style={styles.menuItemText}>Mon espace</Text>
+                    </Pressable>
+                    <Pressable onPress={() => go("/account/informations")} style={styles.menuItem}>
                       <UserRound size={15} color={palette.inkSecondary} />
                       <Text style={styles.menuItemText}>Mes informations</Text>
                     </Pressable>

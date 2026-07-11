@@ -8,6 +8,7 @@ import type {
   PollResult,
   PollWithStats,
   Profile,
+  ProfileUpdateField,
   AccountStats,
   AdminCreatePollInput,
   AdminPollDetail,
@@ -387,6 +388,20 @@ export async function getCurrentUserProfile(): Promise<Profile | null> {
   }
   if (!data) return null;
   return data as Profile;
+}
+
+export async function updateMyProfileField(field: ProfileUpdateField, value: string): Promise<{ profile: Profile | null; error?: string }> {
+  const { data, error } = await supabase.rpc("update_my_profile_field", {
+    p_field: field,
+    p_value: value
+  });
+  if (error) return { profile: null, error: error.message };
+  if (!data || typeof data !== "object") return { profile: await getCurrentUserProfile() };
+  return { profile: data as Profile };
+}
+
+export async function updateCurrentUserEmail(email: string) {
+  return supabase.auth.updateUser({ email });
 }
 
 export async function getLatestUserAnswers(): Promise<UserPollAnswer[]> {
