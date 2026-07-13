@@ -64,7 +64,8 @@ const cacheKeys = {
     `collection:${options.status ?? "open"}:${options.theme ?? "all"}:${options.featuredOnly ? "featured" : "any"}:${options.showInResultsOnly ? "visible-results" : "any"}:${options.limit}:${options.includeResults ? "results" : "stats"}`
 };
 
-const POLL_SELECT = "id, series_id, wave_number, question, description, status, theme, featured, show_in_results, archived, trend_label, created_at, launched_at, closes_at, choices(id, poll_id, label, position, choice_key)";
+const BASE_POLL_SELECT = "id, series_id, wave_number, question, description, status, theme, featured, show_in_results, archived, trend_label, created_at, launched_at, closes_at, choices(id, poll_id, label, position, choice_key)";
+const POLL_SELECT = `${BASE_POLL_SELECT}, poll_resources(id, poll_id, title, url, resource_type, description, position, created_at)`;
 
 export async function fetchPoll(pollId: string, options: CacheOptions = {}): Promise<Poll | null> {
   return cached(cacheKeys.poll(pollId), async () => {
@@ -199,6 +200,10 @@ export async function getFeaturedPolls(): Promise<PollWithStats[]> {
   return fetchPollCollection({ featuredOnly: true, limit: 10 });
 }
 
+export function getCachedFeaturedPolls(): PollWithStats[] | null {
+  return readCache<PollWithStats[]>(cacheKeys.collection({ featuredOnly: true, limit: 10 }));
+}
+
 export async function getPollsByTheme(theme: ThemeSlug): Promise<PollWithStats[]> {
   return fetchPollCollection({ theme, limit: 20 });
 }
@@ -264,7 +269,8 @@ export async function adminCreatePoll(input: AdminCreatePollInput): Promise<{ po
     p_trend_label: input.trend_label ?? null,
     p_series_id: input.series_id ?? null,
     p_choice_keys: input.choice_keys ?? null,
-    p_show_in_results: input.show_in_results ?? false
+    p_show_in_results: input.show_in_results ?? false,
+    p_resources: input.resources ?? []
   });
 
   if (error) return { pollId: null, error: error.message };
@@ -295,6 +301,7 @@ export async function adminGetPoll(pollId: string): Promise<AdminPollDetail | nu
   return {
     ...detail,
     choices: [...(detail.choices ?? [])].sort((a, b) => Number(a.position) - Number(b.position)),
+    resources: [...(detail.resources ?? [])].sort((a, b) => Number(a.position) - Number(b.position)),
     total_votes: Number(detail.total_votes ?? 0)
   };
 }
@@ -328,7 +335,8 @@ export async function adminUpdatePoll(input: AdminUpdatePollInput): Promise<{ ok
     p_featured: input.featured,
     p_show_in_results: input.show_in_results,
     p_choices: input.choices ?? null,
-    p_choice_keys: input.choice_keys ?? null
+    p_choice_keys: input.choice_keys ?? null,
+    p_resources: input.resources ?? null
   });
   if (error) return { ok: false, error: error.message };
   invalidatePublicCaches(input.poll_id);
@@ -517,10 +525,30 @@ async function fetchPollCollection(options: {
     if (options.showInResultsOnly) query = query.eq("show_in_results", true);
     if (status === "open") query = query.or(`closes_at.is.null,closes_at.gt.${new Date().toISOString()}`);
 
-    const { data, error } = await query;
-    if (error || !data) return [];
+    const initial = await query;
+    let rows = initial.data as Record<string, unknown>[] | null;
+    let error = initial.error;
+    if (error || !rows) {
+      let fallbackQuery = supabase
+        .from("polls")
+        .select(BASE_POLL_SELECT)
+        .eq("status", status)
+        .eq("archived", false)
+        .order("created_at", { ascending: false })
+        .limit(options.limit);
 
-    const polls = data.map(normalizePoll) as PollWithStats[];
+      if (options.theme) fallbackQuery = fallbackQuery.eq("theme", options.theme);
+      if (options.featuredOnly) fallbackQuery = fallbackQuery.eq("featured", true);
+      if (options.showInResultsOnly) fallbackQuery = fallbackQuery.eq("show_in_results", true);
+      if (status === "open") fallbackQuery = fallbackQuery.or(`closes_at.is.null,closes_at.gt.${new Date().toISOString()}`);
+
+      const fallback = await fallbackQuery;
+      rows = fallback.data as Record<string, unknown>[] | null;
+      error = fallback.error;
+    }
+    if (error || !rows) return [];
+
+    const polls = rows.map(normalizePoll) as PollWithStats[];
     const withStats = await Promise.all(
       polls.map(async (poll) => {
         writeCache(cacheKeys.poll(poll.id), poll);
@@ -540,10 +568,12 @@ async function fetchPollCollection(options: {
 
 function normalizePoll(data: Record<string, unknown>): Poll {
   const choices = Array.isArray(data.choices) ? data.choices : [];
+  const rawResources = Array.isArray(data.poll_resources) ? data.poll_resources : Array.isArray(data.resources) ? data.resources : [];
   return {
     ...(data as Poll),
     description: typeof data.description === "string" && data.description.trim() ? data.description : getPollDescription(String(data.id)),
-    choices: [...choices].sort((a, b) => Number(a.position) - Number(b.position))
+    choices: [...choices].sort((a, b) => Number(a.position) - Number(b.position)),
+    resources: [...rawResources].sort((a, b) => Number(a.position) - Number(b.position)) as Poll["resources"]
   };
 }
 

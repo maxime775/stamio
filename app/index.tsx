@@ -6,7 +6,7 @@ import { PageShell } from "@/components/PageShell";
 import { TrendingPollsCarousel } from "@/components/TrendingPollsCarousel";
 import { ApproachSection } from "@/components/ApproachSection";
 import { FeaturedTopicsTicker } from "@/components/FeaturedTopicsTicker";
-import { getFeaturedPolls, prefetchLatestResults, prefetchThemePolls } from "@/lib/api";
+import { getCachedFeaturedPolls, getFeaturedPolls, prefetchLatestResults, prefetchThemePolls } from "@/lib/api";
 import { fontFamilyBold, fontFamilyMedium, fontFamilySemibold, palette, radius, shadows } from "@/lib/design";
 import type { PollWithStats } from "@/lib/types";
 import { useReducedMotion } from "@/lib/useReducedMotion";
@@ -15,8 +15,9 @@ const HERO_TITLE = "Exprimez votre position. Faites-la évoluer.";
 
 export default function Home() {
   const router = useRouter();
-  const [polls, setPolls] = useState<PollWithStats[]>([]);
-  const [isLoadingPolls, setIsLoadingPolls] = useState(true);
+  const cachedFeaturedPolls = useMemo(() => getCachedFeaturedPolls(), []);
+  const [polls, setPolls] = useState<PollWithStats[]>(cachedFeaturedPolls ?? []);
+  const [isLoadingPolls, setIsLoadingPolls] = useState(!cachedFeaturedPolls);
   const [typedTitle, setTypedTitle] = useState("");
   const subtitleReveal = useMemo(() => new Animated.Value(0), []);
   const reducedMotion = useReducedMotion();
@@ -80,9 +81,9 @@ export default function Home() {
             transform: [{ translateY: subtitleReveal.interpolate({ inputRange: [0, 1], outputRange: [8, 0] }) }]
           }])}>
             Faites entendre votre voix, prenez part au débat.{"\n"}
-            Exprimez-vous sur les sujets qui vous animent et façonnez votre pensée. Ici on échange, on s’interroge, on réfléchit toujours.
+            Exprimez-vous sur les sujets qui vous animent et façonnez votre pensée. Ici on échange, on s’interroge, on débat parfois, on réfléchit toujours.
           </Animated.Text>
-          <Text style={styles.privacyNote}>Les participations sont toujours anonymisées</Text>
+          <Text style={styles.privacyNote}>Les participations sont anonymisées et les résultats sont présentés sous forme agrégée pour suivre les tendances sans exposer les réponses individuelles.</Text>
           <View style={styles.actions}>
             <Pressable onPress={() => router.push("/themes" as Href)} onPressIn={() => prefetchThemePolls("all")} onFocus={() => prefetchThemePolls("all")} onHoverIn={() => prefetchThemePolls("all")} style={styles.primary}>
               <Text style={styles.primaryText}>Découvrir les sondages</Text>
@@ -93,7 +94,7 @@ export default function Home() {
             </Pressable>
           </View>
         </View>
-        <FeaturedTopicsTicker count={polls.length} />
+        <FeaturedTopicsTicker count={isLoadingPolls ? null : polls.length} />
       </View>
 
       <TrendingPollsCarousel polls={polls} loading={isLoadingPolls} />
@@ -120,13 +121,13 @@ const styles = StyleSheet.create({
   heroCompact: { width: "100%", padding: 22, minHeight: 0 },
   heroCopy: { flex: 1, minWidth: 280, gap: 16 },
   kicker: { color: palette.primaryStrong, fontFamily: fontFamilySemibold, fontSize: 11, letterSpacing: 1.1, textTransform: "uppercase" },
-  title: { color: palette.ink, fontFamily: fontFamilyBold, fontSize: 46, lineHeight: 53, letterSpacing: -1.4, maxWidth: 720 },
+  title: { color: palette.ink, fontFamily: fontFamilyBold, fontSize: 46, lineHeight: 53, letterSpacing: 0, maxWidth: 720 },
   titleFrame: { position: "relative", maxWidth: 720 },
   titleMeasure: { opacity: 0 },
   typedTitle: { position: "absolute", left: 0, top: 0, right: 0 },
-  titleCompact: { fontSize: 36, lineHeight: 43, letterSpacing: -0.9 },
+  titleCompact: { fontSize: 36, lineHeight: 43, letterSpacing: 0 },
   subtitle: { color: palette.inkSecondary, fontSize: 17, lineHeight: 27, maxWidth: 680 },
-  privacyNote: { color: palette.muted, fontFamily: fontFamilyMedium, fontSize: 13, lineHeight: 18, maxWidth: 680 },
+  privacyNote: { color: palette.muted, fontFamily: fontFamilyMedium, fontSize: 13, lineHeight: 19, maxWidth: 680 },
   actions: { flexDirection: "row", gap: 12, flexWrap: "wrap", marginTop: 8 },
   primary: { minHeight: 48, borderRadius: radius.sm, backgroundColor: palette.primary, paddingHorizontal: 18, flexDirection: "row", alignItems: "center", gap: 10, ...shadows.panel },
   primaryText: { color: palette.onPrimary, fontFamily: fontFamilySemibold, fontSize: 14 },

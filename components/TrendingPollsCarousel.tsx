@@ -99,7 +99,10 @@ export const TrendingPollsCarousel = memo(function TrendingPollsCarousel({ polls
   return (
     <View {...webHoverProps} style={styles.wrap}>
       <View style={styles.header}>
-        <Text style={styles.title}>Sujets qui font l’actu</Text>
+        <View style={styles.headerCopy}>
+          <Text style={styles.title}>Sujets qui font l’actu</Text>
+          <Text style={styles.subtitle}>Répondez en quelques secondes à une question ouverte, puis découvrez comment les avis se répartissent en résultats agrégés.</Text>
+        </View>
         <Text style={styles.counter}>{loading ? "Chargement" : `${polls.length} questions ouvertes`}</Text>
       </View>
       {loading ? (
@@ -145,7 +148,9 @@ const styles = StyleSheet.create({
   wrap: { width: "100%", maxWidth: "100%", gap: 16, overflow: "hidden" },
   scroller: { width: "100%", maxWidth: "100%" },
   header: { flexDirection: "row", justifyContent: "space-between", alignItems: "flex-end", gap: 12, flexWrap: "wrap" },
-  title: { color: palette.ink, fontFamily: fontFamilyBold, fontSize: 26, lineHeight: 32, letterSpacing: -0.5 },
+  headerCopy: { gap: 6, flex: 1, minWidth: 260 },
+  title: { color: palette.ink, fontFamily: fontFamilyBold, fontSize: 26, lineHeight: 32, letterSpacing: 0 },
+  subtitle: { color: palette.muted, fontFamily: fontFamilyMedium, fontSize: 13, lineHeight: 20, maxWidth: 620 },
   counter: { color: palette.muted, fontFamily: fontFamilyMedium, fontSize: 12 },
   rail: { paddingVertical: 6 },
   segment: { flexDirection: "row", gap: 16, paddingRight: 16 },

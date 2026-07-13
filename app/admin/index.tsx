@@ -1,9 +1,10 @@
-import { useEffect, useMemo, useState, type ComponentProps, type ReactNode } from "react";
-import { ActivityIndicator, Platform, Pressable, ScrollView, StyleSheet, Text, TextInput, View } from "react-native";
+import { useCallback, useEffect, useMemo, useState, type ComponentProps, type ReactNode } from "react";
+import { ActivityIndicator, Alert, Platform, Pressable, ScrollView, StyleSheet, Text, TextInput, View } from "react-native";
 import { useRouter, type Href } from "expo-router";
-import { Archive, ArrowRight, CheckCircle2, Eye, EyeOff, Pencil, Plus, RefreshCw, Square, Trash2, XCircle } from "lucide-react-native";
+import { Archive, ArrowRight, CheckCircle2, Eye, EyeOff, FileText, Pencil, Plus, RefreshCw, Square, Trash2, XCircle } from "lucide-react-native";
 import { PageShell } from "@/components/PageShell";
 import { useAuth } from "@/components/AuthProvider";
+import { MarkdownEditor } from "@/components/MarkdownEditor";
 import {
   adminClosePoll,
   adminCreatePoll,
@@ -16,10 +17,17 @@ import {
   getAdminStatus
 } from "@/lib/api";
 import { THEMES, getThemeLabel } from "@/lib/product";
-import type { AdminCreatePollInput, AdminPollSummary, AdminSeriesSummary, ThemeSlug } from "@/lib/types";
+import type { AdminCreatePollInput, AdminPollSummary, AdminSeriesSummary, PollResourceInput, PollResourceType, ThemeSlug } from "@/lib/types";
 import { authField, fontFamilyBold, fontFamilyMedium, fontFamilySemibold, palette, radius } from "@/lib/design";
 
 const DEFAULT_CHOICES = ["Oui", "Non", "Ne se prononce pas"];
+const RESOURCE_TYPES: Array<{ label: string; value: PollResourceType }> = [
+  { label: "Lien", value: "link" },
+  { label: "PDF", value: "pdf" },
+  { label: "Article", value: "article" },
+  { label: "Rapport", value: "report" },
+  { label: "Autre", value: "other" }
+];
 const DURATION_OPTIONS = [
   { label: "3 jours", value: "3" },
   { label: "5 jours", value: "5" },
@@ -34,6 +42,7 @@ type AdminTab = "open" | "archives" | "series" | "create";
 export default function AdminPage() {
   const router = useRouter();
   const { user, loading: authLoading } = useAuth();
+  const userId = user?.id ?? null;
   const [adminState, setAdminState] = useState<AdminState>("loading");
   const [tab, setTab] = useState<AdminTab>("open");
   const [polls, setPolls] = useState<AdminPollSummary[]>([]);
@@ -47,6 +56,8 @@ export default function AdminPage() {
   const [question, setQuestion] = useState("");
   const [description, setDescription] = useState("");
   const [choices, setChoices] = useState(DEFAULT_CHOICES);
+  const [includeResources, setIncludeResources] = useState(false);
+  const [resources, setResources] = useState<PollResourceInput[]>([]);
   const [duration, setDuration] = useState<(typeof DURATION_OPTIONS)[number]["value"]>("7");
   const [customDays, setCustomDays] = useState("10");
   const [status, setStatus] = useState<AdminCreatePollInput["status"]>("open");
@@ -62,7 +73,7 @@ export default function AdminPage() {
     if (authLoading) return () => {
       active = false;
     };
-    if (!user) {
+    if (!userId) {
       setAdminState("denied");
       return () => {
         active = false;
@@ -75,12 +86,19 @@ export default function AdminPage() {
     return () => {
       active = false;
     };
-  }, [authLoading, user]);
+  }, [authLoading, userId]);
+
+  const reloadPolls = useCallback(async () => {
+    setLoadingPolls(true);
+    const items = await adminListPolls();
+    setPolls(items);
+    setLoadingPolls(false);
+  }, []);
 
   useEffect(() => {
     if (adminState !== "allowed") return;
     void reloadPolls();
-  }, [adminState]);
+  }, [adminState, reloadPolls]);
 
   const cleanedChoices = useMemo(() => choices.map((choice) => choice.trim()).filter(Boolean), [choices]);
   const openPolls = useMemo(() => polls.filter((poll) => poll.status === "open" && !poll.archived), [polls]);
@@ -116,13 +134,6 @@ export default function AdminPage() {
     );
   }
 
-  async function reloadPolls() {
-    setLoadingPolls(true);
-    const items = await adminListPolls();
-    setPolls(items);
-    setLoadingPolls(false);
-  }
-
   async function submit() {
     const validationError = validateForm();
     if (validationError) {
@@ -155,7 +166,8 @@ export default function AdminPage() {
         closes_at: closesAt,
         status,
         featured,
-        show_in_results: status === "closed" ? showInResults : false
+        show_in_results: status === "closed" ? showInResults : false,
+        resources: includeResources ? normalizeResources(resources) : []
       });
       setSubmitting(false);
       if (!response.ok) {
@@ -178,7 +190,8 @@ export default function AdminPage() {
       closes_at: closesAt,
       status,
       featured,
-      show_in_results: status === "closed" ? showInResults : false
+      show_in_results: status === "closed" ? showInResults : false,
+      resources: includeResources ? normalizeResources(resources) : []
     });
     setSubmitting(false);
 
@@ -195,10 +208,15 @@ export default function AdminPage() {
   function validateForm() {
     if (!question.trim()) return "La question est obligatoire.";
     if (!description.trim()) return "Le texte d'enjeux est obligatoire.";
+    if (description.length > 4000) return "Limitez les enjeux a 4000 caracteres.";
     if (cleanedChoices.length < 2) return "Ajoutez au moins deux choix.";
     if (cleanedChoices.length > 6) return "Limitez le sondage a six choix maximum.";
     if (new Set(cleanedChoices).size !== cleanedChoices.length) return "Les choix ne doivent pas contenir de doublon exact.";
     if (!computeClosesAt()) return "Choisissez une duree valide.";
+    if (includeResources) {
+      const resourceError = validateResources(resources);
+      if (resourceError) return resourceError;
+    }
     return null;
   }
 
@@ -223,6 +241,8 @@ export default function AdminPage() {
     setQuestion("");
     setDescription("");
     setChoices(DEFAULT_CHOICES);
+    setIncludeResources(false);
+    setResources([]);
     setDuration("7");
     setCustomDays("10");
     setStatus("open");
@@ -249,6 +269,14 @@ export default function AdminPage() {
     setStatus(detail.poll.status);
     setFeatured(Boolean(detail.poll.featured));
     setShowInResults(Boolean(detail.poll.show_in_results));
+    const loadedResources = (detail.resources ?? detail.poll.resources ?? []).map((resource) => ({
+      title: resource.title,
+      url: resource.url,
+      resource_type: resource.resource_type,
+      description: resource.description ?? ""
+    }));
+    setResources(loadedResources);
+    setIncludeResources(loadedResources.length > 0);
     setDuration("7");
     setCustomDays("10");
     setTab("create");
@@ -285,6 +313,36 @@ export default function AdminPage() {
 
   async function archiveOrDelete(pollId: string) {
     await runAction(() => adminDeleteOrArchivePoll(pollId), "Sondage supprime s'il etait vide, sinon archive.");
+  }
+
+  function toggleResources() {
+    if (!includeResources) {
+      setIncludeResources(true);
+      if (resources.length === 0) setResources([createEmptyResource()]);
+      return;
+    }
+
+    const hasContent = resources.some((resource) => resource.title.trim() || resource.url.trim() || (resource.description ?? "").trim());
+    if (editingPollId && hasContent) {
+      Alert.alert(
+        "Retirer les ressources ?",
+        "En enregistrant avec cette option desactivee, les ressources rattachees a cette question seront supprimees.",
+        [
+          { text: "Annuler", style: "cancel" },
+          { text: "Retirer", style: "destructive", onPress: () => setIncludeResources(false) }
+        ]
+      );
+      return;
+    }
+    setIncludeResources(false);
+  }
+
+  function updateResource(index: number, patch: Partial<PollResourceInput>) {
+    setResources((current) => current.map((resource, resourceIndex) => resourceIndex === index ? { ...resource, ...patch } : resource));
+  }
+
+  function removeResource(index: number) {
+    setResources((current) => current.filter((_resource, resourceIndex) => resourceIndex !== index));
   }
 
   return (
@@ -399,8 +457,50 @@ export default function AdminPage() {
             </Field>
 
             <Field label="Enjeux / description">
-              <TextInput value={description} onChangeText={setDescription} multiline placeholder="Expliquez le contexte du debat..." placeholderTextColor={authField.placeholderColor} style={StyleSheet.flatten([styles.input, styles.textarea])} />
+              <MarkdownEditor value={description} onChangeText={setDescription} placeholder="Expliquez le contexte du debat..." />
             </Field>
+
+            <View style={styles.checkboxGrid}>
+              <Checkbox label="Inclure ressources" value={includeResources} onToggle={toggleResources} />
+            </View>
+
+            {includeResources ? (
+              <Field label="Ressources">
+                <View style={styles.resourceList}>
+                  {resources.map((resource, index) => (
+                    <View key={index} style={styles.resourceCard}>
+                      <View style={styles.resourceHeader}>
+                        <View style={styles.resourceTitleRow}>
+                          <FileText size={15} color={palette.primaryStrong} />
+                          <Text style={styles.resourceTitle}>Ressource {index + 1}</Text>
+                        </View>
+                        <Pressable disabled={resources.length <= 1} onPress={() => removeResource(index)} style={StyleSheet.flatten([styles.iconButton, resources.length <= 1 && styles.disabled])}>
+                          <Trash2 size={16} color={palette.inkSecondary} />
+                        </Pressable>
+                      </View>
+                      <TextInput value={resource.title} onChangeText={(value) => updateResource(index, { title: value })} placeholder="Titre de la ressource" placeholderTextColor={authField.placeholderColor} style={styles.input} />
+                      <TextInput value={resource.url} onChangeText={(value) => updateResource(index, { url: value })} placeholder="https://..." placeholderTextColor={authField.placeholderColor} autoCapitalize="none" keyboardType="url" style={styles.input} />
+                      <View style={styles.segmentRow}>
+                        {RESOURCE_TYPES.map((item) => {
+                          const active = resource.resource_type === item.value;
+                          return (
+                            <Pressable key={item.value} onPress={() => updateResource(index, { resource_type: item.value })} style={StyleSheet.flatten([styles.segment, active && styles.segmentActive])}>
+                              <Text style={StyleSheet.flatten([styles.segmentText, active && styles.segmentTextActive])}>{item.label}</Text>
+                            </Pressable>
+                          );
+                        })}
+                      </View>
+                      <TextInput value={resource.description ?? ""} onChangeText={(value) => updateResource(index, { description: value })} multiline placeholder="Description courte optionnelle" placeholderTextColor={authField.placeholderColor} style={StyleSheet.flatten([styles.input, styles.resourceDescription])} />
+                    </View>
+                  ))}
+                  <Pressable disabled={resources.length >= 5} onPress={() => setResources((current) => [...current, createEmptyResource()])} style={StyleSheet.flatten([styles.addChoice, resources.length >= 5 && styles.disabled])}>
+                    <Plus size={16} color={palette.primaryStrong} />
+                    <Text style={styles.addChoiceText}>Ajouter une ressource</Text>
+                  </Pressable>
+                  <Text style={styles.cardText}>URLs externes uniquement, en http ou https. Maximum 5 ressources.</Text>
+                </View>
+              </Field>
+            ) : null}
 
             <Field label="Choix de reponses">
               <View style={styles.choiceList}>
@@ -574,6 +674,45 @@ function Checkbox({ label, value, disabled, onToggle }: { label: string; value: 
   );
 }
 
+function createEmptyResource(): PollResourceInput {
+  return { title: "", url: "", resource_type: "link", description: "" };
+}
+
+function normalizeResources(resources: PollResourceInput[]) {
+  return resources
+    .map((resource) => ({
+      title: resource.title.trim(),
+      url: resource.url.trim(),
+      resource_type: resource.resource_type,
+      description: resource.description?.trim() || null
+    }))
+    .filter((resource) => resource.title || resource.url || resource.description);
+}
+
+function validateResources(resources: PollResourceInput[]) {
+  const normalized = normalizeResources(resources);
+  if (normalized.length === 0) return "Ajoutez au moins une ressource ou desactivez l'option.";
+  if (normalized.length > 5) return "Limitez les ressources a cinq liens maximum.";
+  for (const resource of normalized) {
+    if (!resource.title) return "Chaque ressource doit avoir un titre.";
+    if (!resource.url) return "Chaque ressource doit avoir une URL.";
+    if (!isSafeHttpUrl(resource.url)) return "Les ressources doivent utiliser une URL http ou https valide.";
+    if (!RESOURCE_TYPES.some((item) => item.value === resource.resource_type)) return "Type de ressource invalide.";
+    if (resource.title.length > 140) return "Limitez le titre des ressources a 140 caracteres.";
+    if ((resource.description ?? "").length > 280) return "Limitez la description des ressources a 280 caracteres.";
+  }
+  return null;
+}
+
+function isSafeHttpUrl(value: string) {
+  try {
+    const url = new URL(value);
+    return url.protocol === "http:" || url.protocol === "https:";
+  } catch {
+    return false;
+  }
+}
+
 function buildSeries(polls: AdminPollSummary[]): AdminSeriesSummary[] {
   const groups = new Map<string, AdminPollSummary[]>();
   for (const poll of polls) {
@@ -655,6 +794,12 @@ const styles = StyleSheet.create({
   iconButton: { width: 42, minHeight: 42, borderRadius: radius.sm, alignItems: "center", justifyContent: "center", borderWidth: 1, borderColor: palette.lineStrong },
   addChoice: { alignSelf: "flex-start", minHeight: 38, borderRadius: radius.sm, borderWidth: 1, borderColor: palette.lineStrong, paddingHorizontal: 12, flexDirection: "row", alignItems: "center", gap: 7 },
   addChoiceText: { color: palette.primaryStrong, fontFamily: fontFamilySemibold, fontSize: 13 },
+  resourceList: { gap: 10 },
+  resourceCard: { borderRadius: radius.sm, borderWidth: 1, borderColor: palette.line, backgroundColor: palette.surfaceSubtle, padding: 12, gap: 10 },
+  resourceHeader: { flexDirection: "row", alignItems: "center", justifyContent: "space-between", gap: 10 },
+  resourceTitleRow: { flexDirection: "row", alignItems: "center", gap: 7 },
+  resourceTitle: { color: palette.ink, fontFamily: fontFamilySemibold, fontSize: 14 },
+  resourceDescription: { minHeight: 76, textAlignVertical: "top", lineHeight: 20 },
   twoColumns: { flexDirection: "row", flexWrap: "wrap", gap: 16 },
   columnField: { flex: 1, minWidth: 260 },
   segmentRow: { flexDirection: "row", flexWrap: "wrap", gap: 8 },

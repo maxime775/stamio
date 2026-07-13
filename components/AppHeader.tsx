@@ -23,6 +23,7 @@ export function AppHeader() {
   const pathname = usePathname();
   const router = useRouter();
   const { user, emailVerified } = useAuth();
+  const userId = user?.id ?? null;
   const { width } = useWindowDimensions();
   const compact = width < 760;
   const [isAdmin, setIsAdmin] = useState(false);
@@ -30,7 +31,7 @@ export function AppHeader() {
 
   useEffect(() => {
     let active = true;
-    if (!user || !emailVerified) {
+    if (!userId || !emailVerified) {
       setIsAdmin(false);
       return () => {
         active = false;
@@ -42,7 +43,7 @@ export function AppHeader() {
     return () => {
       active = false;
     };
-  }, [emailVerified, user]);
+  }, [emailVerified, userId]);
 
   useEffect(() => {
     setAccountMenuOpen(false);
@@ -180,7 +181,7 @@ const styles = StyleSheet.create({
     zIndex: 5
   },
   brand: { flexDirection: "row", alignItems: "center", gap: 10, minWidth: 128 },
-  brandText: { color: palette.ink, fontFamily: fontFamilyBold, fontSize: 19, letterSpacing: -0.3 },
+  brandText: { color: palette.ink, fontFamily: fontFamilyBold, fontSize: 19, letterSpacing: 0 },
   centerNav: { flexDirection: "row", alignItems: "center", justifyContent: "center", gap: 6, flex: 1 },
   navItem: { paddingHorizontal: 14, paddingVertical: 11, position: "relative" },
   navLine: { position: "absolute", left: 14, right: 14, bottom: 4, height: 2, borderRadius: 1, backgroundColor: palette.primaryStrong },

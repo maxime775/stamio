@@ -6,10 +6,10 @@ import { useReducedMotion } from "@/lib/useReducedMotion";
 
 const SECTION_TITLE = "Notre approche";
 const ITEMS = [
-  { icon: "verified" as const, title: "Un numéro vérifié = un vote par question", text: "La validation reste dans le parcours serveur sécurisé." },
-  { icon: "results" as const, title: "Résultats en temps réel", text: "Les résultats sont présentés sous forme agrégée, sans donnée sensible." },
-  { icon: "private" as const, title: "Aucun numéro affiché publiquement", text: "Les pages publiques ne montrent ni téléphone, ni hash individuel." },
-  { icon: "lock" as const, title: "Anti-doublon technique", text: "La base conserve la contrainte anti-double vote par question." }
+  { icon: "verified" as const, title: "Un numéro vérifié = un vote par question", text: "La validation se fait côté serveur avant comptage, pour limiter les doublons sans transformer la participation en inscription lourde." },
+  { icon: "results" as const, title: "Résultats agrégés", text: "Les réponses sont regroupées pour faire apparaître les tendances, sans exposer les participations individuelles." },
+  { icon: "private" as const, title: "Aucun numéro affiché publiquement", text: "Les pages publiques ne montrent ni téléphone, ni hash individuel, ni donnée permettant de relier une personne à son choix." },
+  { icon: "lock" as const, title: "Anti-doublon technique", text: "La contrainte de vote unique par question est appliquée par la base et par les fonctions serveur, pas par un simple contrôle d’interface." }
 ];
 
 export const ApproachSection = memo(function ApproachSection() {
@@ -28,10 +28,10 @@ export const ApproachSection = memo(function ApproachSection() {
       return undefined;
     }
     const observer = new IntersectionObserver(([entry]) => {
-      if (!entry.isIntersecting) return;
+      if (!entry.isIntersecting || entry.intersectionRatio < 0.55) return;
       setVisible(true);
       observer.disconnect();
-    }, { threshold: 0.2 });
+    }, { threshold: [0.45, 0.55, 0.65], rootMargin: "0px 0px -8% 0px" });
     observer.observe(sectionRef.current as unknown as Element);
     return () => observer.disconnect();
   }, []);
@@ -56,22 +56,22 @@ export const ApproachSection = memo(function ApproachSection() {
         if (titleIndex >= SECTION_TITLE.length) clearInterval(typing);
       }, 44);
       typingTimerRef.current = typing;
-    }, 100);
+    }, 160);
 
     const subtitleAnimation = Animated.sequence([
-      Animated.delay(360),
+      Animated.delay(460),
       Animated.timing(subtitleReveal, {
         toValue: 1,
-        duration: 620,
+        duration: 720,
         easing: Easing.out(Easing.cubic),
         useNativeDriver: true
       })
     ]);
     const cardsAnimation = Animated.sequence([
-      Animated.delay(520),
-      Animated.stagger(145, reveals.map((value) => Animated.timing(value, {
+      Animated.delay(720),
+      Animated.stagger(170, reveals.map((value) => Animated.timing(value, {
         toValue: 1,
-        duration: 820,
+        duration: 860,
         easing: Easing.out(Easing.cubic),
         useNativeDriver: true
       })))
@@ -99,7 +99,7 @@ export const ApproachSection = memo(function ApproachSection() {
           opacity: subtitleReveal,
           transform: [{ translateY: subtitleReveal.interpolate({ inputRange: [0, 1], outputRange: [10, 0] }) }]
         }])}>
-          Une participation lisible, vérifiée et respectueuse. Quatre principes structurent la collecte des avis et la présentation publique des résultats.
+          Une participation lisible, vérifiée et respectueuse. Les avis sont collectés avec une logique d’unicité, puis restitués sous forme agrégée pour nourrir le débat sans exposer les personnes.
         </Animated.Text>
       </View>
       <View style={styles.grid}>
@@ -128,7 +128,7 @@ const styles = StyleSheet.create({
   heading: { gap: 8, maxWidth: 760 },
   kicker: { color: palette.primaryStrong, fontFamily: fontFamilySemibold, fontSize: 10, letterSpacing: 1.2, textTransform: "uppercase" },
   titleFrame: { position: "relative", maxWidth: 620 },
-  title: { color: palette.ink, fontFamily: fontFamilyBold, fontSize: 30, lineHeight: 37, letterSpacing: -0.6 },
+  title: { color: palette.ink, fontFamily: fontFamilyBold, fontSize: 30, lineHeight: 37, letterSpacing: 0 },
   titleMeasure: { opacity: 0 },
   typedTitle: { position: "absolute", left: 0, top: 0, right: 0 },
   intro: { color: palette.muted, fontSize: 15, lineHeight: 23, maxWidth: 720 },

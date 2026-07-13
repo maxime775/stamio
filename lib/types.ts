@@ -8,6 +8,26 @@ export type Choice = {
 
 export type ThemeSlug = "politique" | "economie" | "societe" | "sport";
 
+export type PollResourceType = "link" | "pdf" | "article" | "report" | "other";
+
+export type PollResource = {
+  id: string;
+  poll_id: string;
+  title: string;
+  url: string;
+  resource_type: PollResourceType;
+  description: string | null;
+  position: number;
+  created_at?: string;
+};
+
+export type PollResourceInput = {
+  title: string;
+  url: string;
+  resource_type: PollResourceType;
+  description?: string | null;
+};
+
 export type Sex = "homme" | "femme";
 
 export type Poll = {
@@ -26,6 +46,7 @@ export type Poll = {
   launched_at?: string | null;
   closes_at: string | null;
   choices: Choice[];
+  resources?: PollResource[];
 };
 
 export type PollResult = {
@@ -82,6 +103,7 @@ export type AdminCreatePollInput = {
   featured: boolean;
   show_in_results?: boolean;
   trend_label?: string | null;
+  resources?: PollResourceInput[];
 };
 
 export type AdminPollSummary = {
@@ -101,6 +123,7 @@ export type AdminPollSummary = {
   trend_label: string | null;
   choice_count: number;
   total_votes: number;
+  resources?: PollResource[];
 };
 
 export type AdminPollDetail = {
@@ -118,6 +141,7 @@ export type AdminPollDetail = {
     updated_at: string;
   } | null;
   choices: Choice[];
+  resources?: PollResource[];
   total_votes: number;
 };
 
@@ -148,6 +172,7 @@ export type AdminUpdatePollInput = {
   status: "open" | "closed";
   featured: boolean;
   show_in_results: boolean;
+  resources?: PollResourceInput[];
 };
 
 export type AdminSeriesHistoryPoint = {
