@@ -5,7 +5,7 @@ import { BarChart3, CircleUserRound, Home, Info, Layers3, LayoutDashboard, LogIn
 import { useAuth } from "@/components/AuthProvider";
 import { StamioLogo } from "@/components/StamioLogo";
 import { getAdminStatus, prefetchLatestResults, prefetchThemePolls, signOutUser } from "@/lib/api";
-import { fontFamilyBold, fontFamilyMedium, fontFamilySemibold, palette, radius } from "@/lib/design";
+import { fontFamilyMedium, fontFamilySemibold, palette, radius } from "@/lib/design";
 
 const centerNav = [
   { label: "Nos thèmes", href: "/themes", icon: Layers3 },
@@ -64,8 +64,7 @@ export function AppHeader() {
     <>
       <View style={styles.header}>
         <Pressable accessibilityLabel="Stamio" onPress={() => go("/")} style={styles.brand}>
-          <StamioLogo height={32} />
-          <Text style={styles.brandText}>Stamio</Text>
+          <StamioLogo width={118} />
         </Pressable>
 
         {!compact ? (
@@ -180,8 +179,7 @@ const styles = StyleSheet.create({
     gap: 18,
     zIndex: 5
   },
-  brand: { flexDirection: "row", alignItems: "center", gap: 10, minWidth: 128 },
-  brandText: { color: palette.ink, fontFamily: fontFamilyBold, fontSize: 19, letterSpacing: 0 },
+  brand: { flexDirection: "row", alignItems: "center", minWidth: 118 },
   centerNav: { flexDirection: "row", alignItems: "center", justifyContent: "center", gap: 6, flex: 1 },
   navItem: { paddingHorizontal: 14, paddingVertical: 11, position: "relative" },
   navLine: { position: "absolute", left: 14, right: 14, bottom: 4, height: 2, borderRadius: 1, backgroundColor: palette.primaryStrong },

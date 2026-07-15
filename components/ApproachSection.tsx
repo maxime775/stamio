@@ -14,39 +14,54 @@ const ITEMS = [
 
 export const ApproachSection = memo(function ApproachSection() {
   const sectionRef = useRef<View | null>(null);
-  const playedRef = useRef(false);
+  const gridRef = useRef<View | null>(null);
+  const headingPlayedRef = useRef(false);
+  const cardsPlayedRef = useRef(false);
   const typingTimerRef = useRef<ReturnType<typeof setInterval> | null>(null);
-  const [visible, setVisible] = useState(Platform.OS !== "web");
+  const [headingVisible, setHeadingVisible] = useState(Platform.OS !== "web");
+  const [cardsVisible, setCardsVisible] = useState(Platform.OS !== "web");
   const [typedTitle, setTypedTitle] = useState("");
   const reducedMotion = useReducedMotion();
   const subtitleReveal = useMemo(() => new Animated.Value(0), []);
   const reveals = useMemo(() => ITEMS.map(() => new Animated.Value(0)), []);
 
   useEffect(() => {
-    if (Platform.OS !== "web" || typeof IntersectionObserver === "undefined" || !sectionRef.current) {
-      setVisible(true);
+    if (Platform.OS !== "web" || typeof IntersectionObserver === "undefined" || !sectionRef.current || !gridRef.current) {
+      setHeadingVisible(true);
+      setCardsVisible(true);
       return undefined;
     }
-    const observer = new IntersectionObserver(([entry]) => {
-      if (!entry.isIntersecting || entry.intersectionRatio < 0.55) return;
-      setVisible(true);
-      observer.disconnect();
-    }, { threshold: [0.45, 0.55, 0.65], rootMargin: "0px 0px -8% 0px" });
-    observer.observe(sectionRef.current as unknown as Element);
-    return () => observer.disconnect();
+
+    const headingObserver = new IntersectionObserver(([entry]) => {
+      if (!entry.isIntersecting || entry.intersectionRatio < 0.12) return;
+      setHeadingVisible(true);
+      headingObserver.disconnect();
+    }, { threshold: [0.08, 0.12, 0.2], rootMargin: "0px 0px -22% 0px" });
+
+    const cardsObserver = new IntersectionObserver(([entry]) => {
+      if (!entry.isIntersecting || entry.intersectionRatio < 0.3) return;
+      setCardsVisible(true);
+      cardsObserver.disconnect();
+    }, { threshold: [0.22, 0.3, 0.42], rootMargin: "0px 0px -8% 0px" });
+
+    headingObserver.observe(sectionRef.current as unknown as Element);
+    cardsObserver.observe(gridRef.current as unknown as Element);
+    return () => {
+      headingObserver.disconnect();
+      cardsObserver.disconnect();
+    };
   }, []);
 
   useEffect(() => {
-    if (!visible) return undefined;
+    if (!headingVisible) return undefined;
     if (reducedMotion) {
-      playedRef.current = true;
+      headingPlayedRef.current = true;
       setTypedTitle(SECTION_TITLE);
       subtitleReveal.setValue(1);
-      reveals.forEach((value) => value.setValue(1));
       return undefined;
     }
-    if (playedRef.current) return undefined;
-    playedRef.current = true;
+    if (headingPlayedRef.current) return undefined;
+    headingPlayedRef.current = true;
 
     let titleIndex = 0;
     const typingDelay = setTimeout(() => {
@@ -56,36 +71,48 @@ export const ApproachSection = memo(function ApproachSection() {
         if (titleIndex >= SECTION_TITLE.length) clearInterval(typing);
       }, 44);
       typingTimerRef.current = typing;
-    }, 160);
+    }, 80);
 
     const subtitleAnimation = Animated.sequence([
-      Animated.delay(460),
+      Animated.delay(300),
       Animated.timing(subtitleReveal, {
         toValue: 1,
-        duration: 720,
+        duration: 640,
         easing: Easing.out(Easing.cubic),
         useNativeDriver: true
       })
     ]);
-    const cardsAnimation = Animated.sequence([
-      Animated.delay(720),
-      Animated.stagger(170, reveals.map((value) => Animated.timing(value, {
-        toValue: 1,
-        duration: 860,
-        easing: Easing.out(Easing.cubic),
-        useNativeDriver: true
-      })))
-    ]);
     subtitleAnimation.start();
-    cardsAnimation.start();
 
     return () => {
       clearTimeout(typingDelay);
       if (typingTimerRef.current) clearInterval(typingTimerRef.current);
       subtitleAnimation.stop();
-      cardsAnimation.stop();
     };
-  }, [reducedMotion, reveals, subtitleReveal, visible]);
+  }, [headingVisible, reducedMotion, subtitleReveal]);
+
+  useEffect(() => {
+    if (!cardsVisible || !headingVisible) return undefined;
+    if (reducedMotion) {
+      cardsPlayedRef.current = true;
+      reveals.forEach((value) => value.setValue(1));
+      return undefined;
+    }
+    if (cardsPlayedRef.current) return undefined;
+    cardsPlayedRef.current = true;
+
+    const cardsAnimation = Animated.sequence([
+      Animated.delay(220),
+      Animated.stagger(170, reveals.map((value) => Animated.timing(value, {
+        toValue: 1,
+        duration: 820,
+        easing: Easing.out(Easing.cubic),
+        useNativeDriver: true
+      })))
+    ]);
+    cardsAnimation.start();
+    return () => cardsAnimation.stop();
+  }, [cardsVisible, headingVisible, reducedMotion, reveals]);
 
   return (
     <View ref={sectionRef} style={styles.section}>
@@ -102,7 +129,7 @@ export const ApproachSection = memo(function ApproachSection() {
           Une participation lisible, vérifiée et respectueuse. Les avis sont collectés avec une logique d’unicité, puis restitués sous forme agrégée pour nourrir le débat sans exposer les personnes.
         </Animated.Text>
       </View>
-      <View style={styles.grid}>
+      <View ref={gridRef} style={styles.grid}>
         {ITEMS.map((item, index) => (
           <Animated.View key={item.title} style={StyleSheet.flatten([styles.item, {
             opacity: reveals[index],

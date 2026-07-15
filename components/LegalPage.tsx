@@ -1,8 +1,10 @@
+import type { ReactNode } from "react";
+import { Link } from "expo-router";
 import { StyleSheet, Text, View } from "react-native";
 import { PageShell } from "@/components/PageShell";
 import { fontFamilyBold, fontFamilyMedium, fontFamilySemibold, palette, radius } from "@/lib/design";
 
-type Section = { title: string; paragraphs: string[] };
+type Section = { title: string; paragraphs: ReactNode[] };
 
 export function LegalPage({ eyebrow, title, intro, sections }: { eyebrow: string; title: string; intro: string; sections: Section[] }) {
   return (
@@ -16,11 +18,15 @@ export function LegalPage({ eyebrow, title, intro, sections }: { eyebrow: string
       <View style={styles.content}>
         {sections.map((section) => <View key={section.title} style={styles.section}>
           <Text style={styles.sectionTitle}>{section.title}</Text>
-          {section.paragraphs.map((paragraph) => <Text key={paragraph} style={styles.paragraph}>{paragraph}</Text>)}
+          {section.paragraphs.map((paragraph, index) => <Text key={`${section.title}-${index}`} style={styles.paragraph}>{paragraph}</Text>)}
         </View>)}
       </View>
     </PageShell>
   );
+}
+
+export function LegalInlineLink({ href, children }: { href: "/confidentialite"; children: ReactNode }) {
+  return <Link href={href} style={styles.link}>{children}</Link>;
 }
 
 const styles = StyleSheet.create({
@@ -33,5 +39,6 @@ const styles = StyleSheet.create({
   content: { maxWidth: 820, gap: 28, paddingTop: 12 },
   section: { gap: 10, borderTopWidth: 1, borderTopColor: palette.line, paddingTop: 20 },
   sectionTitle: { color: palette.ink, fontFamily: fontFamilySemibold, fontSize: 20 },
-  paragraph: { color: palette.muted, fontSize: 14, lineHeight: 23 }
+  paragraph: { color: palette.muted, fontSize: 14, lineHeight: 23 },
+  link: { color: palette.primaryStrong, fontFamily: fontFamilyMedium }
 });

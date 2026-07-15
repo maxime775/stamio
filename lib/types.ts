@@ -8,6 +8,11 @@ export type Choice = {
 
 export type ThemeSlug = "politique" | "economie" | "societe" | "sport";
 
+export type OpenPollStats = {
+  total: number;
+  byTheme: Record<ThemeSlug, number>;
+};
+
 export type PollResourceType = "link" | "pdf" | "article" | "report" | "other";
 
 export type PollResource = {

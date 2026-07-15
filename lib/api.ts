@@ -19,6 +19,7 @@ import type {
   SignupPayload,
   StartVerificationResponse,
   ThemeSlug,
+  OpenPollStats,
   UserPollAnswer,
   VoteStatus
 } from "@/lib/types";
@@ -60,6 +61,7 @@ const cacheKeys = {
   results: (pollId: string) => `results:${pollId}`,
   history: (pollId: string) => `history:${pollId}`,
   comments: (pollId: string) => `comments:${pollId}`,
+  openPollStats: () => "open-poll-stats",
   collection: (options: { theme?: ThemeSlug; featuredOnly?: boolean; limit: number; includeResults?: boolean; status?: "open" | "closed"; showInResultsOnly?: boolean }) =>
     `collection:${options.status ?? "open"}:${options.theme ?? "all"}:${options.featuredOnly ? "featured" : "any"}:${options.showInResultsOnly ? "visible-results" : "any"}:${options.limit}:${options.includeResults ? "results" : "stats"}`
 };
@@ -202,6 +204,34 @@ export async function getFeaturedPolls(): Promise<PollWithStats[]> {
 
 export function getCachedFeaturedPolls(): PollWithStats[] | null {
   return readCache<PollWithStats[]>(cacheKeys.collection({ featuredOnly: true, limit: 10 }));
+}
+
+export function getCachedOpenPollStats(): OpenPollStats | null {
+  return readCache<OpenPollStats>(cacheKeys.openPollStats());
+}
+
+export async function getOpenPollStats(): Promise<OpenPollStats> {
+  return cached(cacheKeys.openPollStats(), async () => {
+    const stats = createEmptyOpenPollStats();
+    const { data, error } = await supabase
+      .from("polls")
+      .select("theme")
+      .eq("status", "open")
+      .eq("archived", false)
+      .or(`closes_at.is.null,closes_at.gt.${new Date().toISOString()}`);
+
+    if (error) throw error;
+    if (!data) throw new Error("open_poll_stats_unavailable");
+
+    for (const row of data as Array<{ theme?: unknown }>) {
+      stats.total += 1;
+      const theme = row.theme;
+      if (isThemeSlug(theme)) {
+        stats.byTheme[theme] += 1;
+      }
+    }
+    return stats;
+  }, { label: "getOpenPollStats" });
 }
 
 export async function getPollsByTheme(theme: ThemeSlug): Promise<PollWithStats[]> {
@@ -577,6 +607,22 @@ function normalizePoll(data: Record<string, unknown>): Poll {
   };
 }
 
+function createEmptyOpenPollStats(): OpenPollStats {
+  return {
+    total: 0,
+    byTheme: {
+      politique: 0,
+      economie: 0,
+      societe: 0,
+      sport: 0
+    }
+  };
+}
+
+function isThemeSlug(value: unknown): value is ThemeSlug {
+  return value === "politique" || value === "economie" || value === "societe" || value === "sport";
+}
+
 async function readFunctionError<T>(error: unknown): Promise<T | null> {
   if (!error || typeof error !== "object" || !("context" in error)) return null;
   const context = (error as { context?: unknown }).context;
@@ -620,6 +666,7 @@ function cached<T>(key: string, loader: () => Promise<T>, options: CacheOptions 
 }
 
 function invalidateCollectionCaches() {
+  publicCache.delete(cacheKeys.openPollStats());
   for (const key of publicCache.keys()) {
     if (key.startsWith("collection:")) publicCache.delete(key);
   }

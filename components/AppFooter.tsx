@@ -1,7 +1,7 @@
 import { Pressable, StyleSheet, Text, View } from "react-native";
 import { useRouter, type Href } from "expo-router";
 import { StamioLogo } from "@/components/StamioLogo";
-import { fontFamily, fontFamilyBold, fontFamilyMedium, palette } from "@/lib/design";
+import { fontFamily, fontFamilyMedium, palette } from "@/lib/design";
 
 const links = [
   ["Accueil", "/"],
@@ -23,8 +23,7 @@ export function AppFooter() {
     <View style={styles.footer}>
       <View style={styles.brandBlock}>
         <View style={styles.brandRow}>
-          <StamioLogo height={30} />
-          <Text style={styles.brand}>Stamio</Text>
+          <StamioLogo width={132} />
         </View>
         <Text style={styles.tagline}>Des opinions vérifiées. Des débats ouverts. Une lecture plus claire de ce que nous pensons.</Text>
       </View>
@@ -48,8 +47,7 @@ export function AppFooter() {
 const styles = StyleSheet.create({
   footer: { marginTop: 56, paddingTop: 28, paddingBottom: 24, borderTopWidth: 1, borderTopColor: palette.line, gap: 20 },
   brandBlock: { maxWidth: 620, gap: 7 },
-  brandRow: { flexDirection: "row", alignItems: "center", gap: 10 },
-  brand: { color: palette.ink, fontFamily: fontFamilyBold, fontSize: 21 },
+  brandRow: { flexDirection: "row", alignItems: "center" },
   tagline: { color: palette.muted, fontFamily, fontSize: 14, lineHeight: 22 },
   links: { flexDirection: "row", flexWrap: "wrap", gap: 8 },
   linkHit: { paddingVertical: 7, paddingRight: 18 },
