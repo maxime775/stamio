@@ -64,7 +64,7 @@ export function AppHeader() {
     <>
       <View style={styles.header}>
         <Pressable accessibilityLabel="Stamio" onPress={() => go("/")} style={styles.brand}>
-          <StamioLogo width={118} />
+          <StamioLogo height={compact ? 40 : 48} />
         </Pressable>
 
         {!compact ? (
@@ -179,7 +179,7 @@ const styles = StyleSheet.create({
     gap: 18,
     zIndex: 5
   },
-  brand: { flexDirection: "row", alignItems: "center", minWidth: 118 },
+  brand: { flexDirection: "row", alignItems: "center", minWidth: 178 },
   centerNav: { flexDirection: "row", alignItems: "center", justifyContent: "center", gap: 6, flex: 1 },
   navItem: { paddingHorizontal: 14, paddingVertical: 11, position: "relative" },
   navLine: { position: "absolute", left: 14, right: 14, bottom: 4, height: 2, borderRadius: 1, backgroundColor: palette.primaryStrong },

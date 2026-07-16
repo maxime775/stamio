@@ -157,19 +157,14 @@ export default function Home() {
 
 const styles = StyleSheet.create({
   hero: {
-    minHeight: 420,
-    borderRadius: radius.lg,
-    backgroundColor: palette.surfaceSubtle,
-    borderWidth: 1,
-    borderColor: "rgba(148, 163, 184, 0.16)",
-    padding: 32,
+    minHeight: 440,
+    paddingVertical: 34,
     flexDirection: "row",
     flexWrap: "wrap",
     alignItems: "center",
-    gap: 28,
-    overflow: "hidden"
+    gap: 32
   },
-  heroCompact: { width: "100%", padding: 22, minHeight: 0 },
+  heroCompact: { width: "100%", paddingVertical: 18, minHeight: 0 },
   heroCopy: { flex: 1, minWidth: 280, gap: 16 },
   kicker: { color: palette.primaryStrong, fontFamily: fontFamilySemibold, fontSize: 11, letterSpacing: 1.1, textTransform: "uppercase" },
   title: { color: palette.ink, fontFamily: fontFamilyBold, fontSize: 46, lineHeight: 53, letterSpacing: 0, maxWidth: 720 },

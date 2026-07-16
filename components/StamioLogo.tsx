@@ -3,8 +3,8 @@ import { StyleSheet, type StyleProp, type ViewStyle, View } from "react-native";
 import { Asset } from "expo-asset";
 import { SvgUri } from "react-native-svg";
 
-const stamioLogoAsset = require("../assets/branding/stamio-logo-horizontal-ambre-transparent.svg");
-const LOGO_ASPECT_RATIO = 1000 / 360;
+const stamioLogoAsset = require("../assets/branding/stamio-logo-horizontal-refined-v2-transparent.svg");
+const LOGO_ASPECT_RATIO = 372 / 84;
 
 type Props = {
   height?: number;

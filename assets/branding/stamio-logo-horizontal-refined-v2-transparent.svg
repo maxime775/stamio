@@ -1,0 +1,15 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 372 84" role="img">
+<title>Stamio logo refined v2</title>
+<g transform="translate(8 7) scale(1.08)">
+<g fill="none" stroke="#FBFCFF" stroke-width="2.85" stroke-linecap="round" stroke-linejoin="round">
+  <path d="M32 6 L55 32 L32 58 L9 32 Z"/>
+  <path d="M32 6 L32 22"/>
+  <path d="M32 42 L32 58"/>
+  <path d="M9 32 L32 22 L55 32"/>
+  <path d="M9 32 L32 42 L55 32"/>
+</g>
+<circle cx="9" cy="32" r="2.75" fill="#E0A526"/>
+<circle cx="55" cy="32" r="2.75" fill="#E0A526"/>
+</g>
+<text x="94" y="56" font-family="Inter, Arial, Helvetica, sans-serif" font-size="36" font-weight="800" letter-spacing="-1.25" fill="#FBFCFF">Stamio</text>
+</svg>
