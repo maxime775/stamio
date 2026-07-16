@@ -26,15 +26,16 @@ export function formatFrenchMobilePhoneDisplay(input: string) {
   if (!trimmed) return "";
 
   const digits = trimmed.replace(/\D/g, "");
-  let national = "";
-
-  if (digits.startsWith("330") && digits.length >= 4) {
-    national = digits.slice(2, 12);
-  } else if (digits.startsWith("33") && digits.length >= 3) {
-    national = `0${digits.slice(2, 11)}`;
-  } else {
-    national = digits.slice(0, 10);
-  }
+  const localDigits = digits.startsWith("0033")
+    ? digits.slice(4)
+    : digits.startsWith("33")
+      ? digits.slice(2)
+      : digits;
+  const national = localDigits.startsWith("0")
+    ? localDigits.slice(0, 10)
+    : /^[67]/.test(localDigits)
+      ? `0${localDigits.slice(0, 9)}`
+      : localDigits.slice(0, 10);
 
   if (!national) return trimmed.startsWith("+") ? "+33 " : "";
 

@@ -5,20 +5,23 @@ import { fontFamilyBold, palette, radius } from "@/lib/design";
 type Props = {
   value: string;
   onChange: (value: string) => void;
+  onInvalidInput?: () => void;
 };
 
 const OTP_LENGTH = 6;
 
-export function EditableOtpInput({ value, onChange }: Props) {
+export function EditableOtpInput({ value, onChange, onInvalidInput }: Props) {
   const inputRefs = useRef<Array<TextInput | null>>([]);
   const digits = Array.from({ length: OTP_LENGTH }, (_, index) => value[index] ?? "");
 
   function handleChange(text: string, index: number) {
     const numericText = text.replace(/\D/g, "");
+    const hasInvalidInput = Boolean(text && numericText.length !== text.length);
 
     if (numericText.length > 1) {
       const pastedCode = numericText.slice(0, OTP_LENGTH);
       onChange(pastedCode);
+      if (hasInvalidInput) onInvalidInput?.();
       inputRefs.current[Math.min(pastedCode.length, OTP_LENGTH - 1)]?.focus();
       return;
     }
@@ -26,6 +29,7 @@ export function EditableOtpInput({ value, onChange }: Props) {
     const nextDigits = [...digits];
     nextDigits[index] = numericText;
     onChange(nextDigits.join("").slice(0, OTP_LENGTH));
+    if (hasInvalidInput) onInvalidInput?.();
 
     if (numericText && index < OTP_LENGTH - 1) {
       inputRefs.current[index + 1]?.focus();

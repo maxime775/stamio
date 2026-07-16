@@ -1,12 +1,13 @@
 import { useEffect, useMemo, useState } from "react";
-import { ActivityIndicator, Animated, Modal, Pressable, StyleSheet, Text, TextInput, View } from "react-native";
-import { CheckCircle2, Send, X } from "lucide-react-native";
+import { ActivityIndicator, Animated, Easing, Modal, Pressable, StyleSheet, Text, View } from "react-native";
+import { CheckCircle2, X } from "lucide-react-native";
+import { AuthTextField } from "@/components/AuthFields";
 import { OtpInput } from "@/components/OtpInput";
 import { Turnstile } from "@/components/Turnstile";
 import { getResults, invalidatePollCaches, startVerification, submitVote } from "@/lib/api";
-import { normalizeFrenchMobilePhoneInput, validateOtp } from "@/lib/validation";
+import { formatFrenchMobilePhoneDisplay, normalizeFrenchMobilePhoneInput, validateOtp } from "@/lib/validation";
 import type { PollResult, VoteStatus } from "@/lib/types";
-import { fontFamilyBold, fontFamilyMedium, fontFamilySemibold, palette, radius, shadows } from "@/lib/design";
+import { authField, fontFamilyBold, fontFamilyMedium, fontFamilySemibold, palette, radius, shadows } from "@/lib/design";
 
 type Props = {
   visible: boolean;
@@ -20,40 +21,107 @@ type Props = {
 
 type Step = "phone" | "otp" | "success";
 
+const RESEND_DELAY_SECONDS = 50;
+const PHONE_INVALID_CHARACTER_MESSAGE = "Utilisez uniquement des chiffres, des espaces ou le préfixe +33.";
+const PHONE_INVALID_MESSAGE = "Veuillez saisir un numéro de mobile français valide.";
+const PHONE_TEST_LIMIT_MESSAGE = "Pour cette phase de test, seuls les numéros mobiles français commençant par 06 ou 07 sont acceptés.";
+const OTP_INVALID_CHARACTER_MESSAGE = "Saisissez uniquement les 6 chiffres du code reçu par SMS.";
+
 export function VotePanel({ visible, pollId, choiceId, choiceLabel, platform, onClose, onFinished }: Props) {
   const [step, setStep] = useState<Step>("phone");
   const [phone, setPhone] = useState("");
   const [phoneError, setPhoneError] = useState<string | null>(null);
+  const [phoneWarning, setPhoneWarning] = useState<string | null>(null);
   const [otp, setOtp] = useState("");
   const [otpError, setOtpError] = useState<string | null>(null);
+  const [otpWarning, setOtpWarning] = useState<string | null>(null);
   const [turnstileToken, setTurnstileToken] = useState("");
   const [loading, setLoading] = useState(false);
+  const [resendLoading, setResendLoading] = useState(false);
+  const [resendVisible, setResendVisible] = useState(false);
+  const [resendError, setResendError] = useState<string | null>(null);
+  const [resendSeconds, setResendSeconds] = useState(0);
   const slide = useMemo(() => new Animated.Value(0), []);
 
   useEffect(() => {
     if (visible) {
       setStep("phone");
+      setPhone("");
       setOtp("");
       setOtpError(null);
+      setOtpWarning(null);
       setPhoneError(null);
+      setPhoneWarning(null);
       setTurnstileToken("");
+      setResendVisible(false);
+      setResendError(null);
+      setResendSeconds(0);
       Animated.spring(slide, { toValue: 1, damping: 18, stiffness: 160, useNativeDriver: true }).start();
     } else {
       slide.setValue(0);
+      setResendVisible(false);
     }
   }, [slide, visible]);
 
-  const translateY = slide.interpolate({ inputRange: [0, 1], outputRange: [360, 0] });
-  const siteKey = process.env.EXPO_PUBLIC_TURNSTILE_SITE_KEY;
+  useEffect(() => {
+    if (!visible || step !== "otp" || resendSeconds <= 0) return undefined;
+    const timer = setInterval(() => {
+      setResendSeconds((seconds) => Math.max(0, seconds - 1));
+    }, 1000);
+    return () => clearInterval(timer);
+  }, [resendSeconds, step, visible]);
 
-  async function handleStart() {
+  const translateY = slide.interpolate({ inputRange: [0, 1], outputRange: [22, 0] });
+  const siteKey = process.env.EXPO_PUBLIC_TURNSTILE_SITE_KEY;
+  const normalizedPhone = normalizeFrenchMobilePhoneInput(phone);
+  const readablePhone = normalizedPhone.ok ? formatFrenchMobilePhoneDisplay(normalizedPhone.value) : formatFrenchMobilePhoneDisplay(phone);
+  const phoneFeedback = phoneWarning ?? phoneError ?? undefined;
+  const otpFeedback = otpWarning ?? otpError ?? undefined;
+  const canRequestCode = normalizedPhone.ok && !phoneWarning;
+  const canSubmitOtp = validateOtp(otp);
+
+  function closeAll() {
+    setResendVisible(false);
+    onClose();
+  }
+
+  function handlePhoneChange(value: string) {
+    const hasInvalidCharacters = /[^\d+\s().-]/.test(value);
+    setPhone(hasInvalidCharacters ? value : formatFrenchMobilePhoneDisplay(value));
+    setPhoneWarning(hasInvalidCharacters ? PHONE_INVALID_CHARACTER_MESSAGE : null);
+    setPhoneError(null);
+  }
+
+  function handleOtpChange(value: string) {
+    setOtp(value);
+    setOtpWarning(null);
+    setOtpError(null);
+  }
+
+  function verificationErrorMessage(status: string) {
+    if (status === "invalid_phone_type") return PHONE_TEST_LIMIT_MESSAGE;
+    if (status === "poll_closed") return "Ce sondage est fermé.";
+    if (status === "captcha_required") return "La validation anti-abus est requise. Complétez le captcha puis réessayez.";
+    return "Impossible d'envoyer le code pour le moment.";
+  }
+
+  async function requestCode(source: "initial" | "resend") {
     const normalized = normalizeFrenchMobilePhoneInput(phone);
     if (!normalized.ok) {
-      setPhoneError("Pour cette phase de test, seuls les numéros mobiles français commençant par 06 ou 07 sont acceptés.");
+      const message = phone.trim() ? PHONE_INVALID_MESSAGE : "Le numéro de téléphone est obligatoire.";
+      if (source === "resend") setResendError(message);
+      else setPhoneError(message);
       return;
     }
-    setLoading(true);
-    setPhoneError(null);
+
+    if (source === "initial") {
+      setLoading(true);
+      setPhoneError(null);
+    } else {
+      setResendLoading(true);
+      setResendError(null);
+    }
+
     const response = await startVerification({
       poll_id: pollId,
       choice_id: choiceId,
@@ -61,25 +129,30 @@ export function VotePanel({ visible, pollId, choiceId, choiceLabel, platform, on
       platform,
       turnstile_token: platform === "web" ? turnstileToken : undefined
     });
-    setLoading(false);
+
+    if (source === "initial") setLoading(false);
+    else setResendLoading(false);
 
     if (response.status === "verification_started") {
       setStep("otp");
-    } else if (response.status === "invalid_phone_type") {
-      setPhoneError("Pour cette phase de test, seuls les numéros mobiles français commençant par 06 ou 07 sont acceptés.");
-    } else if (response.status === "poll_closed") {
-      setPhoneError("Ce sondage est fermé.");
-    } else if (response.status === "captcha_required") {
-      setPhoneError("La validation anti-abus est requise. Complétez le captcha puis réessayez.");
-    } else {
-      setPhoneError("Impossible d'envoyer le code pour le moment.");
+      setOtp("");
+      setOtpError(null);
+      setOtpWarning(null);
+      setResendSeconds(RESEND_DELAY_SECONDS);
+      setResendVisible(false);
+      setResendError(null);
+      return;
     }
+
+    const message = verificationErrorMessage(response.status);
+    if (source === "resend") setResendError(message);
+    else setPhoneError(message);
   }
 
   async function handleSubmit() {
     const normalized = normalizeFrenchMobilePhoneInput(phone);
     if (!normalized.ok) {
-      setPhoneError("Pour cette phase de test, seuls les numéros mobiles français commençant par 06 ou 07 sont acceptés.");
+      setPhoneError(PHONE_TEST_LIMIT_MESSAGE);
       setStep("phone");
       return;
     }
@@ -103,9 +176,9 @@ export function VotePanel({ visible, pollId, choiceId, choiceLabel, platform, on
 
     if (response.status === "accepted") {
       setStep("success");
-      setTimeout(onClose, 900);
+      setTimeout(closeAll, 900);
     } else if (response.status === "invalid_phone_type") {
-      setPhoneError("Pour cette phase de test, seuls les numéros mobiles français commençant par 06 ou 07 sont acceptés.");
+      setPhoneError(PHONE_TEST_LIMIT_MESSAGE);
       setStep("phone");
     } else if (response.status === "invalid_code") {
       setOtpError("Code OTP invalide.");
@@ -118,138 +191,268 @@ export function VotePanel({ visible, pollId, choiceId, choiceLabel, platform, on
     }
   }
 
+  async function handleResend() {
+    if (resendSeconds > 0) return;
+    await requestCode("resend");
+  }
+
   return (
-    <Modal transparent visible={visible} animationType="fade" onRequestClose={onClose}>
-      <View style={styles.overlay}>
-        <Pressable style={styles.scrim} onPress={onClose} />
-        <Animated.View style={StyleSheet.flatten([styles.panel, { transform: [{ translateY: translateY as unknown as number }] }])}>
-          <View style={styles.handle} />
-          <View style={styles.header}>
-            <View>
-              <Text style={styles.kicker}>Vote vérifié</Text>
-              <Text style={styles.title}>{choiceLabel}</Text>
+    <>
+      <Modal transparent visible={visible} animationType="fade" onRequestClose={closeAll}>
+        <View style={styles.overlay}>
+          <Pressable style={styles.scrim} onPress={closeAll} />
+          <Animated.View style={StyleSheet.flatten([styles.panel, { transform: [{ translateY: translateY as unknown as number }] }])}>
+            {step === "phone" ? (
+              <>
+                <ModalHeader title="Vote vérifié" choiceLabel={choiceLabel} onClose={closeAll} />
+                <View style={styles.body}>
+                  <AuthTextField
+                    field="vote-phone"
+                    label="Numéro de téléphone"
+                    error={phoneFeedback}
+                    value={phone}
+                    onChangeText={handlePhoneChange}
+                    placeholder="+33 06 12 34 56 78"
+                    keyboardType="phone-pad"
+                    autoComplete="tel"
+                    textContentType="telephoneNumber"
+                  />
+                  {platform === "web" && siteKey ? <Turnstile compact siteKey={siteKey} onToken={setTurnstileToken} /> : null}
+                  <AnimatedPrimaryButton disabled={loading || !canRequestCode} loading={loading} label="Recevoir mon code de vérification" onPress={() => requestCode("initial")} />
+                </View>
+              </>
+            ) : null}
+
+            {step === "otp" ? (
+              <>
+                <ModalHeader title="Vérifiez votre numéro de téléphone" choiceLabel={choiceLabel} onClose={closeAll} />
+                <View style={styles.body}>
+                  <Text style={styles.helperText}>Saisissez le code à 6 chiffres que nous vous avons envoyé par SMS au {readablePhone}.</Text>
+                  <View style={styles.otpField}>
+                    <Text style={styles.label}>Code de vérification</Text>
+                    <OtpInput value={otp} onChange={handleOtpChange} onInvalidInput={() => setOtpWarning(OTP_INVALID_CHARACTER_MESSAGE)} />
+                    {otpFeedback ? <Text accessibilityLiveRegion="polite" style={styles.fieldError}>{otpFeedback}</Text> : null}
+                  </View>
+                  <Text accessibilityLiveRegion="polite" style={styles.timerText}>
+                    {resendSeconds > 0
+                      ? `Vous pourrez demander un nouveau code dans ${resendSeconds} s.`
+                      : "Vous pouvez demander un nouveau code si le SMS n'est pas arrivé."}
+                  </Text>
+                  <Pressable accessibilityRole="button" onPress={() => { setResendVisible(true); setResendError(null); }} style={styles.resendLink}>
+                    <Text style={styles.resendLinkText}>Vous n’avez pas reçu de code ?</Text>
+                  </Pressable>
+                  <AnimatedPrimaryButton disabled={loading || !canSubmitOtp} loading={loading} label="Comptabiliser mon vote" onPress={handleSubmit} />
+                </View>
+              </>
+            ) : null}
+
+            {step === "success" ? (
+              <View style={styles.success}>
+                <CheckCircle2 size={42} color={palette.positive} />
+                <Text style={styles.successTitle}>Vote validé</Text>
+              </View>
+            ) : null}
+          </Animated.View>
+        </View>
+      </Modal>
+
+      <Modal transparent visible={visible && resendVisible} animationType="fade" onRequestClose={() => setResendVisible(false)}>
+        <View style={styles.resendOverlay}>
+          <Pressable style={styles.scrim} onPress={() => setResendVisible(false)} />
+          <View style={styles.resendPanel}>
+            <ModalHeader title="Renvoyer un code de vérification" choiceLabel={choiceLabel} onClose={() => setResendVisible(false)} compact />
+            <Text style={styles.helperText}>
+              {resendSeconds > 0
+                ? `Vous pourrez demander un nouveau code dans ${resendSeconds} s.`
+                : `Nous pouvons vous envoyer un nouveau code de vérification au ${readablePhone}.`}
+            </Text>
+            {resendError ? <Text accessibilityLiveRegion="polite" style={styles.errorBox}>{resendError}</Text> : null}
+            <View style={styles.resendActions}>
+              <Pressable onPress={() => setResendVisible(false)} style={styles.secondaryButton}>
+                <Text style={styles.secondaryText}>Retour au code</Text>
+              </Pressable>
+              <AnimatedPrimaryButton compact disabled={resendLoading || resendSeconds > 0} loading={resendLoading} label="Renvoyer un code" onPress={handleResend} />
             </View>
-            <Pressable onPress={onClose} style={styles.iconButton}>
-              <X size={18} color={palette.inkSecondary} />
-            </Pressable>
           </View>
+        </View>
+      </Modal>
+    </>
+  );
+}
 
-          {step === "phone" ? (
-            <View style={styles.body}>
-              <Text style={styles.label}>Numéro de téléphone</Text>
-              <TextInput
-                value={phone}
-                onChangeText={setPhone}
-                placeholder="+33612345678"
-                placeholderTextColor={palette.muted}
-                keyboardType="phone-pad"
-                autoComplete="tel"
-                textContentType="telephoneNumber"
-                style={styles.input}
-              />
-              {platform === "web" ? <Turnstile siteKey={siteKey} onToken={setTurnstileToken} /> : null}
-              {phoneError ? <Text style={styles.error}>{phoneError}</Text> : null}
-              <Pressable disabled={loading} onPress={handleStart} style={styles.primaryButton}>
-                {loading ? <ActivityIndicator color={palette.onPrimary} /> : <Send size={18} color={palette.onPrimary} />}
-                <Text style={styles.primaryText}>Recevoir le code SMS</Text>
-              </Pressable>
-            </View>
-          ) : null}
+function ModalHeader({ title, choiceLabel, onClose, compact = false }: { title: string; choiceLabel: string; onClose: () => void; compact?: boolean }) {
+  const choiceAccent = getChoiceAccent(choiceLabel);
 
-          {step === "otp" ? (
-            <View style={styles.body}>
-              <Text style={styles.label}>Code reçu par SMS</Text>
-              <OtpInput value={otp} onChange={setOtp} />
-              {otpError ? <Text style={styles.error}>{otpError}</Text> : null}
-              <Pressable disabled={loading} onPress={handleSubmit} style={styles.primaryButton}>
-                {loading ? <ActivityIndicator color={palette.onPrimary} /> : <CheckCircle2 size={18} color={palette.onPrimary} />}
-                <Text style={styles.primaryText}>Comptabiliser mon vote</Text>
-              </Pressable>
-            </View>
-          ) : null}
-
-          {step === "success" ? (
-            <View style={styles.success}>
-              <CheckCircle2 size={46} color={palette.positive} />
-              <Text style={styles.successTitle}>Vote validé</Text>
-            </View>
-          ) : null}
-        </Animated.View>
+  return (
+    <View style={styles.header}>
+      <View style={styles.headerCopy}>
+        <Text style={StyleSheet.flatten([styles.title, compact && styles.titleCompact])}>{title}</Text>
+        <Text style={styles.answerText}>Ma réponse : <Text style={StyleSheet.flatten([styles.answerValue, { color: choiceAccent }])}>{choiceLabel}</Text></Text>
       </View>
-    </Modal>
+      <Pressable accessibilityRole="button" accessibilityLabel="Fermer" onPress={onClose} style={styles.iconButton}>
+        <X size={18} color={palette.inkSecondary} />
+      </Pressable>
+    </View>
+  );
+}
+
+function getChoiceAccent(label: string) {
+  const normalized = label.trim().toLocaleLowerCase("fr-FR");
+  if (["oui", "pour", "favorable"].some((word) => normalized.includes(word))) return palette.positiveText;
+  if (["non", "contre", "defavorable", "défavorable"].some((word) => normalized.includes(word))) return palette.dangerText;
+  return palette.primaryStrong;
+}
+
+function AnimatedPrimaryButton({ label, loading, disabled, compact = false, onPress }: { label: string; loading?: boolean; disabled?: boolean; compact?: boolean; onPress: () => void }) {
+  const [active, setActive] = useState(false);
+  const fill = useMemo(() => new Animated.Value(0), []);
+
+  function animate(toValue: number) {
+    if (disabled) return;
+    setActive(toValue === 1);
+    Animated.timing(fill, {
+      toValue,
+      duration: 240,
+      easing: Easing.out(Easing.cubic),
+      useNativeDriver: true
+    }).start();
+  }
+
+  return (
+    <Pressable
+      accessibilityRole="button"
+      accessibilityState={{ disabled: Boolean(disabled), busy: Boolean(loading) }}
+      disabled={disabled}
+      onHoverIn={() => animate(1)}
+      onHoverOut={() => animate(0)}
+      onFocus={() => animate(1)}
+      onBlur={() => animate(0)}
+      onPressIn={() => animate(1)}
+      onPressOut={() => animate(0)}
+      onPress={onPress}
+      style={StyleSheet.flatten([styles.primaryButton, compact && styles.primaryButtonCompact, disabled && styles.primaryButtonDisabled])}
+    >
+      <Animated.View
+        pointerEvents="none"
+        style={StyleSheet.flatten([
+          styles.primaryFill,
+          { transform: [{ translateY: fill.interpolate({ inputRange: [0, 1], outputRange: [52, 0] }) }] }
+        ])}
+      />
+      {loading ? <ActivityIndicator color={active ? palette.onPrimary : palette.primaryStrong} /> : null}
+      <Text style={StyleSheet.flatten([styles.primaryText, active && styles.primaryTextActive, disabled && styles.primaryTextDisabled])}>{label}</Text>
+    </Pressable>
   );
 }
 
 const styles = StyleSheet.create({
   overlay: {
     flex: 1,
-    justifyContent: "flex-end"
+    alignItems: "center",
+    justifyContent: "center",
+    padding: 20
   },
   scrim: {
     ...StyleSheet.absoluteFillObject,
-    backgroundColor: "rgba(2, 6, 23, 0.62)"
+    backgroundColor: "rgba(2, 6, 23, 0.66)"
   },
   panel: {
-    alignSelf: "center",
     width: "100%",
-    maxWidth: 560,
-    borderTopLeftRadius: radius.lg,
-    borderTopRightRadius: radius.lg,
+    maxWidth: 390,
+    borderRadius: radius.md,
     backgroundColor: palette.surface,
+    borderWidth: 1,
+    borderColor: palette.line,
     padding: 22,
-    paddingBottom: 30,
-    gap: 18,
+    gap: 14,
     ...shadows.panel
   },
-  handle: {
-    width: 42,
-    height: 5,
-    borderRadius: radius.xs,
-    backgroundColor: palette.lineStrong,
-    alignSelf: "center"
-  },
-  header: { flexDirection: "row", justifyContent: "space-between", alignItems: "flex-start", gap: 16 },
-  kicker: { color: palette.primaryStrong, fontFamily: fontFamilySemibold, fontSize: 10, letterSpacing: 1, textTransform: "uppercase" },
-  title: { color: palette.ink, fontFamily: fontFamilyBold, fontSize: 21, marginTop: 4 },
+  header: { flexDirection: "row", justifyContent: "space-between", alignItems: "flex-start", gap: 12 },
+  headerCopy: { flex: 1, minWidth: 0, gap: 6 },
+  title: { color: palette.ink, fontFamily: fontFamilyBold, fontSize: 20, lineHeight: 25 },
+  titleCompact: { fontSize: 18, lineHeight: 24 },
+  answerText: { color: palette.inkSecondary, fontSize: 13, lineHeight: 20 },
+  answerValue: { color: palette.primaryStrong, fontFamily: fontFamilyBold },
   iconButton: {
-    width: 38,
-    height: 38,
+    width: 32,
+    height: 32,
     borderRadius: radius.sm,
     alignItems: "center",
     justifyContent: "center",
     backgroundColor: palette.surfaceRaised
   },
-  body: { gap: 13 },
+  body: { gap: 12 },
   label: { color: palette.inkSecondary, fontFamily: fontFamilyMedium, fontSize: 13 },
-  input: {
-    minHeight: 56,
-    borderRadius: radius.sm,
-    borderWidth: 1,
-    borderColor: palette.lineStrong,
-    paddingHorizontal: 16,
-    color: palette.ink,
-    fontSize: 18,
-    fontFamily: fontFamilyMedium,
-    backgroundColor: palette.surfaceSubtle
-  },
-  error: {
+  helperText: { color: palette.inkSecondary, fontSize: 13, lineHeight: 20 },
+  otpField: { gap: 7 },
+  fieldError: { color: palette.fieldError, fontSize: 11, lineHeight: 15 },
+  errorBox: {
     color: palette.dangerText,
     backgroundColor: palette.dangerSoft,
     borderRadius: radius.sm,
-    padding: 12,
+    padding: 11,
     fontSize: 13,
+    lineHeight: 19,
     fontFamily: fontFamilyMedium
   },
+  timerText: { color: palette.muted, fontSize: 12, lineHeight: 18, marginTop: -2 },
+  resendLink: { alignSelf: "flex-start", paddingVertical: 2 },
+  resendLinkText: { color: palette.primaryStrong, fontFamily: fontFamilySemibold, fontSize: 13 },
   primaryButton: {
-    minHeight: 56,
+    minHeight: 44,
     borderRadius: radius.sm,
-    backgroundColor: palette.primary,
+    borderWidth: 1,
+    borderColor: palette.primaryStrong,
+    backgroundColor: "transparent",
     alignItems: "center",
     justifyContent: "center",
     flexDirection: "row",
-    gap: 10
+    gap: 8,
+    overflow: "hidden",
+    marginTop: 0,
+    paddingHorizontal: 12
   },
-  primaryText: { color: palette.onPrimary, fontFamily: fontFamilySemibold, fontSize: 15 },
-  success: { alignItems: "center", justifyContent: "center", paddingVertical: 30, gap: 12 },
-  successTitle: { color: palette.positive, fontFamily: fontFamilyBold, fontSize: 23 }
+  primaryButtonCompact: { minHeight: 42, paddingHorizontal: 14, marginTop: 0 },
+  primaryButtonDisabled: { opacity: 0.48 },
+  primaryFill: {
+    position: "absolute",
+    left: 0,
+    right: 0,
+    bottom: 0,
+    height: 52,
+    backgroundColor: palette.primaryStrong
+  },
+  primaryText: { zIndex: 1, color: palette.primaryStrong, fontFamily: fontFamilySemibold, fontSize: 14, textAlign: "center" },
+  primaryTextActive: { color: palette.onPrimary },
+  primaryTextDisabled: { color: palette.muted },
+  success: { alignItems: "center", justifyContent: "center", paddingVertical: 28, gap: 12 },
+  successTitle: { color: palette.positive, fontFamily: fontFamilyBold, fontSize: 22 },
+  resendOverlay: {
+    flex: 1,
+    alignItems: "center",
+    justifyContent: "center",
+    padding: 20
+  },
+  resendPanel: {
+    width: "100%",
+    maxWidth: 390,
+    borderRadius: radius.md,
+    backgroundColor: palette.surface,
+    borderWidth: 1,
+    borderColor: palette.line,
+    padding: 22,
+    gap: 14,
+    ...shadows.panel
+  },
+  resendActions: { flexDirection: "row", justifyContent: "flex-end", alignItems: "center", gap: 10, flexWrap: "wrap" },
+  secondaryButton: {
+    minHeight: 42,
+    borderRadius: radius.sm,
+    paddingHorizontal: 14,
+    alignItems: "center",
+    justifyContent: "center",
+    borderWidth: 1,
+    borderColor: authField.separatorColor
+  },
+  secondaryText: { color: palette.inkSecondary, fontFamily: fontFamilySemibold, fontSize: 13 }
 });

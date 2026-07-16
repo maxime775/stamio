@@ -4,6 +4,7 @@ import { Platform, StyleSheet, View } from "react-native";
 type Props = {
   siteKey?: string;
   onToken: (token: string) => void;
+  compact?: boolean;
 };
 
 declare global {
@@ -15,7 +16,7 @@ declare global {
   }
 }
 
-export function Turnstile({ siteKey, onToken }: Props) {
+export function Turnstile({ siteKey, onToken, compact = false }: Props) {
   const id = `turnstile-${useId().replace(/:/g, "")}`;
   const widgetId = useRef<string | null>(null);
 
@@ -56,7 +57,7 @@ export function Turnstile({ siteKey, onToken }: Props) {
   if (Platform.OS !== "web") return null;
 
   return (
-    <View style={styles.box}>
+    <View style={StyleSheet.flatten([styles.box, compact && styles.boxCompact])}>
       <View nativeID={id} />
     </View>
   );
@@ -67,5 +68,11 @@ const styles = StyleSheet.create({
     minHeight: 68,
     justifyContent: "center",
     alignItems: "center"
+  },
+  boxCompact: {
+    minHeight: 0,
+    alignItems: "flex-start",
+    marginTop: -2,
+    marginBottom: -2
   }
 });
