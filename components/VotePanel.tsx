@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useState } from "react";
 import { ActivityIndicator, Animated, Easing, Modal, Pressable, StyleSheet, Text, View } from "react-native";
-import { CheckCircle2, X } from "lucide-react-native";
+import { X } from "lucide-react-native";
 import { useRouter, type Href } from "expo-router";
 import { AuthTextField } from "@/components/AuthFields";
 import { useAuth } from "@/components/AuthProvider";
@@ -278,7 +278,6 @@ export function VotePanel({ visible, pollId, choiceId, choiceLabel, platform, on
 
     if (response.status === "accepted") {
       setStep("success");
-      setTimeout(closeAll, 900);
     } else if (response.status === "invalid_phone_type") {
       setPhoneError(PHONE_TEST_LIMIT_MESSAGE);
       setStep("phone");
@@ -299,6 +298,11 @@ export function VotePanel({ visible, pollId, choiceId, choiceLabel, platform, on
   async function handleResend() {
     if (resendSeconds > 0) return;
     await requestCode("resend");
+  }
+
+  function goToTopics() {
+    closeAll();
+    router.push("/themes" as Href);
   }
 
   return (
@@ -359,18 +363,20 @@ export function VotePanel({ visible, pollId, choiceId, choiceLabel, platform, on
                         <OtpInput value={otp} onChange={handleOtpChange} onInvalidInput={() => setOtpWarning(OTP_INVALID_CHARACTER_MESSAGE)} />
                         {otpFeedback ? <Text accessibilityLiveRegion="polite" style={styles.fieldError}>{otpFeedback}</Text> : null}
                       </View>
-                      <Text accessibilityLiveRegion="polite" style={styles.timerText}>
-                        {resendSeconds > 0
-                          ? `Vous pourrez demander un nouveau code dans ${resendSeconds} s.`
-                          : codeRequested
-                            ? "Vous pouvez demander un nouveau code si le SMS n'est pas arrivé."
-                            : "Le code de vérification va être envoyé automatiquement."}
-                      </Text>
-                      {codeRequested ? (
-                        <Pressable accessibilityRole="button" onPress={() => { setResendVisible(true); setResendError(null); }} style={styles.resendLink}>
-                          <Text style={styles.resendLinkText}>Vous n’avez pas reçu de code ?</Text>
-                        </Pressable>
-                      ) : null}
+                      <View style={styles.otpFooter}>
+                        <Text accessibilityLiveRegion="polite" style={styles.timerText}>
+                          {resendSeconds > 0
+                            ? `Vous pourrez demander un nouveau code dans ${resendSeconds} s.`
+                            : codeRequested
+                              ? "Vous pouvez demander un nouveau code si le SMS n'est pas arrivé."
+                              : "Le code de vérification va être envoyé automatiquement."}
+                        </Text>
+                        {codeRequested ? (
+                          <Pressable accessibilityRole="button" onPress={() => { setResendVisible(true); setResendError(null); }} style={styles.resendLink}>
+                            <Text style={styles.resendLinkText}>Vous n’avez pas reçu de code ?</Text>
+                          </Pressable>
+                        ) : null}
+                      </View>
                       <AnimatedPrimaryButton disabled={loading || !canSubmitOtp} loading={loading && codeRequested} label="Comptabiliser mon vote" onPress={handleSubmit} />
                     </>
                   )}
@@ -379,10 +385,19 @@ export function VotePanel({ visible, pollId, choiceId, choiceLabel, platform, on
             ) : null}
 
             {step === "success" ? (
-              <View style={styles.success}>
-                <CheckCircle2 size={42} color={palette.positive} />
-                <Text style={styles.successTitle}>Vote validé</Text>
-              </View>
+              <>
+                <ModalHeader title="Vote validé" choiceLabel={choiceLabel} onClose={closeAll} />
+                <View style={styles.successBody}>
+                  <Text style={styles.successText}>Merci d’avoir pris part au débat. Votre vote a bien été comptabilisé. Vous pouvez maintenant suivre l’évolution des résultats.</Text>
+                  <Pressable
+                    accessibilityRole="button"
+                    onPress={goToTopics}
+                    style={({ pressed }) => StyleSheet.flatten([styles.successPrimary, pressed && styles.successPrimaryPressed])}
+                  >
+                    <Text style={styles.successPrimaryText}>Voir les autres sujets</Text>
+                  </Pressable>
+                </View>
+              </>
             ) : null}
           </Animated.View>
         </View>
@@ -592,9 +607,10 @@ const styles = StyleSheet.create({
     lineHeight: 19,
     fontFamily: fontFamilyMedium
   },
-  timerText: { color: palette.muted, fontSize: 12, lineHeight: 18, marginTop: -2 },
-  resendLink: { alignSelf: "flex-start", paddingVertical: 2 },
-  resendLinkText: { color: palette.primaryStrong, fontFamily: fontFamilySemibold, fontSize: 13 },
+  otpFooter: { borderTopWidth: 1, borderTopColor: palette.line, paddingTop: 11, alignItems: "flex-end", gap: 5 },
+  timerText: { color: palette.muted, fontSize: 12, lineHeight: 18, textAlign: "right" },
+  resendLink: { alignSelf: "flex-end", paddingVertical: 2 },
+  resendLinkText: { color: palette.primaryStrong, fontFamily: fontFamilySemibold, fontSize: 13, textAlign: "right" },
   primaryButton: {
     minHeight: 44,
     borderRadius: radius.sm,
@@ -622,8 +638,18 @@ const styles = StyleSheet.create({
   primaryText: { zIndex: 1, color: palette.primaryStrong, fontFamily: fontFamilySemibold, fontSize: 14, textAlign: "center" },
   primaryTextActive: { color: palette.onPrimary },
   primaryTextDisabled: { color: palette.muted },
-  success: { alignItems: "center", justifyContent: "center", paddingVertical: 28, gap: 12 },
-  successTitle: { color: palette.positive, fontFamily: fontFamilyBold, fontSize: 22 },
+  successBody: { gap: 16 },
+  successText: { color: palette.inkSecondary, fontSize: 14, lineHeight: 22 },
+  successPrimary: {
+    minHeight: 44,
+    borderRadius: radius.sm,
+    backgroundColor: palette.primary,
+    alignItems: "center",
+    justifyContent: "center",
+    paddingHorizontal: 16
+  },
+  successPrimaryPressed: { transform: [{ translateY: 1 }], backgroundColor: palette.primaryPressed },
+  successPrimaryText: { color: palette.onPrimary, fontFamily: fontFamilySemibold, fontSize: 14 },
   resendOverlay: {
     flex: 1,
     alignItems: "center",

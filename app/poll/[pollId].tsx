@@ -76,6 +76,7 @@ export default function PollScreen() {
 
   const selectedChoice = poll?.choices.find((choice) => choice.id === selectedChoiceId) ?? null;
   const isPollOpen = Boolean(poll && poll.status === "open" && (!poll.closes_at || new Date(poll.closes_at).getTime() > Date.now()));
+  const voteAccepted = voteState?.status === "accepted";
 
   async function handleOpenVotePanel() {
     if (!isPollOpen) return;
@@ -119,7 +120,7 @@ export default function PollScreen() {
                 </View>
               </View>
               <View style={styles.contentGrid}>
-                <View onLayout={(event) => setVoteColumnHeight(event.nativeEvent.layout.height)} style={styles.mainColumn}>
+                <View onLayout={(event) => setVoteColumnHeight(event.nativeEvent.layout.height)} style={StyleSheet.flatten([styles.mainColumn, compact && styles.mainColumnCompact])}>
                 {isPollOpen ? (
                   <>
                     <PollCard
@@ -128,18 +129,19 @@ export default function PollScreen() {
                       onSelectChoice={setSelectedChoiceId}
                     />
                     <Pressable
-                      disabled={!selectedChoiceId}
+                      disabled={!selectedChoiceId || voteAccepted}
                       onPress={handleOpenVotePanel}
                       style={({ pressed }) =>
                         StyleSheet.flatten([
                           styles.voteButton,
                           !selectedChoiceId && styles.voteButtonDisabled,
-                          pressed && selectedChoiceId && styles.voteButtonPressed
+                          voteAccepted && styles.voteButtonAccepted,
+                          pressed && selectedChoiceId && !voteAccepted && styles.voteButtonPressed
                         ])
                       }
                     >
                       <Check size={17} color={palette.onPrimary} />
-                      <Text style={styles.voteButtonText}>Valider mon vote</Text>
+                      <Text style={styles.voteButtonText}>{voteAccepted ? "Vote comptabilisé" : "Valider mon vote"}</Text>
                     </Pressable>
                   </>
                 ) : (
@@ -151,15 +153,11 @@ export default function PollScreen() {
                 {voteState?.status === "duplicate" ? (
                   <Text style={styles.duplicate}>Ce numéro a déjà été utilisé pour cette question.</Text>
                 ) : null}
-                {voteState?.status === "accepted" && voteState.receipt_hash ? (
-                  <View style={styles.receiptBox}>
-                    <Text style={styles.receiptLabel}>Reçu anonyme</Text>
-                    <Text selectable style={styles.receiptHash}>{voteState.receipt_hash}</Text>
-                  </View>
-                ) : null}
                 </View>
 
-                <View style={styles.analyticsColumn}>
+                {!compact ? <View style={styles.columnDivider} /> : null}
+
+                <View style={StyleSheet.flatten([styles.analyticsColumn, compact && styles.analyticsColumnCompact])}>
                   <ResultsHistoryChart history={history} containerHeight={!compact && voteColumnHeight > 0 ? voteColumnHeight : undefined} />
                 </View>
               </View>
@@ -284,13 +282,21 @@ const styles = StyleSheet.create({
   resourceDescription: { color: palette.muted, fontSize: 12, lineHeight: 17 },
   contentStack: { gap: 28 },
   contentGrid: {
-    gap: 18,
+    gap: 20,
     flexDirection: "row",
     alignItems: "stretch",
     flexWrap: "wrap"
   },
-  mainColumn: { flexGrow: 0.72, flexBasis: 320, minWidth: 300, gap: 10 },
-  analyticsColumn: { flexGrow: 1.55, flexBasis: 600, minWidth: 300 },
+  mainColumn: { flexGrow: 0, flexShrink: 0, flexBasis: 410, maxWidth: 430, minWidth: 320, gap: 10 },
+  mainColumnCompact: { flexBasis: "100%", maxWidth: "100%", minWidth: 0 },
+  columnDivider: {
+    width: 1,
+    alignSelf: "stretch",
+    marginVertical: 4,
+    backgroundColor: "rgba(72, 166, 184, 0.26)"
+  },
+  analyticsColumn: { flexGrow: 1, flexShrink: 1, flexBasis: 560, minWidth: 300, paddingLeft: 2 },
+  analyticsColumnCompact: { flexBasis: "100%", minWidth: 0, paddingLeft: 0 },
   discussionBreak: { position: "relative", flexDirection: "row", alignItems: "center", flexWrap: "wrap", gap: 14, marginTop: 24, paddingHorizontal: 4, paddingTop: 20, paddingBottom: 4, borderTopWidth: 1, borderTopColor: palette.lineStrong },
   discussionAccent: { position: "absolute", left: 4, top: -1, width: 52, height: 2, backgroundColor: palette.primary },
   discussionIcon: { width: 32, height: 32, borderRadius: radius.sm, alignItems: "center", justifyContent: "center", backgroundColor: palette.primarySoft },
@@ -315,6 +321,7 @@ const styles = StyleSheet.create({
   },
   voteButtonPressed: { transform: [{ translateY: 1 }] },
   voteButtonDisabled: { backgroundColor: "rgba(148, 163, 184, 0.28)", shadowOpacity: 0 },
+  voteButtonAccepted: { backgroundColor: "#E0A526", shadowOpacity: 0.22 },
   voteButtonText: { color: palette.onPrimary, fontFamily: fontFamilySemibold, fontSize: 14 },
   duplicate: {
     color: palette.dangerText,
@@ -326,16 +333,6 @@ const styles = StyleSheet.create({
     borderRadius: radius.sm,
     padding: 14
   },
-  receiptBox: {
-    borderRadius: radius.sm,
-    borderWidth: 1,
-    borderColor: palette.positiveLine,
-    backgroundColor: palette.positiveSoft,
-    padding: 14,
-    gap: 6
-  },
-  receiptLabel: { color: palette.positiveText, fontFamily: fontFamilySemibold, fontSize: 11, textTransform: "uppercase" },
-  receiptHash: { color: palette.inkSecondary, fontSize: 12, lineHeight: 18 },
   closedBox: {
     borderRadius: radius.sm,
     borderWidth: 1,

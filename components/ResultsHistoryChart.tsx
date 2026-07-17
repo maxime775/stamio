@@ -1,7 +1,7 @@
 import { memo, useMemo, useState } from "react";
 import { Platform, StyleSheet, Text, View, type GestureResponderEvent, type ViewProps } from "react-native";
 import Svg, { Circle, Line, Path, Text as SvgText } from "react-native-svg";
-import { choiceColors, fontFamily, fontFamilyBold, fontFamilyMedium, fontFamilySemibold, palette, radius, shadows } from "@/lib/design";
+import { choiceColors, fontFamily, fontFamilyBold, fontFamilyMedium, fontFamilySemibold, palette, radius } from "@/lib/design";
 import type { PollHistoryPoint } from "@/lib/types";
 
 type Props = { history: PollHistoryPoint[]; containerHeight?: number };
@@ -12,7 +12,7 @@ type WebMouseEvent = {
   currentTarget?: { getBoundingClientRect?: () => { left: number; top: number } };
 };
 
-const TOOLTIP_WIDTH = 170;
+const TOOLTIP_ESTIMATED_WIDTH = 180;
 const WEB_HIT_DISTANCE = 18;
 const TOUCH_HIT_DISTANCE = 30;
 
@@ -84,7 +84,7 @@ export const ResultsHistoryChart = memo(function ResultsHistoryChart({ history, 
 
   return (
     <View style={StyleSheet.flatten([styles.card, containerHeight ? { height: containerHeight } : null])} onLayout={(event) => {
-      const nextWidth = Math.max(240, event.nativeEvent.layout.width - 40);
+      const nextWidth = Math.max(240, event.nativeEvent.layout.width - 8);
       setWidth((current) => current === nextWidth ? current : nextWidth);
     }}>
       <View style={styles.heading}>
@@ -128,15 +128,21 @@ export const ResultsHistoryChart = memo(function ResultsHistoryChart({ history, 
           {selectedTimestamp && activeX !== null ? (
             <View pointerEvents="none" style={StyleSheet.flatten([styles.tooltip, {
               left: Math.min(
-                Math.max(activeX < width / 2 ? activeX + 14 : activeX - TOOLTIP_WIDTH - 14, 8),
-                Math.max(8, width - TOOLTIP_WIDTH - 8)
+                Math.max(activeX < width / 2 ? activeX + 14 : activeX - TOOLTIP_ESTIMATED_WIDTH - 14, 8),
+                Math.max(8, width - TOOLTIP_ESTIMATED_WIDTH - 8)
               )
             }])}>
               <Text style={styles.tooltipDate}>{new Date(selectedTimestamp).toLocaleString("fr-FR", { day: "2-digit", month: "short", hour: "2-digit", minute: "2-digit" })}</Text>
               <View style={styles.tooltipRule} />
               {selectedPoints.map((point) => {
                 const seriesIndex = series.findIndex((points) => points[0]?.choice_id === point.choice_id);
-                return <View key={point.choice_id} style={styles.tooltipRow}><View style={StyleSheet.flatten([styles.tooltipDot, { backgroundColor: choiceColors[Math.max(0, seriesIndex) % choiceColors.length] }])} /><Text numberOfLines={1} style={styles.tooltipLabel}>{point.label}</Text><Text style={styles.tooltipValue}>{Math.round(point.percentage)}%</Text></View>;
+                return (
+                  <View key={point.choice_id} style={styles.tooltipRow}>
+                    <View style={StyleSheet.flatten([styles.tooltipDot, { backgroundColor: choiceColors[Math.max(0, seriesIndex) % choiceColors.length] }])} />
+                    <Text numberOfLines={1} style={styles.tooltipLabel}>{point.label}</Text>
+                    <Text style={styles.tooltipValue}>{Math.round(point.percentage)}%</Text>
+                  </View>
+                );
               })}
             </View>
           ) : null}
@@ -164,18 +170,35 @@ function distanceToSegment(
 }
 
 const styles = StyleSheet.create({
-  card: { width: "100%", boxSizing: "border-box", borderRadius: radius.md, padding: 20, backgroundColor: palette.surface, borderWidth: 1, borderColor: palette.line, gap: 12, ...shadows.panel },
+  card: { width: "100%", boxSizing: "border-box", paddingHorizontal: 4, paddingVertical: 2, gap: 12 },
   heading: { flexDirection: "row", justifyContent: "space-between", alignItems: "flex-start", gap: 12, flexWrap: "wrap" },
   kicker: { color: palette.primaryStrong, fontFamily: fontFamilySemibold, fontSize: 10, textTransform: "uppercase", letterSpacing: 1.1 },
   title: { color: palette.ink, fontFamily: fontFamilyBold, fontSize: 21, letterSpacing: -0.35, marginTop: 5 },
   hint: { color: palette.muted, fontFamily: fontFamilyMedium, fontSize: 10, paddingTop: 4 },
   chartShell: { position: "relative", width: "100%", minHeight: 120, flex: 1, overflow: "hidden" },
   pointerLayer: { ...StyleSheet.absoluteFillObject, backgroundColor: "transparent" },
-  tooltip: { position: "absolute", top: 8, width: TOOLTIP_WIDTH, borderRadius: radius.sm, paddingHorizontal: 9, paddingVertical: 8, backgroundColor: "rgba(11,16,23,0.97)", borderWidth: 1, borderColor: palette.lineStrong, gap: 4, ...shadows.panel },
+  tooltip: {
+    position: "absolute",
+    top: 8,
+    maxWidth: 240,
+    borderRadius: radius.sm,
+    paddingHorizontal: 13,
+    paddingVertical: 8,
+    backgroundColor: "rgba(11,16,23,0.97)",
+    borderWidth: 1,
+    borderColor: palette.lineStrong,
+    gap: 4,
+    shadowColor: "#000",
+    shadowOpacity: 0.24,
+    shadowRadius: 16,
+    shadowOffset: { width: 0, height: 10 }
+  },
   tooltipDate: { color: palette.ink, fontFamily: fontFamilySemibold, fontSize: 10, textAlign: "center" },
   tooltipRule: { width: 34, height: 1, backgroundColor: palette.lineStrong, alignSelf: "center", marginBottom: 2 },
-  tooltipRow: { flexDirection: "row", alignItems: "center", gap: 4 },
-  tooltipDot: { width: 5, height: 5, borderRadius: 1 }, tooltipLabel: { color: palette.inkSecondary, width: 104, fontSize: 10 }, tooltipValue: { color: palette.ink, fontFamily: fontFamilySemibold, fontSize: 11, fontVariant: ["tabular-nums"] },
+  tooltipRow: { alignSelf: "flex-start", flexDirection: "row", alignItems: "center", gap: 7 },
+  tooltipDot: { width: 5, height: 5, borderRadius: 1 },
+  tooltipLabel: { color: palette.inkSecondary, maxWidth: 142, fontSize: 10 },
+  tooltipValue: { color: palette.ink, fontFamily: fontFamilySemibold, fontSize: 11, fontVariant: ["tabular-nums"] },
   empty: { minHeight: 120, flex: 1, alignItems: "center", justifyContent: "center" }, emptyText: { color: palette.muted, fontFamily },
   legend: { flexDirection: "row", flexWrap: "wrap", justifyContent: "center", alignItems: "center", columnGap: 18, rowGap: 8, paddingTop: 2 }, legendItem: { flexDirection: "row", alignItems: "center", gap: 7 }, legendLine: { width: 18, height: 2 }, legendText: { color: palette.inkSecondary, fontFamily, fontSize: 11 }
 });
