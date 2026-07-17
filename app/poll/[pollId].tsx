@@ -1,8 +1,8 @@
 import { useEffect, useMemo, useRef, useState } from "react";
-import { Animated, Linking, Modal, Platform, Pressable, ScrollView, StyleSheet, Text, useWindowDimensions, View } from "react-native";
+import { Animated, Linking, Platform, Pressable, ScrollView, StyleSheet, Text, useWindowDimensions, View } from "react-native";
 import { LinearGradient } from "expo-linear-gradient";
 import { Check, ExternalLink, MessagesSquare } from "lucide-react-native";
-import { useLocalSearchParams, useRouter, type Href } from "expo-router";
+import { useLocalSearchParams } from "expo-router";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { PollCard } from "@/components/PollCard";
 import { PollTimer } from "@/components/PollTimer";
@@ -13,26 +13,20 @@ import { MarkdownContent } from "@/components/MarkdownContent";
 import { AppFooter } from "@/components/AppFooter";
 import { VotePanel } from "@/components/VotePanel";
 import { SkeletonPoll } from "@/components/SkeletonPoll";
-import { useAuth } from "@/components/AuthProvider";
 import { fetchPoll, getCachedPoll, getCachedResults, getCachedResultsHistory, getResults, getResultsHistory } from "@/lib/api";
-import { getPollDescription, getThemeLabel, VISITOR_VOTE_LIMIT } from "@/lib/product";
+import { getPollDescription, getThemeLabel } from "@/lib/product";
 import { fontFamilyBold, fontFamilyMedium, fontFamilySemibold, getThemeVisual, palette, radius, shadows } from "@/lib/design";
-import { getVisitorVoteCount, incrementVisitorVoteCount } from "@/lib/visitorLimit";
 import type { Poll, PollHistoryPoint, PollResource, PollResult, VoteStatus } from "@/lib/types";
 
 export default function PollScreen() {
   const { pollId } = useLocalSearchParams<{ pollId: string }>();
   const compact = useWindowDimensions().width < 760;
-  const router = useRouter();
-  const { user, emailVerified } = useAuth();
   const [poll, setPoll] = useState<Poll | null>(null);
   const [selectedChoiceId, setSelectedChoiceId] = useState<string | null>(null);
   const [results, setResults] = useState<PollResult[]>([]);
   const [history, setHistory] = useState<PollHistoryPoint[]>([]);
   const [loading, setLoading] = useState(true);
   const [panelVisible, setPanelVisible] = useState(false);
-  const [limitVisible, setLimitVisible] = useState(false);
-  const [visitorCount, setVisitorCount] = useState(0);
   const [voteState, setVoteState] = useState<VoteStatus | null>(null);
   const [voteColumnHeight, setVoteColumnHeight] = useState(0);
   const [discussionCtaHovered, setDiscussionCtaHovered] = useState(false);
@@ -80,20 +74,11 @@ export default function PollScreen() {
     };
   }, [fade, pollId]);
 
-  useEffect(() => {
-    getVisitorVoteCount().then(setVisitorCount);
-  }, []);
-
   const selectedChoice = poll?.choices.find((choice) => choice.id === selectedChoiceId) ?? null;
-  const isVerifiedUser = Boolean(user && emailVerified);
   const isPollOpen = Boolean(poll && poll.status === "open" && (!poll.closes_at || new Date(poll.closes_at).getTime() > Date.now()));
 
   async function handleOpenVotePanel() {
     if (!isPollOpen) return;
-    if (!isVerifiedUser && visitorCount >= VISITOR_VOTE_LIMIT) {
-      setLimitVisible(true);
-      return;
-    }
     setPanelVisible(true);
   }
 
@@ -103,9 +88,6 @@ export default function PollScreen() {
     if (status.status === "accepted" && pollId) setHistory(await getResultsHistory(pollId, { force: true, label: "getResultsHistoryAfterVote" }));
     if (status.status === "duplicate") {
       setPanelVisible(false);
-    }
-    if (!isVerifiedUser && status.status === "accepted") {
-      setVisitorCount(await incrementVisitorVoteCount());
     }
   }
 
@@ -224,12 +206,6 @@ export default function PollScreen() {
             onFinished={handleVoteFinished}
           />
         ) : null}
-        <VisitorLimitModal
-          visible={limitVisible}
-          onClose={() => setLimitVisible(false)}
-          onSignup={() => router.push("/auth/signup" as Href)}
-          onLogin={() => router.push("/auth/login" as Href)}
-        />
       </SafeAreaView>
     </LinearGradient>
   );
@@ -261,40 +237,6 @@ function getResourceTypeLabel(type: PollResource["resource_type"]) {
   if (type === "report") return "Rapport";
   if (type === "other") return "Ressource";
   return "Lien";
-}
-
-function VisitorLimitModal({
-  visible,
-  onClose,
-  onSignup,
-  onLogin
-}: {
-  visible: boolean;
-  onClose: () => void;
-  onSignup: () => void;
-  onLogin: () => void;
-}) {
-  return (
-    <Modal transparent visible={visible} animationType="fade" onRequestClose={onClose}>
-      <View style={styles.limitOverlay}>
-        <Pressable style={styles.limitScrim} onPress={onClose} />
-        <View style={styles.limitCard}>
-          <Text style={styles.limitTitle}>Vous avez atteint la limite visiteur</Text>
-          <Text style={styles.limitText}>
-            Inscrivez-vous gratuitement pour continuer à participer. Cette limite est une règle produit locale; l’unicité réelle du vote reste assurée par le serveur.
-          </Text>
-          <View style={styles.limitActions}>
-            <Pressable onPress={onSignup} style={styles.limitPrimary}>
-              <Text style={styles.limitPrimaryText}>S’inscrire</Text>
-            </Pressable>
-            <Pressable onPress={onLogin} style={styles.limitSecondary}>
-              <Text style={styles.limitSecondaryText}>J’ai déjà un compte</Text>
-            </Pressable>
-          </View>
-        </View>
-      </View>
-    </Modal>
-  );
 }
 
 const styles = StyleSheet.create({
@@ -412,25 +354,5 @@ const styles = StyleSheet.create({
     backgroundColor: palette.surface
   },
   emptyTitle: { color: palette.ink, fontFamily: fontFamilyBold, fontSize: 21 },
-  emptyText: { color: palette.muted, marginTop: 8 },
-  limitOverlay: { flex: 1, alignItems: "center", justifyContent: "center", padding: 20 },
-  limitScrim: { ...StyleSheet.absoluteFillObject, backgroundColor: "rgba(2, 6, 23, 0.62)" },
-  limitCard: {
-    width: "100%",
-    maxWidth: 480,
-    borderRadius: radius.lg,
-    backgroundColor: palette.surface,
-    borderWidth: 1,
-    borderColor: "rgba(148, 163, 184, 0.22)",
-    padding: 24,
-    gap: 14,
-    ...shadows.panel
-  },
-  limitTitle: { color: palette.ink, fontFamily: fontFamilyBold, fontSize: 23, lineHeight: 30 },
-  limitText: { color: palette.inkSecondary, fontSize: 15, lineHeight: 23 },
-  limitActions: { flexDirection: "row", flexWrap: "wrap", gap: 10 },
-  limitPrimary: { minHeight: 46, borderRadius: radius.sm, backgroundColor: palette.primary, paddingHorizontal: 16, alignItems: "center", justifyContent: "center" },
-  limitPrimaryText: { color: palette.onPrimary, fontFamily: fontFamilySemibold },
-  limitSecondary: { minHeight: 46, borderRadius: radius.sm, backgroundColor: "transparent", borderWidth: 1, borderColor: palette.lineStrong, paddingHorizontal: 16, alignItems: "center", justifyContent: "center" },
-  limitSecondaryText: { color: palette.inkSecondary, fontFamily: fontFamilyMedium }
+  emptyText: { color: palette.muted, marginTop: 8 }
 });

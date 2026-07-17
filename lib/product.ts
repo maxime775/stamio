@@ -60,8 +60,6 @@ export const CSP_PROFESSIONS = [
   "Autres personnes sans activité professionnelle"
 ] as const;
 
-export const VISITOR_VOTE_LIMIT = 3;
-
 export const MAIN_THEME_POLL_CONTENT = {
   societe: {
     question: "Êtes-vous pour ou contre la taxe Zucman ?",

@@ -27,7 +27,7 @@ import type {
 type StartPayload = {
   poll_id: string;
   choice_id: string;
-  phone_e164: string;
+  phone_e164?: string;
   platform: "web" | "native";
   turnstile_token?: string;
 };
@@ -35,7 +35,7 @@ type StartPayload = {
 type SubmitPayload = {
   poll_id: string;
   choice_id: string;
-  phone_e164: string;
+  phone_e164?: string;
   otp_code: string;
 };
 
@@ -91,8 +91,10 @@ export async function fetchPoll(pollId: string, options: CacheOptions = {}): Pro
 }
 
 export async function startVerification(payload: StartPayload): Promise<StartVerificationResponse> {
+  const headers = await getFunctionAuthHeaders();
   const { data, error } = await supabase.functions.invoke<StartVerificationResponse>("start-verification", {
-    body: payload
+    body: payload,
+    headers
   });
   if (data) return data;
   const errorPayload = await readFunctionError<StartVerificationResponse>(error);
@@ -100,8 +102,10 @@ export async function startVerification(payload: StartPayload): Promise<StartVer
 }
 
 export async function submitVote(payload: SubmitPayload): Promise<VoteStatus> {
+  const headers = await getFunctionAuthHeaders();
   const { data, error } = await supabase.functions.invoke<VoteStatus>("submit-vote", {
-    body: payload
+    body: payload,
+    headers
   });
   if (data) return data;
   const errorPayload = await readFunctionError<VoteStatus>(error);
@@ -628,6 +632,12 @@ async function readFunctionError<T>(error: unknown): Promise<T | null> {
   const context = (error as { context?: unknown }).context;
   if (!(context instanceof Response)) return null;
   return context.clone().json().catch(() => null) as Promise<T | null>;
+}
+
+async function getFunctionAuthHeaders() {
+  const { data } = await supabase.auth.getSession();
+  const token = data.session?.access_token;
+  return token ? { Authorization: `Bearer ${token}` } : undefined;
 }
 
 function readCache<T>(key: string): T | null {

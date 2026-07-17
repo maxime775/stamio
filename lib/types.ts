@@ -262,10 +262,10 @@ export type SignupPayload = {
 };
 
 export type StartVerificationResponse =
-  | { status: "verification_started" }
-  | { status: "invalid_phone_type" | "poll_closed" | "captcha_required" | "error"; message?: string };
+  | { status: "verification_started"; phone_last4?: string }
+  | { status: "invalid_phone_type" | "poll_closed" | "captcha_required" | "visitor_phone_limit_reached" | "visitor_connection_limit_reached" | "rate_limited" | "registered_phone_required" | "error"; message?: string };
 
 export type VoteStatus =
   | { status: "accepted"; receipt_hash: string }
   | { status: "duplicate"; message: string }
-  | { status: "invalid_phone_type" | "invalid_code" | "poll_closed" | "error"; message?: string };
+  | { status: "invalid_phone_type" | "invalid_code" | "poll_closed" | "registered_phone_required" | "error"; message?: string };

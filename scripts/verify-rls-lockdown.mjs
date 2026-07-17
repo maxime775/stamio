@@ -57,6 +57,14 @@ const checks = [
       event: "otp_rejected"
     },
     optionalIfMissing: true
+  },
+  {
+    table: "visitor_phone_participations",
+    row: {
+      visitor_phone_hash: "c".repeat(64),
+      poll_id: pollId
+    },
+    optionalIfMissing: true
   }
 ];
 
@@ -70,7 +78,7 @@ for (const check of checks) {
     continue;
   }
 
-  if (check.optionalIfMissing && error.code === "42P01") continue;
+  if (check.optionalIfMissing && (error.code === "42P01" || error.code === "PGRST205")) continue;
 
   if (error.code !== "42501") {
     failures.push(`${check.table}: insert was blocked by ${error.code ?? "an unknown error"} instead of RLS/permission denial (${error.message})`);

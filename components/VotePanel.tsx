@@ -1,7 +1,9 @@
 import { useEffect, useMemo, useState } from "react";
 import { ActivityIndicator, Animated, Easing, Modal, Pressable, StyleSheet, Text, View } from "react-native";
 import { CheckCircle2, X } from "lucide-react-native";
+import { useRouter, type Href } from "expo-router";
 import { AuthTextField } from "@/components/AuthFields";
+import { useAuth } from "@/components/AuthProvider";
 import { OtpInput } from "@/components/OtpInput";
 import { Turnstile } from "@/components/Turnstile";
 import { getResults, invalidatePollCaches, startVerification, submitVote } from "@/lib/api";
@@ -20,14 +22,51 @@ type Props = {
 };
 
 type Step = "phone" | "otp" | "success";
+type VerificationLimitStatus = "visitor_phone_limit_reached" | "visitor_connection_limit_reached" | "rate_limited";
 
 const RESEND_DELAY_SECONDS = 50;
 const PHONE_INVALID_CHARACTER_MESSAGE = "Utilisez uniquement des chiffres, des espaces ou le préfixe +33.";
 const PHONE_INVALID_MESSAGE = "Veuillez saisir un numéro de mobile français valide.";
 const PHONE_TEST_LIMIT_MESSAGE = "Pour cette phase de test, seuls les numéros mobiles français commençant par 06 ou 07 sont acceptés.";
 const OTP_INVALID_CHARACTER_MESSAGE = "Saisissez uniquement les 6 chiffres du code reçu par SMS.";
+const LIMIT_COPY: Record<VerificationLimitStatus, {
+  title: string;
+  text: string;
+  primaryLabel: string;
+  primaryAction: "signup" | "login";
+  secondaryLabel: string;
+  secondaryAction: "login" | "close";
+}> = {
+  visitor_phone_limit_reached: {
+    title: "Créez un compte pour continuer",
+    text: "Ce numéro a déjà été utilisé plusieurs fois sans compte. Créez gratuitement un compte ou connectez-vous pour continuer à participer.",
+    primaryLabel: "S’inscrire",
+    primaryAction: "signup",
+    secondaryLabel: "J’ai déjà un compte",
+    secondaryAction: "login"
+  },
+  visitor_connection_limit_reached: {
+    title: "Connexion temporairement limitée",
+    text: "Nous ne pouvons pas envoyer de nouveau code depuis cette connexion pour le moment. Créez gratuitement un compte ou connectez-vous pour continuer à participer.",
+    primaryLabel: "S’inscrire",
+    primaryAction: "signup",
+    secondaryLabel: "J’ai déjà un compte",
+    secondaryAction: "login"
+  },
+  rate_limited: {
+    title: "Veuillez patienter quelques instants",
+    text: "Par sécurité, l’envoi de nouveaux codes est temporairement limité. Réessayez dans quelques instants ou connectez-vous à votre compte.",
+    primaryLabel: "J’ai déjà un compte",
+    primaryAction: "login",
+    secondaryLabel: "Fermer",
+    secondaryAction: "close"
+  }
+};
 
 export function VotePanel({ visible, pollId, choiceId, choiceLabel, platform, onClose, onFinished }: Props) {
+  const router = useRouter();
+  const { user, emailVerified } = useAuth();
+  const isRegisteredUser = Boolean(user && emailVerified);
   const [step, setStep] = useState<Step>("phone");
   const [phone, setPhone] = useState("");
   const [phoneError, setPhoneError] = useState<string | null>(null);
@@ -41,11 +80,16 @@ export function VotePanel({ visible, pollId, choiceId, choiceLabel, platform, on
   const [resendVisible, setResendVisible] = useState(false);
   const [resendError, setResendError] = useState<string | null>(null);
   const [resendSeconds, setResendSeconds] = useState(0);
+  const [limitStatus, setLimitStatus] = useState<VerificationLimitStatus | null>(null);
+  const [codeRequested, setCodeRequested] = useState(false);
+  const [autoRequestStarted, setAutoRequestStarted] = useState(false);
+  const [registeredPhoneLast4, setRegisteredPhoneLast4] = useState<string | null>(null);
+  const [accountPhoneRequired, setAccountPhoneRequired] = useState(false);
   const slide = useMemo(() => new Animated.Value(0), []);
 
   useEffect(() => {
     if (visible) {
-      setStep("phone");
+      setStep(isRegisteredUser ? "otp" : "phone");
       setPhone("");
       setOtp("");
       setOtpError(null);
@@ -56,12 +100,25 @@ export function VotePanel({ visible, pollId, choiceId, choiceLabel, platform, on
       setResendVisible(false);
       setResendError(null);
       setResendSeconds(0);
+      setLimitStatus(null);
+      setCodeRequested(false);
+      setAutoRequestStarted(false);
+      setRegisteredPhoneLast4(null);
+      setAccountPhoneRequired(false);
       Animated.spring(slide, { toValue: 1, damping: 18, stiffness: 160, useNativeDriver: true }).start();
     } else {
       slide.setValue(0);
       setResendVisible(false);
+      setLimitStatus(null);
+      setAutoRequestStarted(false);
     }
-  }, [slide, visible]);
+  }, [isRegisteredUser, slide, visible]);
+
+  useEffect(() => {
+    if (!visible || !isRegisteredUser || step !== "otp" || autoRequestStarted) return;
+    setAutoRequestStarted(true);
+    void requestCode("initial");
+  }, [autoRequestStarted, isRegisteredUser, step, visible]);
 
   useEffect(() => {
     if (!visible || step !== "otp" || resendSeconds <= 0) return undefined;
@@ -75,10 +132,15 @@ export function VotePanel({ visible, pollId, choiceId, choiceLabel, platform, on
   const siteKey = process.env.EXPO_PUBLIC_TURNSTILE_SITE_KEY;
   const normalizedPhone = normalizeFrenchMobilePhoneInput(phone);
   const readablePhone = normalizedPhone.ok ? formatFrenchMobilePhoneDisplay(normalizedPhone.value) : formatFrenchMobilePhoneDisplay(phone);
+  const otpPhoneLabel = isRegisteredUser
+    ? registeredPhoneLast4
+      ? `au numéro se terminant par ${registeredPhoneLast4}`
+      : "au numéro enregistré sur votre compte"
+    : `au ${readablePhone}`;
   const phoneFeedback = phoneWarning ?? phoneError ?? undefined;
   const otpFeedback = otpWarning ?? otpError ?? undefined;
   const canRequestCode = normalizedPhone.ok && !phoneWarning;
-  const canSubmitOtp = validateOtp(otp);
+  const canSubmitOtp = codeRequested && !accountPhoneRequired && validateOtp(otp);
 
   function closeAll() {
     setResendVisible(false);
@@ -102,12 +164,29 @@ export function VotePanel({ visible, pollId, choiceId, choiceLabel, platform, on
     if (status === "invalid_phone_type") return PHONE_TEST_LIMIT_MESSAGE;
     if (status === "poll_closed") return "Ce sondage est fermé.";
     if (status === "captcha_required") return "La validation anti-abus est requise. Complétez le captcha puis réessayez.";
+    if (status === "registered_phone_required") return "Ajoutez un numéro de téléphone à votre compte pour recevoir votre code de vérification et participer.";
     return "Impossible d'envoyer le code pour le moment.";
+  }
+
+  function getLimitStatus(status: string): VerificationLimitStatus | null {
+    if (status === "visitor_phone_limit_reached" || status === "visitor_connection_limit_reached" || status === "rate_limited") return status;
+    return null;
+  }
+
+  function navigateFromLimit(action: "signup" | "login" | "close") {
+    if (action === "close") {
+      setLimitStatus(null);
+      return;
+    }
+    setLimitStatus(null);
+    setResendVisible(false);
+    closeAll();
+    router.push((action === "signup" ? "/auth/signup" : "/auth/login") as Href);
   }
 
   async function requestCode(source: "initial" | "resend") {
     const normalized = normalizeFrenchMobilePhoneInput(phone);
-    if (!normalized.ok) {
+    if (!isRegisteredUser && !normalized.ok) {
       const message = phone.trim() ? PHONE_INVALID_MESSAGE : "Le numéro de téléphone est obligatoire.";
       if (source === "resend") setResendError(message);
       else setPhoneError(message);
@@ -121,13 +200,14 @@ export function VotePanel({ visible, pollId, choiceId, choiceLabel, platform, on
       setResendLoading(true);
       setResendError(null);
     }
+    setAccountPhoneRequired(false);
 
     const response = await startVerification({
       poll_id: pollId,
       choice_id: choiceId,
-      phone_e164: normalized.value,
+      ...(isRegisteredUser ? {} : normalized.ok ? { phone_e164: normalized.value } : {}),
       platform,
-      turnstile_token: platform === "web" ? turnstileToken : undefined
+      turnstile_token: !isRegisteredUser && platform === "web" ? turnstileToken : undefined
     });
 
     if (source === "initial") setLoading(false);
@@ -138,9 +218,31 @@ export function VotePanel({ visible, pollId, choiceId, choiceLabel, platform, on
       setOtp("");
       setOtpError(null);
       setOtpWarning(null);
+      setCodeRequested(true);
+      setRegisteredPhoneLast4(response.phone_last4 ?? null);
+      setAccountPhoneRequired(false);
       setResendSeconds(RESEND_DELAY_SECONDS);
       setResendVisible(false);
       setResendError(null);
+      return;
+    }
+
+    if (response.status === "registered_phone_required") {
+      setStep("otp");
+      setCodeRequested(false);
+      setAccountPhoneRequired(true);
+      setOtpError(null);
+      setResendVisible(false);
+      setResendError(null);
+      return;
+    }
+
+    const limit = getLimitStatus(response.status);
+    if (limit) {
+      setLimitStatus(limit);
+      setResendVisible(false);
+      setResendError(null);
+      setPhoneError(null);
       return;
     }
 
@@ -151,7 +253,7 @@ export function VotePanel({ visible, pollId, choiceId, choiceLabel, platform, on
 
   async function handleSubmit() {
     const normalized = normalizeFrenchMobilePhoneInput(phone);
-    if (!normalized.ok) {
+    if (!isRegisteredUser && !normalized.ok) {
       setPhoneError(PHONE_TEST_LIMIT_MESSAGE);
       setStep("phone");
       return;
@@ -166,7 +268,7 @@ export function VotePanel({ visible, pollId, choiceId, choiceLabel, platform, on
     const response = await submitVote({
       poll_id: pollId,
       choice_id: choiceId,
-      phone_e164: normalized.value,
+      ...(isRegisteredUser ? {} : normalized.ok ? { phone_e164: normalized.value } : {}),
       otp_code: otp
     });
     if (response.status === "accepted") invalidatePollCaches(pollId);
@@ -186,6 +288,9 @@ export function VotePanel({ visible, pollId, choiceId, choiceLabel, platform, on
       setOtpError("Ce numéro a déjà été utilisé pour cette question.");
     } else if (response.status === "poll_closed") {
       setOtpError("Ce sondage est fermé.");
+    } else if (response.status === "registered_phone_required") {
+      setAccountPhoneRequired(true);
+      setCodeRequested(false);
     } else {
       setOtpError("Le vote n'a pas pu être comptabilisé.");
     }
@@ -227,21 +332,47 @@ export function VotePanel({ visible, pollId, choiceId, choiceLabel, platform, on
               <>
                 <ModalHeader title="Vérifiez votre numéro de téléphone" choiceLabel={choiceLabel} onClose={closeAll} />
                 <View style={styles.body}>
-                  <Text style={styles.helperText}>Saisissez le code à 6 chiffres que nous vous avons envoyé par SMS au {readablePhone}.</Text>
-                  <View style={styles.otpField}>
-                    <Text style={styles.label}>Code de vérification</Text>
-                    <OtpInput value={otp} onChange={handleOtpChange} onInvalidInput={() => setOtpWarning(OTP_INVALID_CHARACTER_MESSAGE)} />
-                    {otpFeedback ? <Text accessibilityLiveRegion="polite" style={styles.fieldError}>{otpFeedback}</Text> : null}
-                  </View>
-                  <Text accessibilityLiveRegion="polite" style={styles.timerText}>
-                    {resendSeconds > 0
-                      ? `Vous pourrez demander un nouveau code dans ${resendSeconds} s.`
-                      : "Vous pouvez demander un nouveau code si le SMS n'est pas arrivé."}
-                  </Text>
-                  <Pressable accessibilityRole="button" onPress={() => { setResendVisible(true); setResendError(null); }} style={styles.resendLink}>
-                    <Text style={styles.resendLinkText}>Vous n’avez pas reçu de code ?</Text>
-                  </Pressable>
-                  <AnimatedPrimaryButton disabled={loading || !canSubmitOtp} loading={loading} label="Comptabiliser mon vote" onPress={handleSubmit} />
+                  {loading && !codeRequested && !accountPhoneRequired ? (
+                    <View style={styles.sendingCode}>
+                      <ActivityIndicator color={palette.primaryStrong} />
+                      <Text style={styles.helperText}>Envoi du code de vérification...</Text>
+                    </View>
+                  ) : null}
+                  {accountPhoneRequired ? (
+                    <>
+                      <Text style={styles.errorBox}>Ajoutez un numéro de téléphone à votre compte pour recevoir votre code de vérification et participer.</Text>
+                      <View style={styles.resendActions}>
+                        <Pressable onPress={() => { closeAll(); router.push("/account/informations" as Href); }} style={styles.secondaryButton}>
+                          <Text style={styles.secondaryText}>Mon compte</Text>
+                        </Pressable>
+                        <Pressable onPress={closeAll} style={styles.secondaryButton}>
+                          <Text style={styles.secondaryText}>Fermer</Text>
+                        </Pressable>
+                      </View>
+                    </>
+                  ) : (
+                    <>
+                      <Text style={styles.helperText}>Saisissez le code à 6 chiffres que nous vous avons envoyé par SMS {otpPhoneLabel}.</Text>
+                      <View style={styles.otpField}>
+                        <Text style={styles.label}>Code de vérification</Text>
+                        <OtpInput value={otp} onChange={handleOtpChange} onInvalidInput={() => setOtpWarning(OTP_INVALID_CHARACTER_MESSAGE)} />
+                        {otpFeedback ? <Text accessibilityLiveRegion="polite" style={styles.fieldError}>{otpFeedback}</Text> : null}
+                      </View>
+                      <Text accessibilityLiveRegion="polite" style={styles.timerText}>
+                        {resendSeconds > 0
+                          ? `Vous pourrez demander un nouveau code dans ${resendSeconds} s.`
+                          : codeRequested
+                            ? "Vous pouvez demander un nouveau code si le SMS n'est pas arrivé."
+                            : "Le code de vérification va être envoyé automatiquement."}
+                      </Text>
+                      {codeRequested ? (
+                        <Pressable accessibilityRole="button" onPress={() => { setResendVisible(true); setResendError(null); }} style={styles.resendLink}>
+                          <Text style={styles.resendLinkText}>Vous n’avez pas reçu de code ?</Text>
+                        </Pressable>
+                      ) : null}
+                      <AnimatedPrimaryButton disabled={loading || !canSubmitOtp} loading={loading && codeRequested} label="Comptabiliser mon vote" onPress={handleSubmit} />
+                    </>
+                  )}
                 </View>
               </>
             ) : null}
@@ -256,6 +387,14 @@ export function VotePanel({ visible, pollId, choiceId, choiceLabel, platform, on
         </View>
       </Modal>
 
+      <VerificationLimitModal
+        visible={visible && Boolean(limitStatus)}
+        status={limitStatus}
+        choiceLabel={choiceLabel}
+        onClose={() => setLimitStatus(null)}
+        onAction={navigateFromLimit}
+      />
+
       <Modal transparent visible={visible && resendVisible} animationType="fade" onRequestClose={() => setResendVisible(false)}>
         <View style={styles.resendOverlay}>
           <Pressable style={styles.scrim} onPress={() => setResendVisible(false)} />
@@ -264,7 +403,7 @@ export function VotePanel({ visible, pollId, choiceId, choiceLabel, platform, on
             <Text style={styles.helperText}>
               {resendSeconds > 0
                 ? `Vous pourrez demander un nouveau code dans ${resendSeconds} s.`
-                : `Nous pouvons vous envoyer un nouveau code de vérification au ${readablePhone}.`}
+                : `Nous pouvons vous envoyer un nouveau code de vérification ${otpPhoneLabel}.`}
             </Text>
             {resendError ? <Text accessibilityLiveRegion="polite" style={styles.errorBox}>{resendError}</Text> : null}
             <View style={styles.resendActions}>
@@ -277,6 +416,43 @@ export function VotePanel({ visible, pollId, choiceId, choiceLabel, platform, on
         </View>
       </Modal>
     </>
+  );
+}
+
+function VerificationLimitModal({
+  visible,
+  status,
+  choiceLabel,
+  onClose,
+  onAction
+}: {
+  visible: boolean;
+  status: VerificationLimitStatus | null;
+  choiceLabel: string;
+  onClose: () => void;
+  onAction: (action: "signup" | "login" | "close") => void;
+}) {
+  if (!status) return null;
+  const copy = LIMIT_COPY[status];
+
+  return (
+    <Modal transparent visible={visible} animationType="fade" onRequestClose={onClose}>
+      <View style={styles.limitOverlay}>
+        <Pressable style={styles.scrim} onPress={onClose} />
+        <View style={styles.limitPanel}>
+          <ModalHeader title={copy.title} choiceLabel={choiceLabel} onClose={onClose} compact />
+          <Text style={styles.limitText}>{copy.text}</Text>
+          <View style={styles.limitActions}>
+            <Pressable onPress={() => onAction(copy.primaryAction)} style={styles.limitPrimary}>
+              <Text style={styles.limitPrimaryText}>{copy.primaryLabel}</Text>
+            </Pressable>
+            <Pressable onPress={() => onAction(copy.secondaryAction)} style={styles.limitSecondary}>
+              <Text style={styles.limitSecondaryText}>{copy.secondaryLabel}</Text>
+            </Pressable>
+          </View>
+        </View>
+      </View>
+    </Modal>
   );
 }
 
@@ -384,6 +560,7 @@ const styles = StyleSheet.create({
   body: { gap: 12 },
   label: { color: palette.inkSecondary, fontFamily: fontFamilyMedium, fontSize: 13 },
   helperText: { color: palette.inkSecondary, fontSize: 13, lineHeight: 20 },
+  sendingCode: { flexDirection: "row", alignItems: "center", gap: 10 },
   otpField: { gap: 7 },
   fieldError: { color: palette.fieldError, fontSize: 11, lineHeight: 15 },
   errorBox: {
@@ -444,6 +621,37 @@ const styles = StyleSheet.create({
     gap: 14,
     ...shadows.panel
   },
+  limitOverlay: {
+    flex: 1,
+    alignItems: "center",
+    justifyContent: "center",
+    padding: 20
+  },
+  limitPanel: {
+    width: "100%",
+    maxWidth: 390,
+    borderRadius: radius.md,
+    backgroundColor: palette.surface,
+    borderWidth: 1,
+    borderColor: palette.line,
+    padding: 22,
+    gap: 14,
+    ...shadows.panel
+  },
+  limitText: { color: palette.inkSecondary, fontSize: 13, lineHeight: 20 },
+  limitActions: { flexDirection: "row", justifyContent: "flex-end", alignItems: "center", gap: 10, flexWrap: "wrap" },
+  limitPrimary: { minHeight: 42, borderRadius: radius.sm, backgroundColor: palette.primary, paddingHorizontal: 14, alignItems: "center", justifyContent: "center" },
+  limitPrimaryText: { color: palette.onPrimary, fontFamily: fontFamilySemibold, fontSize: 13 },
+  limitSecondary: {
+    minHeight: 42,
+    borderRadius: radius.sm,
+    paddingHorizontal: 14,
+    alignItems: "center",
+    justifyContent: "center",
+    borderWidth: 1,
+    borderColor: authField.separatorColor
+  },
+  limitSecondaryText: { color: palette.inkSecondary, fontFamily: fontFamilySemibold, fontSize: 13 },
   resendActions: { flexDirection: "row", justifyContent: "flex-end", alignItems: "center", gap: 10, flexWrap: "wrap" },
   secondaryButton: {
     minHeight: 42,

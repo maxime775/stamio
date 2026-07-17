@@ -32,18 +32,26 @@ Deno.serve(async (req) => {
     return jsonResponse({ status: "invalid_code" }, 400);
   }
 
-  const normalizedPhone = normalizeFrenchMobilePhone(
-    typeof body?.phone_e164 === "string" ? body.phone_e164 : ""
-  );
-  if (!normalizedPhone.ok) {
-    return jsonResponse({ status: "invalid_phone_type" }, 400);
-  }
-  const phone = normalizedPhone.phone;
-
   const supabase = createClient(supabaseUrl, serviceRoleKey, {
     auth: { persistSession: false }
   });
-  const authenticatedUserId = await getAuthenticatedVerifiedUserId(supabase, req.headers.get("Authorization"));
+  const authenticatedUser = await getAuthenticatedVerifiedUser(supabase, req.headers.get("Authorization"));
+  const authenticatedUserId = typeof authenticatedUser?.id === "string" ? authenticatedUser.id : null;
+  const registeredPhone = authenticatedUser ? getNormalizedRegisteredPhone(authenticatedUser) : null;
+  if (authenticatedUser && !registeredPhone) {
+    return jsonResponse({ status: "registered_phone_required" }, 409);
+  }
+
+  const normalizedVisitorPhone = authenticatedUser
+    ? null
+    : normalizeFrenchMobilePhone(typeof body?.phone_e164 === "string" ? body.phone_e164 : "");
+  if (!authenticatedUser && !normalizedVisitorPhone?.ok) {
+    return jsonResponse({ status: "invalid_phone_type" }, 400);
+  }
+  const phone = registeredPhone ?? (normalizedVisitorPhone?.ok ? normalizedVisitorPhone.phone : null);
+  if (!phone) {
+    return jsonResponse({ status: "invalid_phone_type" }, 400);
+  }
 
   const otpStatus = await checkOtpCode(otpConfig, phone, otpCode);
   if (otpStatus !== "approved") {
@@ -56,13 +64,15 @@ Deno.serve(async (req) => {
   }
 
   const phonePollHash = await hmacSha256Hex(hmacSecret, `${pollId}:${phone}`);
+  const visitorPhoneHash = authenticatedUserId ? null : await hmacSha256Hex(hmacSecret, `visitor-phone:${phone}`);
   const receiptHash = await hmacSha256Hex(hmacSecret, `receipt:${pollId}:${choiceId}:${phonePollHash}:${crypto.randomUUID()}`);
 
   const { data, error } = await supabase.rpc("submit_verified_vote", {
     p_poll_id: pollId,
     p_choice_id: choiceId,
     p_phone_poll_hash: phonePollHash,
-    p_receipt_hash: receiptHash
+    p_receipt_hash: receiptHash,
+    p_visitor_phone_hash: visitorPhoneHash
   });
 
   if (error || !data?.[0]) {
@@ -103,7 +113,7 @@ Deno.serve(async (req) => {
   return jsonResponse({ status: "error" }, 500);
 });
 
-async function getAuthenticatedVerifiedUserId(
+async function getAuthenticatedVerifiedUser(
   supabase: ReturnType<typeof createClient>,
   authorization: string | null
 ) {
@@ -112,5 +122,10 @@ async function getAuthenticatedVerifiedUserId(
 
   const { data, error } = await supabase.auth.getUser(token);
   if (error || !data.user?.email_confirmed_at) return null;
-  return data.user.id;
+  return data.user as { id?: unknown; phone?: unknown; email_confirmed_at?: unknown };
+}
+
+function getNormalizedRegisteredPhone(user: { phone?: unknown }) {
+  const normalizedPhone = normalizeFrenchMobilePhone(typeof user.phone === "string" ? user.phone : "");
+  return normalizedPhone.ok ? normalizedPhone.phone : null;
 }

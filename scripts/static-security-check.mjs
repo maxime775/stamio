@@ -19,7 +19,9 @@ const forbiddenClientSnippets = [
   ".from(\"user_poll_answers\").insert",
   ".from('user_poll_answers').insert",
   ".from(\"user_reputation_events\").insert",
-  ".from('user_reputation_events').insert"
+  ".from('user_reputation_events').insert",
+  ".from(\"visitor_phone_participations\").insert",
+  ".from('visitor_phone_participations').insert"
 ];
 
 const otp = "OTP";
@@ -85,7 +87,7 @@ if (!startVerificationSource.includes('otpConfig.provider === "local_test" &&') 
     !startVerificationSource.includes('(otpConfig.appEnv === "local" || otpConfig.appEnv === "staging")')) {
   failures.push("start-verification: Turnstile bypass is not restricted to local_test in local/staging");
 }
-if (!startVerificationSource.includes("const turnstileRequired = !canBypassTurnstile;") ||
+if (!startVerificationSource.includes("const turnstileRequired = !authenticatedUserId && !canBypassTurnstile;") ||
     !startVerificationSource.includes("if (turnstileRequired)")) {
   failures.push("start-verification: Turnstile is not required from the server-only bypass decision");
 }
