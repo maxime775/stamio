@@ -12,6 +12,10 @@ export function normalizeFrenchMobilePhoneInput(input: string): { ok: true; valu
   let normalized = compact;
   if (/^0[67]\d{8}$/.test(compact)) {
     normalized = `+33${compact.slice(1)}`;
+  } else if (/^33[67]\d{8}$/.test(compact)) {
+    normalized = `+${compact}`;
+  } else if (/^[67]\d{8}$/.test(compact)) {
+    normalized = `+33${compact}`;
   } else if (/^\+330[67]\d{8}$/.test(compact)) {
     normalized = `+33${compact.slice(4)}`;
   } else if (compact.startsWith("0033")) {

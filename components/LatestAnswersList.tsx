@@ -3,7 +3,7 @@ import { useRouter, type Href } from "expo-router";
 import { EmptyState } from "@/components/EmptyState";
 import { getThemeLabel } from "@/lib/product";
 import type { UserPollAnswer } from "@/lib/types";
-import { fontFamilyBold, fontFamilyMedium, fontFamilySemibold, palette, radius } from "@/lib/design";
+import { fontFamilyBold, fontFamilyMedium, fontFamilySemibold, palette } from "@/lib/design";
 
 type Props = {
   answers: UserPollAnswer[];
@@ -16,7 +16,7 @@ export function LatestAnswersList({ answers }: Props) {
     return (
       <EmptyState
         title="Aucune réponse enregistrée"
-        message="Vos réponses associées au compte apparaîtront ici une fois le suivi serveur activé."
+        message="Vos réponses aux différents sujets apparaîtront ici. N’attendez pas, prenez part aux débats."
         actionLabel="Découvrir les sondages"
         onAction={() => router.push("/themes" as Href)}
       />
@@ -24,7 +24,7 @@ export function LatestAnswersList({ answers }: Props) {
   }
 
   return (
-    <View style={styles.card}>
+    <View style={styles.wrap}>
       <Text style={styles.title}>Mes dernières réponses</Text>
       {answers.map((answer) => (
         <Pressable
@@ -45,14 +45,15 @@ export function LatestAnswersList({ answers }: Props) {
 }
 
 const styles = StyleSheet.create({
-  card: { borderRadius: radius.md, backgroundColor: palette.surface, borderWidth: 1, borderColor: palette.line, padding: 20, gap: 0 },
-  title: { color: palette.ink, fontFamily: fontFamilyBold, fontSize: 20, marginBottom: 10 },
+  wrap: { gap: 0 },
+  title: { color: palette.ink, fontFamily: fontFamilyBold, fontSize: 20, lineHeight: 26, marginBottom: 10 },
   row: {
     borderRadius: 0,
     backgroundColor: "transparent",
     borderTopWidth: 1,
     borderTopColor: palette.line,
-    padding: 14,
+    paddingVertical: 15,
+    paddingHorizontal: 0,
     gap: 10,
     flexDirection: "row",
     justifyContent: "space-between",

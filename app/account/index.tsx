@@ -54,7 +54,10 @@ export default function AccountPage() {
     };
   }, [authLoading, emailVerified, router, userEmail, userId]);
 
-  const reputation = useMemo(() => Math.max(profile?.reputation_score ?? 0, answers.length), [answers.length, profile?.reputation_score]);
+  const participationCount = useMemo(
+    () => (stats?.participation_by_theme ?? []).reduce((sum, item) => sum + item.count, 0),
+    [stats?.participation_by_theme]
+  );
 
   if (authLoading || loading) {
     return (
@@ -69,19 +72,17 @@ export default function AccountPage() {
 
   return (
     <PageShell>
-      <View style={styles.heading}>
-        <View style={styles.headingCopy}>
-          <Text style={styles.kicker}>Mon compte</Text>
-          <Text style={styles.title}>Mon espace de participation</Text>
-        </View>
-        <PointsInline score={reputation} />
-      </View>
-
-      <View style={styles.mainRow}>
-        <View style={styles.answersColumn}>
+      <View style={styles.layout}>
+        <View style={styles.primaryColumn}>
+          <View style={styles.heading}>
+            <Text style={styles.kicker}>Mon compte</Text>
+            <Text style={styles.title}>Espace personnel</Text>
+            <Text style={styles.subtitle}>Suivez vos réponses et les thèmes auxquels vous avez pris part.</Text>
+          </View>
           <LatestAnswersList answers={answers} />
         </View>
-        <View style={styles.donutColumn}>
+        <View style={styles.secondaryColumn}>
+          <PointsInline score={participationCount} />
           <ThemeParticipationDonut items={stats?.participation_by_theme ?? []} />
         </View>
       </View>
@@ -103,27 +104,18 @@ function PointsInline({ score }: { score: number }) {
 }
 
 const styles = StyleSheet.create({
-  heading: {
-    flexDirection: "row",
-    justifyContent: "space-between",
-    alignItems: "flex-end",
-    gap: 18,
-    flexWrap: "wrap",
-    paddingBottom: 6,
-    borderBottomWidth: 1,
-    borderBottomColor: palette.line
-  },
-  headingCopy: { minWidth: 260, flex: 1 },
+  layout: { flexDirection: "row", flexWrap: "wrap", gap: 34, alignItems: "flex-start" },
+  primaryColumn: { flex: 1, flexBasis: 620, minWidth: 300, gap: 24 },
+  secondaryColumn: { flexGrow: 0, flexShrink: 1, flexBasis: 320, minWidth: 280, gap: 28, paddingTop: 2 },
+  heading: { gap: 8, paddingBottom: 18, borderBottomWidth: 1, borderBottomColor: palette.line },
   kicker: { color: palette.primaryStrong, fontFamily: fontFamilySemibold, textTransform: "uppercase", fontSize: 10, letterSpacing: 1.2 },
-  title: { color: palette.ink, fontFamily: fontFamilyBold, fontSize: 36, lineHeight: 43, letterSpacing: -0.8, marginTop: 5 },
-  points: { alignItems: "flex-end", gap: 2, paddingBottom: 3 },
+  title: { color: palette.ink, fontFamily: fontFamilyBold, fontSize: 34, lineHeight: 40, letterSpacing: 0 },
+  subtitle: { color: palette.inkSecondary, fontFamily: fontFamilyMedium, fontSize: 15, lineHeight: 23, maxWidth: 620 },
+  points: { gap: 8, paddingBottom: 18, borderBottomWidth: 1, borderBottomColor: palette.line },
   pointsLine: { flexDirection: "row", alignItems: "baseline", gap: 6 },
-  pointsValue: { color: palette.ink, fontFamily: fontFamilyBold, fontSize: 28, lineHeight: 31, fontVariant: ["tabular-nums"] },
+  pointsValue: { color: palette.ink, fontFamily: fontFamilyBold, fontSize: 34, lineHeight: 38, fontVariant: ["tabular-nums"] },
   pointsLabel: { color: palette.inkSecondary, fontFamily: fontFamilyMedium, fontSize: 12, lineHeight: 15 },
   status: { color: palette.primaryStrong, fontFamily: fontFamilySemibold, fontSize: 12, textTransform: "uppercase", letterSpacing: 0.6 },
-  mainRow: { flexDirection: "row", flexWrap: "wrap", gap: 28, alignItems: "flex-start" },
-  answersColumn: { flex: 1, flexBasis: 560, minWidth: 300 },
-  donutColumn: { flexGrow: 0, flexShrink: 1, flexBasis: 330, minWidth: 280, paddingTop: 2 },
   loading: { padding: 24, alignItems: "center", gap: 10 },
   loadingText: { color: palette.muted, fontFamily: fontFamilyMedium }
 });

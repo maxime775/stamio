@@ -204,6 +204,8 @@ export type Profile = {
   username_normalized: string | null;
   sex: Sex;
   phone_last4: string | null;
+  phone_verified_at?: string | null;
+  phone_last_changed_at?: string | null;
   age: number | null;
   profession: string | null;
   region: string | null;
@@ -260,6 +262,12 @@ export type SignupPayload = {
   profession: string;
   region: string;
 };
+
+export type AccountPhoneVerificationResponse =
+  | { status: "verification_started" }
+  | { status: "phone_confirmed"; phone_last4: string; phone_verified_at?: string; phone_last_changed_at?: string }
+  | { status: "phone_change_limited"; next_allowed_at?: string; message?: string }
+  | { status: "authentication_required" | "invalid_phone_type" | "invalid_code" | "error"; message?: string };
 
 export type StartVerificationResponse =
   | { status: "verification_started"; phone_last4?: string }

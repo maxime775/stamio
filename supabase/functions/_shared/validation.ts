@@ -14,6 +14,10 @@ export function normalizeFrenchMobilePhone(input: string): FrenchMobileNormaliza
 
   if (/^0[67]\d{8}$/.test(compact)) {
     normalized = `+33${compact.slice(1)}`;
+  } else if (/^33[67]\d{8}$/.test(compact)) {
+    normalized = `+${compact}`;
+  } else if (/^[67]\d{8}$/.test(compact)) {
+    normalized = `+33${compact}`;
   } else if (compact.startsWith("0033")) {
     normalized = `+33${compact.slice(4)}`;
   }

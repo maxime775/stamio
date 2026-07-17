@@ -17,6 +17,7 @@ import type {
   AdminSeriesHistoryPoint,
   AdminUpdatePollInput,
   SignupPayload,
+  AccountPhoneVerificationResponse,
   StartVerificationResponse,
   ThemeSlug,
   OpenPollStats,
@@ -36,6 +37,15 @@ type SubmitPayload = {
   poll_id: string;
   choice_id: string;
   phone_e164?: string;
+  otp_code: string;
+};
+
+type StartAccountPhonePayload = {
+  phone_e164: string;
+};
+
+type ConfirmAccountPhonePayload = {
+  phone_e164: string;
   otp_code: string;
 };
 
@@ -109,6 +119,28 @@ export async function submitVote(payload: SubmitPayload): Promise<VoteStatus> {
   });
   if (data) return data;
   const errorPayload = await readFunctionError<VoteStatus>(error);
+  return errorPayload ?? { status: "error", message: error?.message };
+}
+
+export async function startAccountPhoneVerification(payload: StartAccountPhonePayload): Promise<AccountPhoneVerificationResponse> {
+  const headers = await getFunctionAuthHeaders();
+  const { data, error } = await supabase.functions.invoke<AccountPhoneVerificationResponse>("start-account-phone-verification", {
+    body: payload,
+    headers
+  });
+  if (data) return data;
+  const errorPayload = await readFunctionError<AccountPhoneVerificationResponse>(error);
+  return errorPayload ?? { status: "error", message: error?.message };
+}
+
+export async function confirmAccountPhone(payload: ConfirmAccountPhonePayload): Promise<AccountPhoneVerificationResponse> {
+  const headers = await getFunctionAuthHeaders();
+  const { data, error } = await supabase.functions.invoke<AccountPhoneVerificationResponse>("confirm-account-phone", {
+    body: payload,
+    headers
+  });
+  if (data) return data;
+  const errorPayload = await readFunctionError<AccountPhoneVerificationResponse>(error);
   return errorPayload ?? { status: "error", message: error?.message };
 }
 
@@ -415,18 +447,18 @@ export async function getCurrentUserProfile(): Promise<Profile | null> {
 
   const { data, error } = await supabase
     .from("profiles")
-    .select("id, email, username, username_normalized, sex, phone_last4, age, profession, region, reputation_score, created_at, updated_at")
+    .select("id, email, username, username_normalized, sex, phone_last4, phone_verified_at, phone_last_changed_at, age, profession, region, reputation_score, created_at, updated_at")
     .eq("id", user.id)
     .maybeSingle();
 
   if (error) {
     const fallback = await supabase
       .from("profiles")
-      .select("id, email, sex, phone_last4, age, profession, region, reputation_score, created_at, updated_at")
+      .select("id, email, username, username_normalized, sex, phone_last4, age, profession, region, reputation_score, created_at, updated_at")
       .eq("id", user.id)
       .maybeSingle();
     if (fallback.error || !fallback.data) return null;
-    return { ...fallback.data, username: null, username_normalized: null } as Profile;
+    return fallback.data as Profile;
   }
   if (!data) return null;
   return data as Profile;

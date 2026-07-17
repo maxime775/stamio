@@ -164,7 +164,7 @@ export function VotePanel({ visible, pollId, choiceId, choiceLabel, platform, on
     if (status === "invalid_phone_type") return PHONE_TEST_LIMIT_MESSAGE;
     if (status === "poll_closed") return "Ce sondage est fermé.";
     if (status === "captcha_required") return "La validation anti-abus est requise. Complétez le captcha puis réessayez.";
-    if (status === "registered_phone_required") return "Ajoutez un numéro de téléphone à votre compte pour recevoir votre code de vérification et participer.";
+    if (status === "registered_phone_required") return "Ajoutez un numéro de téléphone vérifié à votre compte pour recevoir votre code et participer.";
     return "Impossible d'envoyer le code pour le moment.";
   }
 
@@ -330,7 +330,7 @@ export function VotePanel({ visible, pollId, choiceId, choiceLabel, platform, on
 
             {step === "otp" ? (
               <>
-                <ModalHeader title="Vérifiez votre numéro de téléphone" choiceLabel={choiceLabel} onClose={closeAll} />
+                <ModalHeader title={accountPhoneRequired ? "Numéro de téléphone requis" : "Vérifiez votre numéro de téléphone"} choiceLabel={choiceLabel} onClose={closeAll} />
                 <View style={styles.body}>
                   {loading && !codeRequested && !accountPhoneRequired ? (
                     <View style={styles.sendingCode}>
@@ -340,7 +340,8 @@ export function VotePanel({ visible, pollId, choiceId, choiceLabel, platform, on
                   ) : null}
                   {accountPhoneRequired ? (
                     <>
-                      <Text style={styles.errorBox}>Ajoutez un numéro de téléphone à votre compte pour recevoir votre code de vérification et participer.</Text>
+                      <Text style={styles.helperText}>Ajoutez un numéro vérifié à votre compte pour recevoir votre code et participer plus rapidement.</Text>
+                      <Text style={styles.noticeBox}>Le numéro affiché dans vos informations peut correspondre aux derniers chiffres renseignés lors de l’inscription. Pour envoyer un SMS, le serveur doit disposer d’un numéro complet vérifié.</Text>
                       <View style={styles.resendActions}>
                         <Pressable onPress={() => { closeAll(); router.push("/account/informations" as Href); }} style={styles.secondaryButton}>
                           <Text style={styles.secondaryText}>Mon compte</Text>
@@ -543,7 +544,15 @@ const styles = StyleSheet.create({
     gap: 14,
     ...shadows.panel
   },
-  header: { flexDirection: "row", justifyContent: "space-between", alignItems: "flex-start", gap: 12 },
+  header: {
+    flexDirection: "row",
+    justifyContent: "space-between",
+    alignItems: "flex-start",
+    gap: 12,
+    paddingBottom: 12,
+    borderBottomWidth: 1,
+    borderBottomColor: palette.line
+  },
   headerCopy: { flex: 1, minWidth: 0, gap: 6 },
   title: { color: palette.ink, fontFamily: fontFamilyBold, fontSize: 20, lineHeight: 25 },
   titleCompact: { fontSize: 18, lineHeight: 24 },
@@ -557,7 +566,7 @@ const styles = StyleSheet.create({
     justifyContent: "center",
     backgroundColor: palette.surfaceRaised
   },
-  body: { gap: 12 },
+  body: { gap: 12, paddingTop: 2 },
   label: { color: palette.inkSecondary, fontFamily: fontFamilyMedium, fontSize: 13 },
   helperText: { color: palette.inkSecondary, fontSize: 13, lineHeight: 20 },
   sendingCode: { flexDirection: "row", alignItems: "center", gap: 10 },
@@ -566,6 +575,17 @@ const styles = StyleSheet.create({
   errorBox: {
     color: palette.dangerText,
     backgroundColor: palette.dangerSoft,
+    borderRadius: radius.sm,
+    padding: 11,
+    fontSize: 13,
+    lineHeight: 19,
+    fontFamily: fontFamilyMedium
+  },
+  noticeBox: {
+    color: palette.inkSecondary,
+    backgroundColor: palette.surfaceSubtle,
+    borderWidth: 1,
+    borderColor: palette.line,
     borderRadius: radius.sm,
     padding: 11,
     fontSize: 13,

@@ -90,10 +90,10 @@ export const ThemeParticipationDonut = memo(function ThemeParticipationDonut({ i
   if (total === 0) {
     return (
       <View style={styles.wrap}>
-        <Text style={styles.title}>Participation par thème</Text>
+        <Text style={styles.title}>Mes thèmes</Text>
         <EmptyState
-          title="Aucune participation pour le moment"
-          message="La répartition par thème apparaîtra après vos premières réponses vérifiées."
+          title="Aucun thème pour le moment"
+          message="La répartition apparaîtra après vos premières réponses vérifiées."
         />
       </View>
     );
@@ -101,7 +101,7 @@ export const ThemeParticipationDonut = memo(function ThemeParticipationDonut({ i
 
   return (
     <View style={styles.wrap}>
-      <Text style={styles.title}>Participation par thème</Text>
+      <Text style={styles.title}>Mes thèmes</Text>
       <View accessibilityLabel={`${total} avis. ${orderedItems.map((item) => `${item.label} ${item.percentage} pour cent`).join(", ")}`} style={styles.summary}>
         <View style={styles.content}>
           <View style={styles.donutFrame}>
@@ -167,7 +167,7 @@ export const ThemeParticipationDonut = memo(function ThemeParticipationDonut({ i
 
 const styles = StyleSheet.create({
   wrap: { width: "100%", gap: 14 },
-  title: { color: palette.ink, fontFamily: fontFamilyBold, fontSize: 20 },
+  title: { color: palette.ink, fontFamily: fontFamilyBold, fontSize: 20, lineHeight: 26 },
   summary: { width: 300, maxWidth: "100%", alignSelf: "flex-start", justifyContent: "center" },
   content: { flexDirection: "row", alignItems: "center", gap: 16 },
   donutFrame: { width: SIZE, height: SIZE, alignItems: "center", justifyContent: "center", position: "relative" },

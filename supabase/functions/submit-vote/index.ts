@@ -35,7 +35,11 @@ Deno.serve(async (req) => {
   const supabase = createClient(supabaseUrl, serviceRoleKey, {
     auth: { persistSession: false }
   });
-  const authenticatedUser = await getAuthenticatedVerifiedUser(supabase, req.headers.get("Authorization"));
+  const authenticatedUserResult = await getAuthenticatedVerifiedUser(supabase, req.headers.get("Authorization"));
+  if (authenticatedUserResult.status === "error") {
+    return jsonResponse({ status: "error", message: "Account could not be verified" }, 500);
+  }
+  const authenticatedUser = authenticatedUserResult.user;
   const authenticatedUserId = typeof authenticatedUser?.id === "string" ? authenticatedUser.id : null;
   const registeredPhone = authenticatedUser ? getNormalizedRegisteredPhone(authenticatedUser) : null;
   if (authenticatedUser && !registeredPhone) {
@@ -116,13 +120,28 @@ Deno.serve(async (req) => {
 async function getAuthenticatedVerifiedUser(
   supabase: ReturnType<typeof createClient>,
   authorization: string | null
-) {
+): Promise<
+  | { status: "authenticated"; user: { id?: unknown; phone?: unknown; email_confirmed_at?: unknown } }
+  | { status: "none"; user: null }
+  | { status: "error"; user: null }
+> {
   const token = authorization?.match(/^Bearer\s+(.+)$/i)?.[1];
-  if (!token) return null;
+  if (!token) return { status: "none", user: null };
 
   const { data, error } = await supabase.auth.getUser(token);
-  if (error || !data.user?.email_confirmed_at) return null;
-  return data.user as { id?: unknown; phone?: unknown; email_confirmed_at?: unknown };
+  if (error || !data.user?.id || !data.user.email_confirmed_at) {
+    return { status: "none", user: null };
+  }
+
+  const { data: adminData, error: adminError } = await supabase.auth.admin.getUserById(data.user.id);
+  if (adminError || !adminData.user?.email_confirmed_at) {
+    console.error("authenticated user refresh failed", adminError?.message ?? "missing user");
+    return { status: "error", user: null };
+  }
+  return {
+    status: "authenticated",
+    user: adminData.user as { id?: unknown; phone?: unknown; email_confirmed_at?: unknown }
+  };
 }
 
 function getNormalizedRegisteredPhone(user: { phone?: unknown }) {

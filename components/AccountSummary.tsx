@@ -8,12 +8,27 @@ import { fontFamilyBold, fontFamilyMedium, fontFamilySemibold, palette, radius }
 type Props = {
   profile: Profile | null;
   email?: string | null;
+  phoneVerified?: boolean;
+  phoneActionLabel?: string;
+  phoneActionDisabled?: boolean;
   onEdit?: (field: ProfileUpdateField | "email") => void;
   onPhoneInfo?: () => void;
 };
 
-export function AccountSummary({ profile, email, onEdit, onPhoneInfo }: Props) {
-  const phone = profile?.phone_last4 ? `••••••${profile.phone_last4}` : "Non renseigné";
+export function AccountSummary({
+  profile,
+  email,
+  phoneVerified = false,
+  phoneActionLabel,
+  phoneActionDisabled = false,
+  onEdit,
+  onPhoneInfo
+}: Props) {
+  const phone = phoneVerified && profile?.phone_last4
+    ? `Numéro vérifié · se termine par ${profile.phone_last4}`
+    : profile?.phone_last4
+      ? `Numéro à confirmer · se termine par ${profile.phone_last4}`
+      : "Téléphone non configuré pour la vérification";
 
   return (
     <View style={styles.wrap}>
@@ -25,45 +40,69 @@ export function AccountSummary({ profile, email, onEdit, onPhoneInfo }: Props) {
         <Field label="Âge" value={profile?.age ? `${profile.age} ans` : "Non renseigné"} onEdit={onEdit ? () => onEdit("age") : undefined} />
         <Field label="Profession" value={profile?.profession ?? "Non renseigné"} onEdit={onEdit ? () => onEdit("profession") : undefined} />
         <Field label="Région" value={profile?.region ?? "Non renseigné"} onEdit={onEdit ? () => onEdit("region") : undefined} />
-        <Field label="Téléphone" value={phone} onEdit={onPhoneInfo} />
+        <Field
+          label="Téléphone"
+          value={phone}
+          onEdit={onPhoneInfo}
+          actionLabel={phoneActionLabel ?? (phoneVerified ? "Modifier" : "Configurer")}
+          actionDisabled={phoneActionDisabled}
+        />
       </View>
     </View>
   );
 }
 
-function Field({ label, value, onEdit }: { label: string; value: string; onEdit?: () => void }) {
+function Field({
+  label,
+  value,
+  actionLabel,
+  actionDisabled,
+  onEdit
+}: {
+  label: string;
+  value: string;
+  actionLabel?: string;
+  actionDisabled?: boolean;
+  onEdit?: () => void;
+}) {
   return (
     <View style={styles.field}>
       <View style={styles.fieldMain}>
         <Text style={styles.label}>{label}</Text>
         <Text style={styles.value}>{value}</Text>
       </View>
-      {onEdit ? <EditButton onPress={onEdit} /> : null}
+      {onEdit ? <EditButton label={actionLabel} disabled={actionDisabled} onPress={onEdit} /> : null}
     </View>
   );
 }
 
-function EditButton({ onPress }: { onPress: () => void }) {
+function EditButton({ label, disabled, onPress }: { label?: string; disabled?: boolean; onPress: () => void }) {
   const [hovered, setHovered] = useState(false);
   return (
     <View style={styles.editWrap}>
       <Pressable
-        accessibilityLabel="Modifier"
+        accessibilityLabel={label ?? "Modifier"}
+        disabled={disabled}
         onHoverIn={() => setHovered(true)}
         onHoverOut={() => setHovered(false)}
         onPress={onPress}
-        style={({ pressed }) => StyleSheet.flatten([styles.editButton, hovered && styles.editButtonHovered, pressed && styles.editButtonPressed])}
+        style={({ pressed }) => StyleSheet.flatten([
+          styles.editButton,
+          hovered && !disabled && styles.editButtonHovered,
+          disabled && styles.editButtonDisabled,
+          pressed && !disabled && styles.editButtonPressed
+        ])}
       >
-        <Pencil size={14} color={palette.inkSecondary} />
+        {label ? <Text style={styles.editText}>{label}</Text> : <Pencil size={14} color={palette.inkSecondary} />}
       </Pressable>
-      {hovered ? <Text style={styles.tooltip}>Modifier</Text> : null}
+      {hovered && !label ? <Text style={styles.tooltip}>Modifier</Text> : null}
     </View>
   );
 }
 
 const styles = StyleSheet.create({
   wrap: { width: "100%", gap: 16 },
-  title: { color: palette.ink, fontFamily: fontFamilyBold, fontSize: 24, lineHeight: 30 },
+  title: { color: palette.ink, fontFamily: fontFamilyBold, fontSize: 23, lineHeight: 29 },
   grid: { gap: 8 },
   field: {
     minHeight: 58,
@@ -79,14 +118,17 @@ const styles = StyleSheet.create({
   value: { color: palette.ink, fontFamily: fontFamilySemibold, fontSize: 14, lineHeight: 20 },
   editWrap: { position: "relative", alignItems: "center", justifyContent: "center" },
   editButton: {
-    width: 32,
+    minWidth: 32,
     height: 32,
     borderRadius: radius.sm,
     alignItems: "center",
     justifyContent: "center",
     borderWidth: 1,
-    borderColor: "transparent"
+    borderColor: "transparent",
+    paddingHorizontal: 8
   },
+  editText: { color: palette.primaryStrong, fontFamily: fontFamilySemibold, fontSize: 12 },
+  editButtonDisabled: { opacity: 0.48 },
   editButtonHovered: { backgroundColor: palette.primarySoft, borderColor: palette.lineStrong },
   editButtonPressed: { opacity: 0.72 },
   tooltip: {
