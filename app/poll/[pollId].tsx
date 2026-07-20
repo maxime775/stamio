@@ -13,17 +13,22 @@ import { MarkdownContent } from "@/components/MarkdownContent";
 import { AppFooter } from "@/components/AppFooter";
 import { VotePanel } from "@/components/VotePanel";
 import { SkeletonPoll } from "@/components/SkeletonPoll";
-import { fetchPoll, getCachedPoll, getCachedResults, getCachedResultsHistory, getResults, getResultsHistory } from "@/lib/api";
+import { useAuth } from "@/components/AuthProvider";
+import { fetchPoll, getCachedPoll, getCachedResults, getCachedResultsHistory, getResults, getResultsHistory, getUserPollAnswer } from "@/lib/api";
 import { getPollDescription, getThemeLabel } from "@/lib/product";
 import { fontFamilyBold, fontFamilyMedium, fontFamilySemibold, getThemeVisual, palette, radius, shadows } from "@/lib/design";
 import type { Poll, PollHistoryPoint, PollResource, PollResult, VoteStatus } from "@/lib/types";
 
 export default function PollScreen() {
   const { pollId } = useLocalSearchParams<{ pollId: string }>();
+  const { user, loading: authLoading } = useAuth();
   const compact = useWindowDimensions().width < 760;
   const [poll, setPoll] = useState<Poll | null>(null);
   const [selectedChoiceId, setSelectedChoiceId] = useState<string | null>(null);
+  const [serverAnswerChoiceId, setServerAnswerChoiceId] = useState<string | null>(null);
+  const [serverAnswerLoading, setServerAnswerLoading] = useState(false);
   const [results, setResults] = useState<PollResult[]>([]);
+  const [resultsSnapshotAt, setResultsSnapshotAt] = useState<string | null>(null);
   const [history, setHistory] = useState<PollHistoryPoint[]>([]);
   const [loading, setLoading] = useState(true);
   const [panelVisible, setPanelVisible] = useState(false);
@@ -44,29 +49,38 @@ export default function PollScreen() {
       fade.stopAnimation();
       if (cachedPoll) {
         setPoll(cachedPoll);
-        if (cachedResults) setResults(cachedResults);
+        if (cachedResults) {
+          setResults(cachedResults);
+          setResultsSnapshotAt(new Date().toISOString());
+        }
         if (cachedHistory) setHistory(cachedHistory);
         setLoading(false);
         fade.setValue(1);
       } else {
         setPoll(null);
         setResults([]);
+        setResultsSnapshotAt(null);
         setHistory([]);
         setLoading(true);
         fade.setValue(0);
       }
       setSelectedChoiceId(null);
+      setVoteState(null);
       const [pollData, resultData, historyData] = await Promise.all([fetchPoll(pollId), getResults(pollId), getResultsHistory(pollId)]);
       if (!active) return;
       setPoll(pollData);
       setResults(resultData);
+      setResultsSnapshotAt(new Date().toISOString());
       setHistory(historyData);
       setLoading(false);
       if (!cachedPoll) Animated.timing(fade, { toValue: 1, duration: 320, useNativeDriver: true }).start();
     }
     load();
     const timer = setInterval(async () => {
-      if (pollId) setResults(await getResults(pollId, { force: true, label: "pollResultsRefresh" }));
+      if (pollId) {
+        setResults(await getResults(pollId, { force: true, label: "pollResultsRefresh" }));
+        setResultsSnapshotAt(new Date().toISOString());
+      }
     }, 4500);
     return () => {
       active = false;
@@ -74,20 +88,70 @@ export default function PollScreen() {
     };
   }, [fade, pollId]);
 
+  useEffect(() => {
+    let active = true;
+
+    async function loadServerAnswer() {
+      setServerAnswerChoiceId(null);
+      if (authLoading) return;
+      if (!pollId || !user) {
+        setServerAnswerLoading(false);
+        return;
+      }
+
+      setServerAnswerLoading(true);
+      const answer = await getUserPollAnswer(pollId);
+      if (!active) return;
+      setServerAnswerChoiceId(answer?.choice_id ?? null);
+      if (answer?.choice_id) setSelectedChoiceId(answer.choice_id);
+      setServerAnswerLoading(false);
+    }
+
+    void loadServerAnswer();
+    return () => {
+      active = false;
+    };
+  }, [authLoading, pollId, user?.id]);
+
   const selectedChoice = poll?.choices.find((choice) => choice.id === selectedChoiceId) ?? null;
   const isPollOpen = Boolean(poll && poll.status === "open" && (!poll.closes_at || new Date(poll.closes_at).getTime() > Date.now()));
   const voteAccepted = voteState?.status === "accepted";
+  const alreadyParticipated = Boolean(serverAnswerChoiceId && !voteAccepted);
+  const participationStatusLoading = authLoading || serverAnswerLoading;
+  const answerSelectionLocked = alreadyParticipated || voteAccepted || participationStatusLoading;
+  const voteButtonDisabled = !selectedChoiceId || voteAccepted || alreadyParticipated || participationStatusLoading;
+  const answerColumnWidth = compact ? undefined : estimateAnswerColumnWidth(poll?.choices ?? []);
+  const displayedHistory = useMemo(
+    () => mergeCurrentResultsIntoHistory(history, results, resultsSnapshotAt),
+    [history, results, resultsSnapshotAt]
+  );
+  const voteButtonLabel = voteAccepted
+    ? "Vote comptabilisé"
+    : alreadyParticipated
+      ? "Vous avez déjà participé"
+      : participationStatusLoading
+        ? "Vérification en cours"
+        : "Valider mon vote";
+  const voteButtonIconColor = voteAccepted ? palette.onPrimary : alreadyParticipated ? "#E0AE45" : voteButtonDisabled ? palette.muted : palette.onPrimary;
 
   async function handleOpenVotePanel() {
-    if (!isPollOpen) return;
+    if (!isPollOpen || alreadyParticipated || voteAccepted || participationStatusLoading) return;
     setPanelVisible(true);
   }
 
   async function handleVoteFinished(status: VoteStatus, nextResults?: PollResult[]) {
     setVoteState(status);
-    if (nextResults) setResults(nextResults);
+    if (nextResults) {
+      setResults(nextResults);
+      setResultsSnapshotAt(new Date().toISOString());
+    }
     if (status.status === "accepted" && pollId) setHistory(await getResultsHistory(pollId, { force: true, label: "getResultsHistoryAfterVote" }));
     if (status.status === "duplicate") {
+      if (pollId && user) {
+        const answer = await getUserPollAnswer(pollId);
+        setServerAnswerChoiceId(answer?.choice_id ?? null);
+        if (answer?.choice_id) setSelectedChoiceId(answer.choice_id);
+      }
       setPanelVisible(false);
     }
   }
@@ -107,7 +171,10 @@ export default function PollScreen() {
               <View style={styles.hero}>
                 <View style={styles.metaRow}>
                   <Text style={StyleSheet.flatten([styles.theme, { color: getThemeVisual(poll.theme).accent }])}>{getThemeLabel(poll.theme)}</Text>
-                  <PollTimer poll={poll} style={styles.timer} />
+                  <View style={styles.timerGroup}>
+                    <Text style={styles.timerLabel}>Clôture dans</Text>
+                    <PollTimer poll={poll} style={styles.timer} />
+                  </View>
                 </View>
                 <Text style={StyleSheet.flatten([styles.title, compact && styles.titleCompact])}>{poll.question}</Text>
                 <View style={StyleSheet.flatten([styles.overview, compact && styles.overviewCompact])}>
@@ -120,28 +187,34 @@ export default function PollScreen() {
                 </View>
               </View>
               <View style={styles.contentGrid}>
-                <View onLayout={(event) => setVoteColumnHeight(event.nativeEvent.layout.height)} style={StyleSheet.flatten([styles.mainColumn, compact && styles.mainColumnCompact])}>
+                <View
+                  onLayout={(event) => setVoteColumnHeight(event.nativeEvent.layout.height)}
+                  style={StyleSheet.flatten([styles.mainColumn, answerColumnWidth ? { flexBasis: answerColumnWidth, maxWidth: answerColumnWidth } : null, compact && styles.mainColumnCompact])}
+                >
                 {isPollOpen ? (
                   <>
                     <PollCard
                       poll={poll}
                       selectedChoiceId={selectedChoiceId}
                       onSelectChoice={setSelectedChoiceId}
+                      locked={answerSelectionLocked}
                     />
                     <Pressable
-                      disabled={!selectedChoiceId || voteAccepted}
+                      accessibilityState={{ disabled: voteButtonDisabled }}
+                      disabled={voteButtonDisabled}
                       onPress={handleOpenVotePanel}
                       style={({ pressed }) =>
                         StyleSheet.flatten([
                           styles.voteButton,
-                          !selectedChoiceId && styles.voteButtonDisabled,
+                          (!selectedChoiceId || participationStatusLoading) && styles.voteButtonDisabled,
                           voteAccepted && styles.voteButtonAccepted,
-                          pressed && selectedChoiceId && !voteAccepted && styles.voteButtonPressed
+                          alreadyParticipated && styles.voteButtonAlreadyParticipated,
+                          pressed && selectedChoiceId && !voteAccepted && !alreadyParticipated && !participationStatusLoading && styles.voteButtonPressed
                         ])
                       }
                     >
-                      <Check size={17} color={palette.onPrimary} />
-                      <Text style={styles.voteButtonText}>{voteAccepted ? "Vote comptabilisé" : "Valider mon vote"}</Text>
+                      <Check size={17} color={voteButtonIconColor} />
+                      <Text style={StyleSheet.flatten([styles.voteButtonText, alreadyParticipated && styles.voteButtonAlreadyParticipatedText, participationStatusLoading && styles.voteButtonDisabledText])}>{voteButtonLabel}</Text>
                     </Pressable>
                   </>
                 ) : (
@@ -150,15 +223,12 @@ export default function PollScreen() {
                     <Text style={styles.closedText}>Cette vague est consultable pour ses resultats. Pour revoter sur cette question, une nouvelle vague doit etre creee.</Text>
                   </View>
                 )}
-                {voteState?.status === "duplicate" ? (
-                  <Text style={styles.duplicate}>Ce numéro a déjà été utilisé pour cette question.</Text>
-                ) : null}
                 </View>
 
                 {!compact ? <View style={styles.columnDivider} /> : null}
 
                 <View style={StyleSheet.flatten([styles.analyticsColumn, compact && styles.analyticsColumnCompact])}>
-                  <ResultsHistoryChart history={history} containerHeight={!compact && voteColumnHeight > 0 ? voteColumnHeight : undefined} />
+                  <ResultsHistoryChart history={displayedHistory} containerHeight={!compact && voteColumnHeight > 0 ? voteColumnHeight : undefined} />
                 </View>
               </View>
               <View style={styles.discussionBreak}>
@@ -210,21 +280,38 @@ export default function PollScreen() {
 }
 
 function ResourceSection({ resources }: { resources: PollResource[] }) {
+  const [hoveredResourceId, setHoveredResourceId] = useState<string | null>(null);
+
   return (
     <View style={styles.resources}>
-      <Text style={styles.resourcesTitle}>Pour aller plus loin</Text>
-      {resources.map((resource) => (
-        <Pressable key={resource.id} accessibilityRole="link" onPress={() => void Linking.openURL(resource.url)} style={styles.resourceLink}>
+      <Text style={styles.resourcesTitle}>Les ressources utiles</Text>
+      <View style={styles.resourceList}>
+      {resources.map((resource, index) => (
+        <Pressable
+          key={resource.id}
+          accessibilityRole="link"
+          onHoverIn={() => setHoveredResourceId(resource.id)}
+          onHoverOut={() => setHoveredResourceId(null)}
+          onPress={() => void Linking.openURL(resource.url)}
+          style={({ pressed }) => StyleSheet.flatten([
+            styles.resourceLink,
+            index === resources.length - 1 && styles.resourceLinkLast,
+            hoveredResourceId === resource.id && styles.resourceLinkHovered,
+            pressed && styles.resourceLinkPressed
+          ])}
+        >
           <View style={styles.resourceCopy}>
             <View style={styles.resourceMetaRow}>
               <Text style={styles.resourceType}>{getResourceTypeLabel(resource.resource_type)}</Text>
-              <ExternalLink size={12} color={palette.muted} />
+              <Text numberOfLines={1} style={styles.resourceSource}>{getResourceSourceLabel(resource.url)}</Text>
             </View>
             <Text style={styles.resourceTitle}>{resource.title}</Text>
             {resource.description ? <Text style={styles.resourceDescription}>{resource.description}</Text> : null}
           </View>
+          <ExternalLink size={13} color={hoveredResourceId === resource.id ? palette.primaryStrong : palette.muted} />
         </Pressable>
       ))}
+      </View>
     </View>
   );
 }
@@ -235,6 +322,47 @@ function getResourceTypeLabel(type: PollResource["resource_type"]) {
   if (type === "report") return "Rapport";
   if (type === "other") return "Ressource";
   return "Lien";
+}
+
+function getResourceSourceLabel(url: string) {
+  try {
+    return new URL(url).hostname.replace(/^www\./, "");
+  } catch {
+    return "Source";
+  }
+}
+
+function estimateAnswerColumnWidth(choices: Poll["choices"]) {
+  const longestLabelLength = choices.reduce((longest, choice) => Math.max(longest, Array.from(choice.label).length), 0);
+  return Math.min(430, Math.max(320, Math.round(longestLabelLength * 8.4 + 150)));
+}
+
+function mergeCurrentResultsIntoHistory(history: PollHistoryPoint[], results: PollResult[], capturedAt: string | null) {
+  if (!capturedAt) return history;
+  const totalVotes = results.reduce((sum, result) => sum + Number(result.votes ?? 0), 0);
+  if (results.length === 0) return history;
+
+  const latestTimestamp = history.reduce<string | null>((latest, point) => {
+    if (!latest || point.captured_at.localeCompare(latest) > 0) return point.captured_at;
+    return latest;
+  }, null);
+  const latestRows = latestTimestamp ? history.filter((point) => point.captured_at === latestTimestamp) : [];
+  const latestByChoice = new Map(latestRows.map((point) => [point.choice_id, point]));
+  const currentPoints = results.map((result) => ({
+    choice_id: result.choice_id,
+    label: result.label,
+    captured_at: capturedAt,
+    votes: Number(result.votes ?? 0),
+    percentage: totalVotes > 0 ? Number(((Number(result.votes ?? 0) * 100) / totalVotes).toFixed(2)) : 0
+  }));
+  const latestMatchesCurrent = currentPoints.length > 0 && currentPoints.every((point) => {
+    const latest = latestByChoice.get(point.choice_id);
+    return latest && Number(latest.votes) === point.votes && Math.abs(Number(latest.percentage) - point.percentage) < 0.01;
+  });
+
+  if (latestMatchesCurrent) return history;
+  const withoutSameTimestamp = history.filter((point) => point.captured_at !== capturedAt);
+  return [...withoutSameTimestamp, ...currentPoints].sort((a, b) => a.captured_at.localeCompare(b.captured_at));
 }
 
 const styles = StyleSheet.create({
@@ -255,9 +383,11 @@ const styles = StyleSheet.create({
     borderBottomWidth: 1,
     borderBottomColor: palette.line
   },
-  metaRow: { flexDirection: "row", alignItems: "center", justifyContent: "space-between", flexWrap: "wrap", gap: 12 },
+  metaRow: { flexDirection: "row", alignItems: "center", justifyContent: "space-between", flexWrap: "wrap", columnGap: 18, rowGap: 10 },
   theme: { fontFamily: fontFamilySemibold, textTransform: "uppercase", fontSize: 10, letterSpacing: 1.2 },
-  timer: { color: palette.ink, fontSize: 13, letterSpacing: 0.35 },
+  timerGroup: { alignItems: "flex-end", justifyContent: "center", gap: 3 },
+  timerLabel: { color: palette.muted, fontFamily: fontFamilyMedium, fontSize: 10, textTransform: "uppercase", letterSpacing: 0.8 },
+  timer: { color: palette.ink, fontFamily: fontFamilySemibold, fontSize: 13, letterSpacing: 0.35 },
   title: {
     color: palette.ink,
     fontFamily: fontFamilyBold,
@@ -272,14 +402,28 @@ const styles = StyleSheet.create({
   contextBlock: { flex: 1, minWidth: 280, borderLeftWidth: 2, borderLeftColor: palette.primary, paddingVertical: 12, paddingHorizontal: 16, alignSelf: "stretch", justifyContent: "center", gap: 7 },
   contextKicker: { color: palette.primaryStrong, fontFamily: fontFamilySemibold, fontSize: 10, textTransform: "uppercase", letterSpacing: 1 },
   contextText: { color: palette.inkSecondary, fontSize: 14, lineHeight: 22, maxWidth: 720 },
-  resources: { marginTop: 8, paddingTop: 12, borderTopWidth: 1, borderTopColor: palette.line, gap: 8, maxWidth: 760 },
-  resourcesTitle: { color: palette.ink, fontFamily: fontFamilySemibold, fontSize: 13 },
-  resourceLink: { borderRadius: radius.sm, backgroundColor: palette.surfaceSubtle, borderWidth: 1, borderColor: palette.line, padding: 11 },
-  resourceCopy: { gap: 4 },
-  resourceMetaRow: { flexDirection: "row", alignItems: "center", gap: 6 },
+  resources: { marginTop: 11, paddingTop: 14, borderTopWidth: 1, borderTopColor: palette.line, gap: 9, maxWidth: 760 },
+  resourcesTitle: { color: palette.ink, fontFamily: fontFamilySemibold, fontSize: 14, lineHeight: 20 },
+  resourceList: { borderTopWidth: 1, borderTopColor: palette.line, marginTop: 2 },
+  resourceLink: {
+    minHeight: 58,
+    borderBottomWidth: 1,
+    borderBottomColor: palette.line,
+    paddingVertical: 12,
+    paddingHorizontal: 0,
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 13
+  },
+  resourceLinkLast: { borderBottomWidth: 0 },
+  resourceLinkHovered: { paddingLeft: 6, borderBottomColor: palette.lineStrong },
+  resourceLinkPressed: { opacity: 0.72 },
+  resourceCopy: { flex: 1, minWidth: 0, gap: 4 },
+  resourceMetaRow: { flexDirection: "row", alignItems: "center", gap: 8 },
   resourceType: { color: palette.primaryStrong, fontFamily: fontFamilySemibold, fontSize: 9, textTransform: "uppercase", letterSpacing: 0.8 },
+  resourceSource: { color: palette.muted, fontFamily: fontFamilyMedium, fontSize: 10, flex: 1 },
   resourceTitle: { color: palette.inkSecondary, fontFamily: fontFamilySemibold, fontSize: 13, lineHeight: 18 },
-  resourceDescription: { color: palette.muted, fontSize: 12, lineHeight: 17 },
+  resourceDescription: { color: palette.muted, fontSize: 12, lineHeight: 18 },
   contentStack: { gap: 28 },
   contentGrid: {
     gap: 20,
@@ -287,7 +431,7 @@ const styles = StyleSheet.create({
     alignItems: "stretch",
     flexWrap: "wrap"
   },
-  mainColumn: { flexGrow: 0, flexShrink: 0, flexBasis: 410, maxWidth: 430, minWidth: 320, gap: 10 },
+  mainColumn: { flexGrow: 0, flexShrink: 0, flexBasis: 360, maxWidth: 430, minWidth: 320, gap: 10 },
   mainColumnCompact: { flexBasis: "100%", maxWidth: "100%", minWidth: 0 },
   columnDivider: {
     width: 1,
@@ -322,17 +466,15 @@ const styles = StyleSheet.create({
   voteButtonPressed: { transform: [{ translateY: 1 }] },
   voteButtonDisabled: { backgroundColor: "rgba(148, 163, 184, 0.28)", shadowOpacity: 0 },
   voteButtonAccepted: { backgroundColor: "#E0A526", shadowOpacity: 0.22 },
-  voteButtonText: { color: palette.onPrimary, fontFamily: fontFamilySemibold, fontSize: 14 },
-  duplicate: {
-    color: palette.dangerText,
-    fontSize: 14,
-    fontFamily: fontFamilyMedium,
-    backgroundColor: palette.dangerSoft,
+  voteButtonAlreadyParticipated: {
+    backgroundColor: "rgba(212, 154, 42, 0.14)",
     borderWidth: 1,
-    borderColor: palette.dangerLine,
-    borderRadius: radius.sm,
-    padding: 14
+    borderColor: "rgba(224, 174, 69, 0.42)",
+    shadowOpacity: 0
   },
+  voteButtonText: { color: palette.onPrimary, fontFamily: fontFamilySemibold, fontSize: 14 },
+  voteButtonAlreadyParticipatedText: { color: "#E0AE45" },
+  voteButtonDisabledText: { color: palette.muted },
   closedBox: {
     borderRadius: radius.sm,
     borderWidth: 1,

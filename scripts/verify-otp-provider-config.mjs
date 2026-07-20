@@ -38,12 +38,13 @@ assert(turnstileRequired(defaultConfig), "production + twilio must require Turns
 setEnvironment({
   APP_ENV: "staging",
   OTP_PROVIDER: "local_test",
-  OTP_TEST_PHONE_ALLOWLIST: "0612345678",
+  OTP_TEST_PHONE_ALLOWLIST: "0612345678,0623456789",
   OTP_TEST_CODE: "123456"
 });
 const stagingConfig = getOtpConfig();
 assert(stagingConfig.provider === "local_test", "staging must allow an explicitly configured local_test provider");
 assert(stagingConfig.allowedPhones.has("+33612345678"), "the local_test allowlist must be normalized");
+assert(stagingConfig.allowedPhones.has("+33623456789"), "the local_test allowlist must accept multiple normalized phones");
 assert(allowsTurnstileBypass(stagingConfig), "staging local_test must allow the explicit Turnstile bypass");
 assert(!turnstileRequired(stagingConfig), "staging + local_test must allow the Turnstile bypass");
 
@@ -53,8 +54,10 @@ globalThis.fetch = async () => {
   throw new Error("local_test must not call an external OTP provider");
 };
 assert(await startOtpVerification(stagingConfig, "+33612345678") === "started", "allowlisted phone must start verification");
+assert(await startOtpVerification(stagingConfig, "+33623456789") === "started", "second allowlisted phone must start verification");
 assert(await startOtpVerification(stagingConfig, "+33712345678") === "not_allowed", "non-allowlisted phone must be refused");
 assert(await checkOtpCode(stagingConfig, "+33612345678", "123456") === "approved", "configured test code must be approved");
+assert(await checkOtpCode(stagingConfig, "+33623456789", "123456") === "approved", "configured test code must approve the second allowlisted phone");
 assert(await checkOtpCode(stagingConfig, "+33612345678", "654321") === "rejected", "another code must be rejected");
 assert(fetchCalls === 0, "local_test must never call Twilio");
 

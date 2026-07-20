@@ -67,6 +67,17 @@ Deno.serve(async (req) => {
     return jsonResponse({ status: "invalid_code" }, 401);
   }
 
+  if (!authenticatedUserId) {
+    const phoneAccountHash = await hmacSha256Hex(hmacSecret, `account-phone:${phone}`);
+    const linkedAccountStatus = await hasLinkedAccountPhone(supabase, phoneAccountHash);
+    if (linkedAccountStatus === "error") {
+      return jsonResponse({ status: "error", message: "Vote could not be recorded" }, 500);
+    }
+    if (linkedAccountStatus === "linked") {
+      return jsonResponse({ status: "account_login_required" }, 409);
+    }
+  }
+
   const phonePollHash = await hmacSha256Hex(hmacSecret, `${pollId}:${phone}`);
   const visitorPhoneHash = authenticatedUserId ? null : await hmacSha256Hex(hmacSecret, `visitor-phone:${phone}`);
   const receiptHash = await hmacSha256Hex(hmacSecret, `receipt:${pollId}:${choiceId}:${phonePollHash}:${crypto.randomUUID()}`);
@@ -147,4 +158,21 @@ async function getAuthenticatedVerifiedUser(
 function getNormalizedRegisteredPhone(user: { phone?: unknown }) {
   const normalizedPhone = normalizeFrenchMobilePhone(typeof user.phone === "string" ? user.phone : "");
   return normalizedPhone.ok ? normalizedPhone.phone : null;
+}
+
+async function hasLinkedAccountPhone(
+  supabase: ReturnType<typeof createClient>,
+  phoneAccountHash: string
+): Promise<"linked" | "none" | "error"> {
+  const { count, error } = await supabase
+    .from("profiles")
+    .select("id", { count: "exact", head: true })
+    .eq("phone_global_hash", phoneAccountHash)
+    .limit(1);
+
+  if (error) {
+    console.error("account phone lookup failed", error.message);
+    return "error";
+  }
+  return (count ?? 0) > 0 ? "linked" : "none";
 }

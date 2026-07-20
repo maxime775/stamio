@@ -1,7 +1,6 @@
 import { memo, useEffect, useId, useMemo, useState } from "react";
 import { Animated, StyleSheet, Text, View } from "react-native";
 import Svg, { Circle, Defs, G, Mask } from "react-native-svg";
-import { EmptyState } from "@/components/EmptyState";
 import { getThemeLabel } from "@/lib/product";
 import { useReducedMotion } from "@/lib/useReducedMotion";
 import type { AccountThemeParticipation } from "@/lib/types";
@@ -91,10 +90,9 @@ export const ThemeParticipationDonut = memo(function ThemeParticipationDonut({ i
     return (
       <View style={styles.wrap}>
         <Text style={styles.title}>Mes thèmes</Text>
-        <EmptyState
-          title="Aucun thème pour le moment"
-          message="La répartition apparaîtra après vos premières réponses vérifiées."
-        />
+        <View style={styles.empty}>
+          <Text style={styles.emptyText}>La répartition apparaîtra après vos premières réponses vérifiées.</Text>
+        </View>
       </View>
     );
   }
@@ -168,6 +166,8 @@ export const ThemeParticipationDonut = memo(function ThemeParticipationDonut({ i
 const styles = StyleSheet.create({
   wrap: { width: "100%", gap: 14 },
   title: { color: palette.ink, fontFamily: fontFamilyBold, fontSize: 20, lineHeight: 26 },
+  empty: { borderTopWidth: 1, borderBottomWidth: 1, borderColor: palette.line, paddingVertical: 18, alignItems: "flex-start" },
+  emptyText: { color: palette.muted, fontSize: 14, lineHeight: 22, maxWidth: 300 },
   summary: { width: 300, maxWidth: "100%", alignSelf: "flex-start", justifyContent: "center" },
   content: { flexDirection: "row", alignItems: "center", gap: 16 },
   donutFrame: { width: SIZE, height: SIZE, alignItems: "center", justifyContent: "center", position: "relative" },

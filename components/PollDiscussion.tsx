@@ -72,7 +72,7 @@ export function PollDiscussion({ pollId }: { pollId: string }) {
       <View style={styles.header}>
         <View>
           <Text style={styles.kicker}>Discussion</Text>
-          <Text style={styles.title}>Le débat continue ici</Text>
+          <Text style={styles.title}>Le débat commence ici</Text>
           <Text style={styles.subtitle}>{comments.length} contribution{comments.length > 1 ? "s" : ""} · lecture ouverte à tous</Text>
         </View>
         <View style={styles.sort}>

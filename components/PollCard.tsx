@@ -8,34 +8,40 @@ type Props = {
   poll: Poll;
   selectedChoiceId: string | null;
   onSelectChoice: (choiceId: string) => void;
+  locked?: boolean;
 };
 
-export function PollCard({ poll, selectedChoiceId, onSelectChoice }: Props) {
+export function PollCard({ poll, selectedChoiceId, onSelectChoice, locked = false }: Props) {
   const theme = getThemeVisual(poll.theme);
   const [hoveredChoiceId, setHoveredChoiceId] = useState<string | null>(null);
   return (
     <View style={styles.card}>
       <View style={styles.heading}>
         <Text style={styles.kicker}>Position</Text>
-        <View style={styles.headingRow}><Text style={styles.title}>Votre réponse</Text><Text style={styles.hint}>Sélection unique</Text></View>
+        <View style={styles.headingRow}><Text style={styles.title}>Votre réponse</Text><Text style={styles.hint}>{locked ? "Participation enregistrée" : "Sélection unique"}</Text></View>
       </View>
       <View style={styles.options}>
         {poll.choices.map((choice, index) => {
           const selected = selectedChoiceId === choice.id;
-          const hovered = hoveredChoiceId === choice.id && !selected;
+          const hovered = hoveredChoiceId === choice.id && !selected && !locked;
           return (
             <Pressable
               key={choice.id}
+              accessibilityState={{ disabled: locked, selected }}
+              disabled={locked}
               onPress={() => onSelectChoice(choice.id)}
-              onHoverIn={() => setHoveredChoiceId(choice.id)}
+              onHoverIn={() => {
+                if (!locked) setHoveredChoiceId(choice.id);
+              }}
               onHoverOut={() => setHoveredChoiceId(null)}
               style={({ pressed }) =>
                 StyleSheet.flatten([
                   styles.option,
                   hovered && styles.optionHovered,
                   selected && styles.optionSelected,
+                  locked && !selected && styles.optionLocked,
                   selected && { borderColor: theme.accent, borderLeftColor: theme.accent, backgroundColor: theme.soft },
-                  pressed && styles.optionPressed
+                  pressed && !locked && styles.optionPressed
                 ])
               }
             >
@@ -87,6 +93,7 @@ const styles = StyleSheet.create({
     borderColor: palette.primaryStrong,
     backgroundColor: palette.primarySoft
   },
+  optionLocked: { opacity: 0.58 },
   optionHovered: { borderColor: "rgba(166, 176, 192, 0.34)", borderLeftColor: "rgba(166, 176, 192, 0.52)", backgroundColor: palette.surfaceRaised },
   optionPressed: { transform: [{ scale: 0.995 }] },
   optionCode: {

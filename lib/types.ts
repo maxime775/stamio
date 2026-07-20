@@ -276,4 +276,4 @@ export type StartVerificationResponse =
 export type VoteStatus =
   | { status: "accepted"; receipt_hash: string }
   | { status: "duplicate"; message: string }
-  | { status: "invalid_phone_type" | "invalid_code" | "poll_closed" | "registered_phone_required" | "error"; message?: string };
+  | { status: "invalid_phone_type" | "invalid_code" | "poll_closed" | "registered_phone_required" | "account_login_required" | "error"; message?: string };

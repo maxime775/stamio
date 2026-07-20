@@ -85,6 +85,8 @@ export function VotePanel({ visible, pollId, choiceId, choiceLabel, platform, on
   const [autoRequestStarted, setAutoRequestStarted] = useState(false);
   const [registeredPhoneLast4, setRegisteredPhoneLast4] = useState<string | null>(null);
   const [accountPhoneRequired, setAccountPhoneRequired] = useState(false);
+  const [accountLoginRequired, setAccountLoginRequired] = useState(false);
+  const [duplicateParticipation, setDuplicateParticipation] = useState(false);
   const slide = useMemo(() => new Animated.Value(0), []);
 
   useEffect(() => {
@@ -105,12 +107,16 @@ export function VotePanel({ visible, pollId, choiceId, choiceLabel, platform, on
       setAutoRequestStarted(false);
       setRegisteredPhoneLast4(null);
       setAccountPhoneRequired(false);
+      setAccountLoginRequired(false);
+      setDuplicateParticipation(false);
       Animated.spring(slide, { toValue: 1, damping: 18, stiffness: 160, useNativeDriver: true }).start();
     } else {
       slide.setValue(0);
       setResendVisible(false);
       setLimitStatus(null);
       setAutoRequestStarted(false);
+      setAccountLoginRequired(false);
+      setDuplicateParticipation(false);
     }
   }, [isRegisteredUser, slide, visible]);
 
@@ -271,20 +277,25 @@ export function VotePanel({ visible, pollId, choiceId, choiceLabel, platform, on
       ...(isRegisteredUser ? {} : normalized.ok ? { phone_e164: normalized.value } : {}),
       otp_code: otp
     });
-    if (response.status === "accepted") invalidatePollCaches(pollId);
-    const results = await getResults(pollId, { force: response.status === "accepted", label: "getResultsAfterVote" });
+    let results: PollResult[] | undefined;
+    if (response.status === "accepted") {
+      invalidatePollCaches(pollId);
+      results = await getResults(pollId, { force: true, label: "getResultsAfterVote" });
+    }
     setLoading(false);
-    onFinished(response, results);
 
     if (response.status === "accepted") {
+      onFinished(response, results);
       setStep("success");
+    } else if (response.status === "account_login_required") {
+      setAccountLoginRequired(true);
     } else if (response.status === "invalid_phone_type") {
       setPhoneError(PHONE_TEST_LIMIT_MESSAGE);
       setStep("phone");
     } else if (response.status === "invalid_code") {
       setOtpError("Code OTP invalide.");
     } else if (response.status === "duplicate") {
-      setOtpError("Ce numéro a déjà été utilisé pour cette question.");
+      setDuplicateParticipation(true);
     } else if (response.status === "poll_closed") {
       setOtpError("Ce sondage est fermé.");
     } else if (response.status === "registered_phone_required") {
@@ -305,6 +316,16 @@ export function VotePanel({ visible, pollId, choiceId, choiceLabel, platform, on
     router.push("/themes" as Href);
   }
 
+  function goToLogin() {
+    closeAll();
+    router.push("/auth/login" as Href);
+  }
+
+  function goToSignup() {
+    closeAll();
+    router.push("/auth/signup" as Href);
+  }
+
   return (
     <>
       <Modal transparent visible={visible} animationType="fade" onRequestClose={closeAll}>
@@ -313,7 +334,7 @@ export function VotePanel({ visible, pollId, choiceId, choiceLabel, platform, on
           <Animated.View style={StyleSheet.flatten([styles.panel, { transform: [{ translateY: translateY as unknown as number }] }])}>
             {step === "phone" ? (
               <>
-                <ModalHeader title="Vote vérifié" choiceLabel={choiceLabel} onClose={closeAll} />
+                <ModalHeader title="Valider ma participation" choiceLabel={choiceLabel} onClose={closeAll} />
                 <View style={styles.body}>
                   <AuthTextField
                     field="vote-phone"
@@ -328,6 +349,13 @@ export function VotePanel({ visible, pollId, choiceId, choiceLabel, platform, on
                   />
                   {platform === "web" && siteKey ? <Turnstile compact siteKey={siteKey} onToken={setTurnstileToken} /> : null}
                   <AnimatedPrimaryButton disabled={loading || !canRequestCode} loading={loading} label="Recevoir mon code de vérification" onPress={() => requestCode("initial")} />
+                  <View style={styles.loginSeparator} />
+                  <View style={styles.loginPrompt}>
+                    <Text style={styles.loginPromptText}>Vous avez déjà un compte ?</Text>
+                    <Pressable accessibilityRole="link" onPress={goToLogin} style={styles.loginPromptLink}>
+                      <Text style={styles.loginPromptLinkText}>Connectez-vous</Text>
+                    </Pressable>
+                  </View>
                 </View>
               </>
             ) : null}
@@ -411,6 +439,18 @@ export function VotePanel({ visible, pollId, choiceId, choiceLabel, platform, on
         onAction={navigateFromLimit}
       />
 
+      <AccountLoginRequiredModal
+        visible={visible && accountLoginRequired}
+        onClose={() => setAccountLoginRequired(false)}
+        onLogin={goToLogin}
+      />
+
+      <DuplicateParticipationModal
+        visible={visible && duplicateParticipation}
+        onClose={closeAll}
+        onSignup={goToSignup}
+      />
+
       <Modal transparent visible={visible && resendVisible} animationType="fade" onRequestClose={() => setResendVisible(false)}>
         <View style={styles.resendOverlay}>
           <Pressable style={styles.scrim} onPress={() => setResendVisible(false)} />
@@ -469,6 +509,74 @@ function VerificationLimitModal({
         </View>
       </View>
     </Modal>
+  );
+}
+
+function AccountLoginRequiredModal({
+  visible,
+  onClose,
+  onLogin
+}: {
+  visible: boolean;
+  onClose: () => void;
+  onLogin: () => void;
+}) {
+  return (
+    <Modal transparent visible={visible} animationType="fade" onRequestClose={onClose}>
+      <View style={styles.limitOverlay}>
+        <Pressable style={styles.scrim} onPress={onClose} />
+        <View style={styles.limitPanel}>
+          <SimpleModalHeader title="Connectez-vous pour participer" onClose={onClose} compact />
+          <Text style={styles.limitText}>Ce numéro est déjà associé à un compte. Pour enregistrer votre participation, veuillez vous connecter.</Text>
+          <View style={styles.modalSeparator} />
+          <View style={styles.limitActions}>
+            <AnimatedPrimaryButton compact label="Se connecter" onPress={onLogin} />
+          </View>
+        </View>
+      </View>
+    </Modal>
+  );
+}
+
+function DuplicateParticipationModal({
+  visible,
+  onClose,
+  onSignup
+}: {
+  visible: boolean;
+  onClose: () => void;
+  onSignup: () => void;
+}) {
+  return (
+    <Modal transparent visible={visible} animationType="fade" onRequestClose={onClose}>
+      <View style={styles.limitOverlay}>
+        <Pressable style={styles.scrim} onPress={onClose} />
+        <View style={styles.limitPanel}>
+          <SimpleModalHeader title="Participation déjà enregistrée" onClose={onClose} compact />
+          <Text style={styles.limitText}>Ce numéro a déjà été utilisé pour cette question. Une seule participation est possible par question.</Text>
+          <View style={styles.modalSeparator} />
+          <View style={styles.signupPrompt}>
+            <Text style={styles.signupPromptText}>Prenez part aux débats,</Text>
+            <Pressable accessibilityRole="link" onPress={onSignup} style={styles.signupPromptLink}>
+              <Text style={styles.signupPromptLinkText}>créez-vous un compte</Text>
+            </Pressable>
+          </View>
+        </View>
+      </View>
+    </Modal>
+  );
+}
+
+function SimpleModalHeader({ title, onClose, compact = false }: { title: string; onClose: () => void; compact?: boolean }) {
+  return (
+    <View style={styles.header}>
+      <View style={styles.headerCopy}>
+        <Text style={StyleSheet.flatten([styles.title, compact && styles.titleCompact])}>{title}</Text>
+      </View>
+      <Pressable accessibilityRole="button" accessibilityLabel="Fermer" onPress={onClose} style={styles.iconButton}>
+        <X size={18} color={palette.inkSecondary} />
+      </Pressable>
+    </View>
   );
 }
 
@@ -611,6 +719,15 @@ const styles = StyleSheet.create({
   timerText: { color: palette.muted, fontSize: 12, lineHeight: 18, textAlign: "right" },
   resendLink: { alignSelf: "flex-end", paddingVertical: 2 },
   resendLinkText: { color: palette.primaryStrong, fontFamily: fontFamilySemibold, fontSize: 13, textAlign: "right" },
+  loginSeparator: { height: 1, width: "100%", backgroundColor: authField.separatorColor, marginTop: 6, marginBottom: 0 },
+  loginPrompt: { flexDirection: "row", justifyContent: "center", alignItems: "center", gap: 5, flexWrap: "wrap", paddingTop: 0 },
+  loginPromptText: { color: palette.inkSecondary, fontFamily: fontFamilyMedium, fontSize: 13 },
+  loginPromptLink: { paddingVertical: 3 },
+  loginPromptLinkText: { color: palette.primaryStrong, fontFamily: fontFamilySemibold, fontSize: 13 },
+  signupPrompt: { flexDirection: "row", justifyContent: "center", alignItems: "center", columnGap: 5, rowGap: 2, flexWrap: "wrap" },
+  signupPromptText: { color: palette.inkSecondary, fontFamily: fontFamilyMedium, fontSize: 13, textAlign: "center" },
+  signupPromptLink: { paddingVertical: 3 },
+  signupPromptLinkText: { color: palette.primaryStrong, fontFamily: fontFamilySemibold, fontSize: 13 },
   primaryButton: {
     minHeight: 44,
     borderRadius: radius.sm,
@@ -685,6 +802,7 @@ const styles = StyleSheet.create({
     ...shadows.panel
   },
   limitText: { color: palette.inkSecondary, fontSize: 13, lineHeight: 20 },
+  modalSeparator: { height: 1, width: "100%", backgroundColor: palette.line },
   limitActions: { flexDirection: "row", justifyContent: "flex-end", alignItems: "center", gap: 10, flexWrap: "wrap" },
   limitPrimary: { minHeight: 42, borderRadius: radius.sm, backgroundColor: palette.primary, paddingHorizontal: 14, alignItems: "center", justifyContent: "center" },
   limitPrimaryText: { color: palette.onPrimary, fontFamily: fontFamilySemibold, fontSize: 13 },

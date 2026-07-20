@@ -498,6 +498,25 @@ export async function getLatestUserAnswers(): Promise<UserPollAnswer[]> {
   })) as unknown as UserPollAnswer[];
 }
 
+export async function getUserPollAnswer(pollId: string): Promise<UserPollAnswer | null> {
+  const { data: userData } = await supabase.auth.getUser();
+  const user = userData.user;
+  if (!user) return null;
+
+  const { data, error } = await supabase
+    .from("user_poll_answers")
+    .select("id, user_id, poll_id, choice_id, created_at, choices(label)")
+    .eq("user_id", user.id)
+    .eq("poll_id", pollId)
+    .maybeSingle();
+
+  if (error || !data) return null;
+  return {
+    ...data,
+    choices: Array.isArray(data.choices) ? data.choices[0] ?? null : data.choices
+  } as unknown as UserPollAnswer;
+}
+
 export async function getMyAccountStats(): Promise<AccountStats> {
   const empty = createEmptyAccountStats();
   const { data, error } = await supabase.rpc("get_my_account_stats");
