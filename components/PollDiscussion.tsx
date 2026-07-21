@@ -1,7 +1,7 @@
-import { useEffect, useMemo, useState } from "react";
-import { ActivityIndicator, Image, Pressable, StyleSheet, Text, TextInput, View } from "react-native";
+import { useEffect, useMemo, useState, type ReactNode } from "react";
+import { ActivityIndicator, Animated, Easing, Image, Platform, Pressable, StyleSheet, Text, TextInput, View, type TextStyle } from "react-native";
 import * as ImagePicker from "expo-image-picker";
-import { Heart, ImagePlus, MessageCircle, Send, X } from "lucide-react-native";
+import { Code2, Heart, ImagePlus, Italic, Link2, List, ListOrdered, MessageCircle, Quote, X } from "lucide-react-native";
 import { useRouter, type Href } from "expo-router";
 import { useAuth } from "@/components/AuthProvider";
 import {
@@ -11,7 +11,7 @@ import {
   togglePollCommentLike,
   uploadPollCommentImage
 } from "@/lib/api";
-import { fontFamily, fontFamilyBold, fontFamilyMedium, fontFamilySemibold, palette, radius } from "@/lib/design";
+import { authField, fontFamily, fontFamilyBold, fontFamilyMedium, fontFamilySemibold, palette, radius } from "@/lib/design";
 import type { PollComment, PollCommentImage } from "@/lib/types";
 
 export function PollDiscussion({ pollId }: { pollId: string }) {
@@ -70,10 +70,8 @@ export function PollDiscussion({ pollId }: { pollId: string }) {
   return (
     <View style={styles.section}>
       <View style={styles.header}>
-        <View>
-          <Text style={styles.kicker}>Discussion</Text>
-          <Text style={styles.title}>Le débat commence ici</Text>
-          <Text style={styles.subtitle}>{comments.length} contribution{comments.length > 1 ? "s" : ""} · lecture ouverte à tous</Text>
+        <View style={styles.headerLabel}>
+          <Text style={styles.kicker}>Entrez dans la discussion</Text>
         </View>
         <View style={styles.sort}>
           <SortButton label="Populaires" active={sort === "popular"} onPress={() => setSort("popular")} />
@@ -119,12 +117,37 @@ function DiscussionSkeleton() {
 }
 
 type SelectedImage = Omit<PollCommentImage, "path"> & { uri: string; base64: string };
+type FormatAction = "bold" | "italic" | "link" | "quote" | "bullet" | "numbered" | "code";
+
+const FORMAT_GLYPH_STYLE: TextStyle = { color: palette.inkSecondary, fontFamily: fontFamilyBold, fontSize: 13, lineHeight: 15 };
+
+const FORMAT_ACTIONS: Array<{ id: FormatAction; label: string; shortcut?: string; icon: ReactNode }> = [
+  { id: "bold", label: "Gras", shortcut: "Ctrl+B", icon: <Text style={FORMAT_GLYPH_STYLE}>G</Text> },
+  { id: "italic", label: "Italique", shortcut: "Ctrl+I", icon: <Italic size={14} color={palette.inkSecondary} /> },
+  { id: "link", label: "Lien", shortcut: "Ctrl+K", icon: <Link2 size={14} color={palette.inkSecondary} /> },
+  { id: "quote", label: "Citation", icon: <Quote size={14} color={palette.inkSecondary} /> },
+  { id: "bullet", label: "Liste à puces", icon: <List size={14} color={palette.inkSecondary} /> },
+  { id: "numbered", label: "Liste numérotée", icon: <ListOrdered size={14} color={palette.inkSecondary} /> },
+  { id: "code", label: "Code", icon: <Code2 size={14} color={palette.inkSecondary} /> }
+];
+
+const WEB_INPUT_FOCUS_RESET = Platform.OS === "web"
+  ? ({ outlineStyle: "none", outlineWidth: 0, outlineColor: "transparent" } as unknown as TextStyle)
+  : null;
 
 function CommentComposer({ pollId, parent, onCancel, onCreated }: { pollId: string; parent: PollComment | null; onCancel: () => void; onCreated: () => Promise<void> }) {
   const [body, setBody] = useState("");
+  const [editorFocused, setEditorFocused] = useState(false);
+  const [activeFormat, setActiveFormat] = useState<FormatAction | null>(null);
+  const [hoveredFormat, setHoveredFormat] = useState<FormatAction | null>(null);
   const [image, setImage] = useState<SelectedImage | null>(null);
   const [sending, setSending] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const sendHover = useMemo(() => new Animated.Value(0), []);
+
+  useEffect(() => {
+    if (sending || !body.trim()) sendHover.setValue(0);
+  }, [body, sending, sendHover]);
 
   async function pickImage() {
     setError(null);
@@ -169,9 +192,47 @@ function CommentComposer({ pollId, parent, onCancel, onCreated }: { pollId: stri
     }
   }
 
+  function animateSend(toValue: number) {
+    if (sending || !body.trim()) return;
+    Animated.timing(sendHover, {
+      toValue,
+      duration: 210,
+      easing: Easing.out(Easing.cubic),
+      useNativeDriver: true
+    }).start();
+  }
+
   return <View style={styles.composer}>
     {parent ? <View style={styles.replying}><Text style={styles.replyingText}>Réponse à {parent.author_label}</Text><Pressable onPress={onCancel}><Text style={styles.cancel}>Annuler</Text></Pressable></View> : null}
-    <TextInput value={body} onChangeText={setBody} multiline maxLength={2000} placeholder="Partagez un point de vue argumenté…" placeholderTextColor={palette.muted} style={styles.input} />
+    <View style={StyleSheet.flatten([styles.editorFrame, editorFocused && styles.editorFrameFocused])}>
+      <View style={styles.formatToolbar}>
+        {FORMAT_ACTIONS.map((action) => (
+          <FormatButton
+            key={action.id}
+            active={activeFormat === action.id}
+            hovered={hoveredFormat === action.id}
+            label={action.label}
+            shortcut={action.shortcut}
+            icon={action.icon}
+            disabled={sending}
+            onHoverIn={() => setHoveredFormat(action.id)}
+            onHoverOut={() => setHoveredFormat(null)}
+            onPress={() => setActiveFormat((current) => current === action.id ? null : action.id)}
+          />
+        ))}
+      </View>
+      <TextInput
+        value={body}
+        onChangeText={setBody}
+        multiline
+        maxLength={2000}
+        placeholder="Partagez un point de vue argumenté…"
+        placeholderTextColor={authField.placeholderColor}
+        onFocus={() => setEditorFocused(true)}
+        onBlur={() => setEditorFocused(false)}
+        style={StyleSheet.flatten([styles.input, WEB_INPUT_FOCUS_RESET])}
+      />
+    </View>
     {image ? <View style={styles.imagePreviewWrap}>
       <Image source={{ uri: image.uri }} resizeMode="contain" style={styles.imagePreview} accessibilityLabel="Aperçu de l’image à publier" />
       <Pressable disabled={sending} onPress={() => setImage(null)} accessibilityRole="button" accessibilityLabel="Retirer l’image" style={({ pressed }) => StyleSheet.flatten([styles.removeImage, pressed && styles.pressed])}><X size={17} color={palette.ink} /></Pressable>
@@ -180,9 +241,55 @@ function CommentComposer({ pollId, parent, onCancel, onCreated }: { pollId: stri
       <Pressable disabled={sending} onPress={pickImage} accessibilityRole="button" accessibilityLabel={image ? "Remplacer l’image" : "Ajouter une image"} style={({ pressed }) => StyleSheet.flatten([styles.addImage, sending && styles.disabled, pressed && styles.pressed])}><ImagePlus size={17} color={palette.primaryStrong} /></Pressable>
       <Text style={styles.counter}>{body.length}/2000</Text>
       {error ? <Text style={styles.error}>{error}</Text> : null}
-      <Pressable disabled={sending || !body.trim()} onPress={submit} style={({ pressed }) => StyleSheet.flatten([styles.send, (!body.trim() || sending) && styles.disabled, pressed && styles.pressed])}>{sending ? <ActivityIndicator color={palette.onPrimary} /> : <><Send size={15} color={palette.onPrimary} /><Text style={styles.sendText}>Publier</Text></>}</Pressable>
+      <Pressable
+        disabled={sending || !body.trim()}
+        onHoverIn={() => animateSend(1)}
+        onHoverOut={() => animateSend(0)}
+        onPress={submit}
+        style={({ pressed }) => StyleSheet.flatten([styles.send, (!body.trim() || sending) && styles.disabled, pressed && styles.pressed])}
+      >
+        <Animated.View pointerEvents="none" style={StyleSheet.flatten([styles.sendFill, { opacity: sendHover }])} />
+        {sending ? <ActivityIndicator color={palette.primaryStrong} /> : <Text style={styles.sendText}>Publier</Text>}
+      </Pressable>
     </View>
   </View>;
+}
+
+function FormatButton({
+  label,
+  shortcut,
+  icon,
+  active,
+  hovered,
+  disabled,
+  onHoverIn,
+  onHoverOut,
+  onPress
+}: {
+  label: string;
+  shortcut?: string;
+  icon: ReactNode;
+  active: boolean;
+  hovered: boolean;
+  disabled?: boolean;
+  onHoverIn: () => void;
+  onHoverOut: () => void;
+  onPress: () => void;
+}) {
+  return (
+    <Pressable
+      accessibilityRole="button"
+      accessibilityLabel={shortcut ? `${label} - ${shortcut}` : label}
+      disabled={disabled}
+      onHoverIn={onHoverIn}
+      onHoverOut={onHoverOut}
+      onPress={onPress}
+      style={({ pressed }) => StyleSheet.flatten([styles.formatButton, active && styles.formatButtonActive, disabled && styles.disabled, pressed && styles.formatButtonPressed])}
+    >
+      {icon}
+      {hovered ? <View pointerEvents="none" style={styles.tooltip}><Text style={styles.tooltipText}>{shortcut ? `${label} — ${shortcut}` : label}</Text></View> : null}
+    </Pressable>
+  );
 }
 
 function normalizeImageMimeType(mimeType?: string | null): PollCommentImage["mimeType"] | null {
@@ -214,9 +321,10 @@ function SortButton({ label, active, onPress }: { label: string; active: boolean
 const styles = StyleSheet.create({
   section: { borderRadius: radius.sm, borderWidth: 1, borderColor: palette.line, borderLeftWidth: 3, borderLeftColor: palette.primary, backgroundColor: palette.surfaceSubtle, padding: 24, gap: 22 },
   header: { flexDirection: "row", justifyContent: "space-between", alignItems: "flex-end", gap: 14, flexWrap: "wrap" },
+  headerLabel: { minHeight: 39, justifyContent: "center" },
   kicker: { color: palette.primaryStrong, fontFamily: fontFamilySemibold, fontSize: 10, textTransform: "uppercase", letterSpacing: 1.2 },
-  title: { color: palette.ink, fontFamily: fontFamilyBold, fontSize: 25, letterSpacing: -0.5, marginTop: 5 },
-  subtitle: { color: palette.muted, fontFamily, marginTop: 5 },
+  title: { color: palette.ink, fontFamily: fontFamilyBold, fontSize: 20, lineHeight: 25, letterSpacing: 0, marginTop: 5 },
+  subtitle: { color: palette.muted, fontFamily, marginTop: 4, fontSize: 14, lineHeight: 20 },
   sort: { flexDirection: "row", borderBottomWidth: 1, borderBottomColor: palette.line },
   sortButton: { paddingHorizontal: 12, paddingVertical: 9, borderRadius: 0 },
   sortActive: { borderBottomWidth: 2, borderBottomColor: palette.primaryStrong },
@@ -226,16 +334,73 @@ const styles = StyleSheet.create({
   signupCopy: { flex: 1, minWidth: 240, gap: 3 }, signupTitle: { color: palette.ink, fontFamily: fontFamilySemibold }, signupText: { color: palette.muted, lineHeight: 20 },
   primary: { minHeight: 40, justifyContent: "center", paddingHorizontal: 15, borderRadius: radius.sm, backgroundColor: palette.primary }, primaryText: { color: palette.onPrimary, fontFamily: fontFamilySemibold },
   pressed: { transform: [{ translateY: 1 }, { scale: 0.99 }] },
-  composer: { borderRadius: radius.sm, borderWidth: 1, borderColor: palette.lineStrong, backgroundColor: palette.surface, padding: 16, gap: 12 },
+  composer: { borderTopWidth: 1, borderTopColor: "rgba(143, 184, 198, 0.16)", paddingTop: 16, gap: 12 },
   replying: { flexDirection: "row", justifyContent: "space-between" }, replyingText: { color: palette.inkSecondary, fontFamily: fontFamilyMedium, fontSize: 12 }, cancel: { color: palette.primaryStrong, fontFamily: fontFamilySemibold, fontSize: 12 },
-  input: { minHeight: 96, color: palette.ink, fontSize: 15, lineHeight: 22, textAlignVertical: "top" },
+  editorFrame: {
+    borderRadius: authField.borderRadius,
+    borderWidth: authField.borderWidth,
+    borderColor: "transparent",
+    backgroundColor: authField.background,
+    overflow: "visible"
+  },
+  editorFrameFocused: { borderColor: authField.focusBorderColor, backgroundColor: authField.backgroundFocused },
+  formatToolbar: {
+    minHeight: 38,
+    paddingHorizontal: 8,
+    paddingVertical: 6,
+    flexDirection: "row",
+    alignItems: "center",
+    flexWrap: "wrap",
+    gap: 5
+  },
+  formatButton: {
+    width: 30,
+    height: 28,
+    borderRadius: radius.xs,
+    alignItems: "center",
+    justifyContent: "center",
+    borderWidth: 1,
+    borderColor: "transparent",
+    backgroundColor: "transparent"
+  },
+  formatButtonActive: { backgroundColor: "rgba(28, 110, 140, 0.16)", borderColor: "rgba(28, 110, 140, 0.32)" },
+  formatButtonPressed: { backgroundColor: palette.primarySoft, borderColor: "rgba(28, 110, 140, 0.26)" },
+  tooltip: {
+    position: "absolute",
+    left: 0,
+    top: -32,
+    minWidth: 92,
+    borderRadius: radius.xs,
+    backgroundColor: "rgba(5, 8, 12, 0.96)",
+    borderWidth: 1,
+    borderColor: "rgba(143, 184, 198, 0.18)",
+    paddingHorizontal: 8,
+    paddingVertical: 5,
+    zIndex: 20
+  },
+  tooltipText: { color: palette.inkSecondary, fontFamily: fontFamilyMedium, fontSize: 11, lineHeight: 14 },
+  input: { minHeight: 112, color: palette.ink, fontSize: 15, lineHeight: 22, textAlignVertical: "top", paddingHorizontal: 14, paddingVertical: 12, fontFamily: fontFamilyMedium },
   imagePreviewWrap: { position: "relative", alignSelf: "stretch", overflow: "hidden", borderRadius: radius.sm, borderWidth: 1, borderColor: palette.line, backgroundColor: palette.canvas },
   imagePreview: { width: "100%", height: 240 },
   removeImage: { position: "absolute", top: 10, right: 10, width: 32, height: 32, alignItems: "center", justifyContent: "center", borderRadius: radius.sm, backgroundColor: "rgba(5,8,12,0.9)", borderWidth: 1, borderColor: palette.lineStrong },
   composerBottom: { flexDirection: "row", alignItems: "center", justifyContent: "flex-end", flexWrap: "wrap", gap: 10 },
   addImage: { width: 38, height: 38, alignItems: "center", justifyContent: "center", borderRadius: radius.sm, borderWidth: 1, borderColor: palette.lineStrong, backgroundColor: "transparent" },
   counter: { color: palette.muted, fontSize: 11 }, error: { color: palette.fieldError, flex: 1, minWidth: 180, fontSize: 12 },
-  send: { minHeight: 38, flexDirection: "row", alignItems: "center", gap: 7, paddingHorizontal: 14, borderRadius: radius.sm, backgroundColor: palette.primary }, sendText: { color: palette.onPrimary, fontFamily: fontFamilySemibold }, disabled: { opacity: 0.45 },
+  send: {
+    minHeight: 38,
+    minWidth: 94,
+    alignItems: "center",
+    justifyContent: "center",
+    paddingHorizontal: 15,
+    borderRadius: radius.sm,
+    borderWidth: 1,
+    borderColor: "rgba(28, 110, 140, 0.62)",
+    backgroundColor: "transparent",
+    overflow: "hidden"
+  },
+  sendFill: { ...StyleSheet.absoluteFillObject, backgroundColor: "#1C6E8C" },
+  sendText: { zIndex: 1, color: palette.onPrimary, fontFamily: fontFamilySemibold },
+  disabled: { opacity: 0.45 },
   list: { borderTopWidth: 1, borderTopColor: palette.line }, thread: { gap: 0 }, reply: { marginLeft: 24, borderLeftWidth: 1, borderLeftColor: palette.lineStrong, paddingLeft: 14 },
   loadingDiscussion: { gap: 12 },
   loadingComment: { borderRadius: radius.sm, borderWidth: 1, borderColor: palette.line, backgroundColor: palette.surface, padding: 16, gap: 10 },

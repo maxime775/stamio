@@ -206,12 +206,14 @@ export default function PollScreen() {
                       selectedChoiceId={selectedChoiceId}
                       onSelectChoice={setSelectedChoiceId}
                       locked={answerSelectionLocked}
-                    />
-                    <VoteSubmitButton
-                      disabled={voteButtonDisabled}
-                      label={voteButtonLabel}
-                      status={voteButtonStatus}
-                      onPress={handleOpenVotePanel}
+                      footer={
+                        <VoteSubmitButton
+                          disabled={voteButtonDisabled}
+                          label={voteButtonLabel}
+                          status={voteButtonStatus}
+                          onPress={handleOpenVotePanel}
+                        />
+                      }
                     />
                   </>
                 ) : (
@@ -233,7 +235,7 @@ export default function PollScreen() {
                 <View style={styles.discussionIcon}><MessagesSquare size={18} color={palette.primaryStrong} /></View>
                 <View style={styles.discussionCopy}>
                   <Text style={styles.discussionEyebrow}>Après les chiffres</Text>
-                  <Text style={styles.discussionLabelText}>Entrez dans la discussion</Text>
+                  <Text style={styles.discussionLabelText}>Le débat commence ici</Text>
                   <Text style={styles.discussionIntro}>Comparez les arguments, nuancez votre position et complétez la lecture des résultats.</Text>
                 </View>
                 <Pressable
@@ -364,6 +366,9 @@ function mergeCurrentResultsIntoHistory(history: PollHistoryPoint[], results: Po
 
 type VoteSubmitButtonStatus = "empty" | "ready" | "loading" | "accepted" | "alreadyParticipated";
 
+const VOTE_CTA_BORDER = "rgba(209, 138, 126, 0.54)";
+const VOTE_CTA_FILL = "#A65F56";
+
 function VoteSubmitButton({ disabled, label, status, onPress }: {
   disabled: boolean;
   label: string;
@@ -415,7 +420,7 @@ function VoteSubmitButton({ disabled, label, status, onPress }: {
           pointerEvents="none"
           style={StyleSheet.flatten([
             styles.voteButtonFill,
-            { transform: [{ translateY: fill.interpolate({ inputRange: [0, 1], outputRange: [54, 0] }) }] }
+            { transform: [{ translateY: fill.interpolate({ inputRange: [0, 1], outputRange: [53, 0] }) }] }
           ])}
         />
       ) : null}
@@ -513,7 +518,7 @@ const styles = StyleSheet.create({
   discussionIcon: { width: 32, height: 32, borderRadius: radius.sm, alignItems: "center", justifyContent: "center", backgroundColor: palette.primarySoft },
   discussionCopy: { gap: 4, flex: 1 },
   discussionEyebrow: { color: palette.primaryStrong, fontFamily: fontFamilySemibold, fontSize: 9, textTransform: "uppercase", letterSpacing: 1.1 },
-  discussionLabelText: { color: palette.ink, fontFamily: fontFamilySemibold, fontSize: 16 },
+  discussionLabelText: { color: palette.ink, fontFamily: fontFamilySemibold, fontSize: 20, lineHeight: 25 },
   discussionIntro: { color: palette.muted, fontSize: 12, lineHeight: 18 },
   discussionAction: { minHeight: 34, paddingHorizontal: 10, borderRadius: radius.sm, alignItems: "center", justifyContent: "center", borderWidth: 1, borderColor: "transparent" },
   discussionActionHovered: { backgroundColor: palette.primarySoft, borderColor: palette.lineStrong },
@@ -522,20 +527,20 @@ const styles = StyleSheet.create({
   discussionColumn: { width: "100%" },
   voteButton: {
     alignSelf: "center",
-    width: 264,
+    width: 286,
     maxWidth: "100%",
-    minHeight: 52,
-    marginTop: 8,
-    borderRadius: radius.md,
+    minHeight: 51,
+    marginTop: 0,
+    borderRadius: radius.sm,
     borderWidth: 1,
-    borderColor: "rgba(28, 110, 140, 0.55)",
+    borderColor: VOTE_CTA_BORDER,
     alignItems: "center",
     justifyContent: "center",
     backgroundColor: "#101821",
     overflow: "hidden",
     shadowColor: "#000000",
     shadowOpacity: 0.14,
-    shadowRadius: 10,
+    shadowRadius: 11,
     shadowOffset: { width: 0, height: 6 }
   },
   voteButtonFill: {
@@ -543,14 +548,14 @@ const styles = StyleSheet.create({
     left: 0,
     right: 0,
     bottom: 0,
-    height: 54,
-    backgroundColor: "#1C6E8C"
+    height: 53,
+    backgroundColor: VOTE_CTA_FILL
   },
-  voteButtonContent: { zIndex: 1, flexDirection: "row", alignItems: "center", justifyContent: "center", gap: 8, paddingHorizontal: 22 },
+  voteButtonContent: { zIndex: 1, flexDirection: "row", alignItems: "center", justifyContent: "center", gap: 9, paddingHorizontal: 24 },
   voteButtonIcon: { width: 18, height: 18, alignItems: "center", justifyContent: "center" },
-  voteButtonInactive: { backgroundColor: "rgba(16, 24, 33, 0.46)", borderColor: "rgba(28, 110, 140, 0.18)", shadowOpacity: 0 },
-  voteButtonTerminal: { backgroundColor: "rgba(16, 24, 33, 0.56)", borderColor: "rgba(251, 252, 255, 0.16)", shadowOpacity: 0 },
-  voteButtonText: { color: "#FBFCFF", fontFamily: fontFamilySemibold, fontSize: 14, lineHeight: 18, letterSpacing: 0 },
+  voteButtonInactive: { backgroundColor: "rgba(16, 24, 33, 0.42)", borderColor: "rgba(143, 184, 198, 0.14)", shadowOpacity: 0 },
+  voteButtonTerminal: { backgroundColor: "rgba(16, 24, 33, 0.5)", borderColor: "rgba(251, 252, 255, 0.15)", shadowOpacity: 0 },
+  voteButtonText: { color: "#FBFCFF", fontFamily: fontFamilySemibold, fontSize: 14, lineHeight: 18, letterSpacing: 0.15 },
   voteButtonDisabledText: { color: "rgba(251, 252, 255, 0.45)" },
   closedBox: {
     borderRadius: radius.sm,
