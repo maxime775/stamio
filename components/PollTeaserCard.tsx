@@ -1,9 +1,9 @@
-import { memo, useCallback, useState } from "react";
-import { Pressable, StyleSheet, Text, View } from "react-native";
+import { memo, useCallback, useMemo, useState } from "react";
+import { Animated, Easing, Pressable, StyleSheet, Text, View } from "react-native";
 import { useRouter, type Href } from "expo-router";
 import { ArrowRight, TrendingUp } from "lucide-react-native";
 import { getThemeLabel } from "@/lib/product";
-import { getThemeVisual, fontFamilyBold, fontFamilyMedium, fontFamilySemibold, palette, radius, shadows } from "@/lib/design";
+import { getThemeVisual, fontFamilyBold, fontFamilyMedium, fontFamilySemibold, palette, radius } from "@/lib/design";
 import { PollTimer } from "@/components/PollTimer";
 import { prefetchPollDetail } from "@/lib/api";
 import type { PollWithStats } from "@/lib/types";
@@ -11,50 +11,70 @@ import type { PollWithStats } from "@/lib/types";
 type Props = {
   poll: PollWithStats;
   compact?: boolean;
+  cardWidth?: number;
   onHoverStart?: () => void;
   onHoverEnd?: () => void;
 };
 
-export const PollTeaserCard = memo(function PollTeaserCard({ poll, compact = false, onHoverStart, onHoverEnd }: Props) {
+export const PollTeaserCard = memo(function PollTeaserCard({ poll, compact = false, cardWidth, onHoverStart, onHoverEnd }: Props) {
   const router = useRouter();
   const [hovered, setHovered] = useState(false);
-  const [ctaHovered, setCtaHovered] = useState(false);
+  const hover = useMemo(() => new Animated.Value(0), []);
   const theme = getThemeVisual(poll.theme);
   const warmPoll = useCallback(() => {
     prefetchPollDetail(poll.id);
-    onHoverStart?.();
-  }, [onHoverStart, poll.id]);
+  }, [poll.id]);
   const openPoll = useCallback(() => router.push(`/poll/${poll.id}` as Href), [poll.id, router]);
   const handleHoverIn = useCallback(() => {
     setHovered(true);
+    onHoverStart?.();
     warmPoll();
-  }, [warmPoll]);
+    Animated.timing(hover, {
+      toValue: 1,
+      duration: 210,
+      easing: Easing.out(Easing.cubic),
+      useNativeDriver: true
+    }).start();
+  }, [hover, onHoverStart, warmPoll]);
   const handleHoverOut = useCallback(() => {
     setHovered(false);
-    setCtaHovered(false);
     onHoverEnd?.();
-  }, [onHoverEnd]);
-  const handleCtaHoverIn = useCallback(() => {
-    setCtaHovered(true);
-    warmPoll();
-  }, [warmPoll]);
-  const handleCtaHoverOut = useCallback(() => setCtaHovered(false), []);
+    Animated.timing(hover, {
+      toValue: 0,
+      duration: 230,
+      easing: Easing.out(Easing.cubic),
+      useNativeDriver: true
+    }).start();
+  }, [hover, onHoverEnd]);
+  const cardTranslateY = hover.interpolate({ inputRange: [0, 1], outputRange: [0, -2] });
+  const hoverOpacity = hover.interpolate({ inputRange: [0, 1], outputRange: [0, 1] });
+  const arrowTranslateX = hover.interpolate({ inputRange: [0, 1], outputRange: [0, 4] });
 
   return (
     <Pressable
+      accessibilityRole="link"
       onPress={openPoll}
       onPressIn={warmPoll}
       onFocus={warmPoll}
       onHoverIn={handleHoverIn}
       onHoverOut={handleHoverOut}
       style={({ pressed }) => StyleSheet.flatten([
-        styles.card,
-        compact && styles.compact,
-        { borderColor: hovered ? theme.accent : "rgba(148, 163, 184, 0.18)" },
-        hovered && styles.hovered,
+        styles.shell,
+        compact && styles.shellCompact,
+        cardWidth ? { width: cardWidth } : null,
         pressed && styles.pressed
       ])}
     >
+      <Animated.View
+        pointerEvents="none"
+        style={StyleSheet.flatten([
+          styles.card,
+          compact && styles.compact,
+          { borderColor: hovered ? theme.accent : "rgba(143, 184, 198, 0.18)", transform: [{ translateY: cardTranslateY }] }
+        ])}
+      >
+        <Animated.View style={StyleSheet.flatten([styles.hoverWash, { opacity: hoverOpacity, backgroundColor: theme.soft }])} />
+        <View style={StyleSheet.flatten([styles.topRule, { backgroundColor: theme.accent }])} />
       <View style={styles.top}>
         <Text style={StyleSheet.flatten([styles.theme, { color: theme.accent }])}>{getThemeLabel(poll.theme)}</Text>
         {poll.trend_label ? (
@@ -70,31 +90,52 @@ export const PollTeaserCard = memo(function PollTeaserCard({ poll, compact = fal
           <Text style={styles.votes}>{poll.totalVotes} participant{poll.totalVotes > 1 ? "s" : ""}</Text>
           <PollTimer poll={poll} style={styles.timer} />
         </View>
-        <Pressable accessibilityRole="link" onPress={(event) => { event.stopPropagation(); openPoll(); }} onPressIn={warmPoll} onFocus={warmPoll} onHoverIn={handleCtaHoverIn} onHoverOut={handleCtaHoverOut} style={({ pressed }) => StyleSheet.flatten([styles.cta, ctaHovered && styles.ctaHovered, pressed && styles.ctaPressed])}>
-          <Text style={StyleSheet.flatten([styles.ctaText, ctaHovered && styles.ctaTextHovered])}>J’ai un avis</Text>
-          <View style={ctaHovered && styles.ctaArrowHovered}><ArrowRight size={16} color={palette.primaryStrong} /></View>
-        </Pressable>
+        <View style={styles.cta}>
+          <Text style={styles.ctaText}>J’ai un avis</Text>
+          <Animated.View style={{ transform: [{ translateX: arrowTranslateX }] }}><ArrowRight size={15} color={palette.primaryStrong} /></Animated.View>
+        </View>
       </View>
+      </Animated.View>
     </Pressable>
   );
 });
 
 const styles = StyleSheet.create({
+  shell: {
+    width: 344,
+    minHeight: 248,
+    paddingTop: 2,
+    paddingBottom: 2
+  },
+  shellCompact: { width: "100%", minHeight: 230 },
   card: {
-    width: 320,
-    minHeight: 238,
+    flex: 1,
     borderRadius: radius.md,
     borderWidth: 1,
-    borderColor: "rgba(148, 163, 184, 0.18)",
-    backgroundColor: palette.surface,
-    padding: 20,
+    borderColor: "rgba(143, 184, 198, 0.18)",
+    backgroundColor: "#0E151F",
+    padding: 18,
     justifyContent: "space-between",
-    gap: 18,
-    ...shadows.panel
+    gap: 20,
+    overflow: "hidden",
+    shadowColor: "#000000",
+    shadowOpacity: 0.12,
+    shadowRadius: 14,
+    shadowOffset: { width: 0, height: 8 }
   },
-  compact: { width: "100%", minHeight: 190 },
-  hovered: { transform: [{ translateY: -2 }], backgroundColor: palette.surfaceRaised },
-  pressed: { transform: [{ translateY: 1 }, { scale: 0.992 }] },
+  compact: { minHeight: 230, padding: 17, gap: 18 },
+  pressed: { opacity: 0.9 },
+  hoverWash: {
+    ...StyleSheet.absoluteFillObject
+  },
+  topRule: {
+    position: "absolute",
+    top: 0,
+    left: 0,
+    right: 0,
+    height: 2,
+    opacity: 0.86
+  },
   top: { flexDirection: "row", justifyContent: "space-between", alignItems: "center", gap: 10 },
   theme: {
     color: palette.primaryStrong,
@@ -109,23 +150,21 @@ const styles = StyleSheet.create({
   },
   trend: { flexDirection: "row", alignItems: "center", gap: 5 },
   trendText: { color: palette.positive, fontSize: 11, fontFamily: fontFamilyMedium },
-  question: { color: palette.ink, fontFamily: fontFamilyBold, fontSize: 19, lineHeight: 26, letterSpacing: -0.25 },
-  footer: { flexDirection: "row", alignItems: "center", justifyContent: "space-between", gap: 12 },
+  question: { color: palette.ink, fontFamily: fontFamilyBold, fontSize: 20, lineHeight: 27, letterSpacing: 0 },
+  footer: { borderTopWidth: 1, borderTopColor: "rgba(208, 204, 208, 0.12)", paddingTop: 14, flexDirection: "row", alignItems: "center", justifyContent: "space-between", gap: 12 },
   meta: { flex: 1, gap: 4 },
   votes: { color: palette.muted, fontSize: 12, fontFamily: fontFamilyMedium },
-  timer: { color: palette.ink, fontSize: 13, letterSpacing: 0.2 },
+  timer: { color: palette.inkSecondary, fontSize: 13, letterSpacing: 0.2 },
   cta: {
-    borderRadius: radius.xs,
-    backgroundColor: "transparent",
-    paddingHorizontal: 8,
-    paddingVertical: 7,
+    minHeight: 30,
+    borderRadius: radius.sm,
+    borderWidth: 1,
+    borderColor: "rgba(28, 110, 140, 0.38)",
+    backgroundColor: "rgba(28, 110, 140, 0.12)",
+    paddingHorizontal: 10,
     flexDirection: "row",
     alignItems: "center",
-    gap: 7
+    gap: 6
   },
-  ctaHovered: { backgroundColor: palette.primarySoft },
-  ctaPressed: { opacity: 0.72 },
-  ctaText: { color: palette.primaryStrong, fontFamily: fontFamilySemibold, fontSize: 12, borderBottomWidth: 1, borderBottomColor: "transparent" },
-  ctaTextHovered: { borderBottomColor: palette.primaryStrong },
-  ctaArrowHovered: { transform: [{ translateX: 3 }] }
+  ctaText: { color: palette.primaryStrong, fontFamily: fontFamilySemibold, fontSize: 12 }
 });

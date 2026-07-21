@@ -35,6 +35,17 @@ type FallbackNode = {
 };
 
 const THEME_ORDER: ThemeSlug[] = ["politique", "economie", "societe", "sport"];
+const HERO_BASE_ROTATION = { x: -0.24, y: 0.36, z: 0 };
+const HERO_IDLE_ROTATION = {
+  xAmplitude: 0.105,
+  yAmplitude: 0.205,
+  zAmplitude: 0.035,
+  floatAmplitude: 0.07,
+  xSpeed: 0.54,
+  ySpeed: 0.44,
+  zSpeed: 0.36,
+  floatSpeed: 0.68
+};
 
 const THEME_ANCHORS: ThemeAnchor[] = [
   { theme: "politique", label: "Politique", metricLabel: "politique", position: [-1.54, 0.46, 0.72] },
@@ -131,8 +142,9 @@ function HeroThemeNetworkWeb({ stats }: { stats: OpenPollStats | null }) {
       camera.position.set(0, 0, 6.5);
 
       const root = new THREE.Group();
-      root.rotation.x = -0.24;
-      root.rotation.y = 0.36;
+      root.rotation.x = HERO_BASE_ROTATION.x;
+      root.rotation.y = HERO_BASE_ROTATION.y;
+      root.rotation.z = HERO_BASE_ROTATION.z;
       scene.add(root);
 
       const light = new THREE.PointLight(0xffffff, 0.85, 14);
@@ -215,14 +227,17 @@ function HeroThemeNetworkWeb({ stats }: { stats: OpenPollStats | null }) {
       const raycaster = new THREE.Raycaster();
       const pointer = new THREE.Vector2(0, 0);
       const targetRotation = { x: root.rotation.x, y: root.rotation.y };
+      const targetPosition = { y: root.position.y };
       let hovering = false;
 
       function setPointerFromEvent(event: PointerEvent) {
         const rect = renderer.domElement.getBoundingClientRect();
         pointer.x = ((event.clientX - rect.left) / rect.width) * 2 - 1;
         pointer.y = -(((event.clientY - rect.top) / rect.height) * 2 - 1);
-        targetRotation.y = 0.36 + pointer.x * 0.62;
-        targetRotation.x = -0.24 + pointer.y * 0.34;
+        targetRotation.y = HERO_BASE_ROTATION.y + pointer.x * 0.62;
+        targetRotation.x = HERO_BASE_ROTATION.x + pointer.y * 0.34;
+        root.rotation.z += (HERO_BASE_ROTATION.z - root.rotation.z) * 0.08;
+        targetPosition.y = 0;
       }
 
       function handlePointerMove(event: PointerEvent) {
@@ -235,8 +250,9 @@ function HeroThemeNetworkWeb({ stats }: { stats: OpenPollStats | null }) {
 
       function handlePointerLeave() {
         hovering = false;
-        targetRotation.x = -0.24;
-        targetRotation.y = 0.36;
+        targetRotation.x = HERO_BASE_ROTATION.x;
+        targetRotation.y = HERO_BASE_ROTATION.y;
+        targetPosition.y = 0;
         applyTheme(null);
       }
 
@@ -246,12 +262,18 @@ function HeroThemeNetworkWeb({ stats }: { stats: OpenPollStats | null }) {
       function animate(time: number) {
         const active = activeThemeRef.current;
         const seconds = time / 1000;
-        root.rotation.x += (targetRotation.x - root.rotation.x) * 0.065;
-        root.rotation.y += (targetRotation.y - root.rotation.y) * 0.065;
         if (!reducedMotion && !hovering) {
-          root.rotation.y += Math.sin(seconds * 0.28) * 0.0009;
-          root.rotation.x += Math.cos(seconds * 0.22) * 0.0005;
+          targetRotation.y = HERO_BASE_ROTATION.y + Math.sin(seconds * HERO_IDLE_ROTATION.ySpeed + 0.65) * HERO_IDLE_ROTATION.yAmplitude;
+          targetRotation.x = HERO_BASE_ROTATION.x + Math.cos(seconds * HERO_IDLE_ROTATION.xSpeed + 0.4) * HERO_IDLE_ROTATION.xAmplitude;
+          root.rotation.z += ((HERO_BASE_ROTATION.z + Math.sin(seconds * HERO_IDLE_ROTATION.zSpeed + 1.2) * HERO_IDLE_ROTATION.zAmplitude) - root.rotation.z) * 0.045;
+          targetPosition.y = Math.sin(seconds * HERO_IDLE_ROTATION.floatSpeed) * HERO_IDLE_ROTATION.floatAmplitude;
+        } else {
+          root.rotation.z += (HERO_BASE_ROTATION.z - root.rotation.z) * 0.045;
+          targetPosition.y = 0;
         }
+        root.rotation.x += (targetRotation.x - root.rotation.x) * 0.055;
+        root.rotation.y += (targetRotation.y - root.rotation.y) * 0.055;
+        root.position.y += (targetPosition.y - root.position.y) * 0.05;
 
         for (const item of themeMeshes) {
           const isActive = active === item.theme;
@@ -408,6 +430,7 @@ function HeroThemeNetworkFallback({ stats }: { stats: OpenPollStats | null }) {
 
 function MetricOverlay({ activeTheme, displayedValue, metricLabel, compact }: { activeTheme: ThemeSlug | null; displayedValue: number | null; metricLabel: string; compact: boolean }) {
   const visual = getThemeVisual(activeTheme ?? "societe");
+  const valueColor = activeTheme ? visual.accent : palette.ink;
   const pulse = useMemo(() => new Animated.Value(1), []);
   useEffect(() => {
     pulse.setValue(0.9);
@@ -416,7 +439,7 @@ function MetricOverlay({ activeTheme, displayedValue, metricLabel, compact }: { 
 
   return (
     <Animated.View pointerEvents="none" style={StyleSheet.flatten([styles.metric, { transform: [{ scale: pulse }], opacity: displayedValue === null ? 0 : 1 }])}>
-      {displayedValue !== null ? <Text style={StyleSheet.flatten([styles.value, { color: activeTheme ? visual.accent : palette.ink }, compact && styles.valueCompact])}>{displayedValue}</Text> : null}
+      {displayedValue !== null ? <Text style={StyleSheet.flatten([styles.value, { color: valueColor }, compact && styles.valueCompact])}>{displayedValue}</Text> : null}
       <Text style={StyleSheet.flatten([styles.metricLabel, activeTheme && { color: visual.accent }, compact && styles.metricLabelCompact])}>{metricLabel}</Text>
     </Animated.View>
   );
