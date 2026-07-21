@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useRef, useState } from "react";
-import { Animated, Linking, Platform, Pressable, ScrollView, StyleSheet, Text, useWindowDimensions, View } from "react-native";
+import { Animated, Easing, Linking, Platform, Pressable, ScrollView, StyleSheet, Text, useWindowDimensions, View } from "react-native";
 import { LinearGradient } from "expo-linear-gradient";
 import { Check, ExternalLink, MessagesSquare } from "lucide-react-native";
 import { useLocalSearchParams } from "expo-router";
@@ -16,7 +16,7 @@ import { SkeletonPoll } from "@/components/SkeletonPoll";
 import { useAuth } from "@/components/AuthProvider";
 import { fetchPoll, getCachedPoll, getCachedResults, getCachedResultsHistory, getResults, getResultsHistory, getUserPollAnswer } from "@/lib/api";
 import { getPollDescription, getThemeLabel } from "@/lib/product";
-import { fontFamilyBold, fontFamilyMedium, fontFamilySemibold, getThemeVisual, palette, radius, shadows } from "@/lib/design";
+import { fontFamilyBold, fontFamilyMedium, fontFamilySemibold, getThemeVisual, palette, radius } from "@/lib/design";
 import type { Poll, PollHistoryPoint, PollResource, PollResult, VoteStatus } from "@/lib/types";
 
 export default function PollScreen() {
@@ -132,7 +132,15 @@ export default function PollScreen() {
       : participationStatusLoading
         ? "Vérification en cours"
         : "Valider mon vote";
-  const voteButtonIconColor = voteAccepted ? palette.onPrimary : alreadyParticipated ? "#E0AE45" : voteButtonDisabled ? palette.muted : palette.onPrimary;
+  const voteButtonStatus: VoteSubmitButtonStatus = voteAccepted
+    ? "accepted"
+    : alreadyParticipated
+      ? "alreadyParticipated"
+      : participationStatusLoading
+        ? "loading"
+        : selectedChoiceId
+          ? "ready"
+          : "empty";
 
   async function handleOpenVotePanel() {
     if (!isPollOpen || alreadyParticipated || voteAccepted || participationStatusLoading) return;
@@ -199,23 +207,12 @@ export default function PollScreen() {
                       onSelectChoice={setSelectedChoiceId}
                       locked={answerSelectionLocked}
                     />
-                    <Pressable
-                      accessibilityState={{ disabled: voteButtonDisabled }}
+                    <VoteSubmitButton
                       disabled={voteButtonDisabled}
+                      label={voteButtonLabel}
+                      status={voteButtonStatus}
                       onPress={handleOpenVotePanel}
-                      style={({ pressed }) =>
-                        StyleSheet.flatten([
-                          styles.voteButton,
-                          (!selectedChoiceId || participationStatusLoading) && styles.voteButtonDisabled,
-                          voteAccepted && styles.voteButtonAccepted,
-                          alreadyParticipated && styles.voteButtonAlreadyParticipated,
-                          pressed && selectedChoiceId && !voteAccepted && !alreadyParticipated && !participationStatusLoading && styles.voteButtonPressed
-                        ])
-                      }
-                    >
-                      <Check size={17} color={voteButtonIconColor} />
-                      <Text style={StyleSheet.flatten([styles.voteButtonText, alreadyParticipated && styles.voteButtonAlreadyParticipatedText, participationStatusLoading && styles.voteButtonDisabledText])}>{voteButtonLabel}</Text>
-                    </Pressable>
+                    />
                   </>
                 ) : (
                   <View style={styles.closedBox}>
@@ -365,6 +362,76 @@ function mergeCurrentResultsIntoHistory(history: PollHistoryPoint[], results: Po
   return [...withoutSameTimestamp, ...currentPoints].sort((a, b) => a.captured_at.localeCompare(b.captured_at));
 }
 
+type VoteSubmitButtonStatus = "empty" | "ready" | "loading" | "accepted" | "alreadyParticipated";
+
+function VoteSubmitButton({ disabled, label, status, onPress }: {
+  disabled: boolean;
+  label: string;
+  status: VoteSubmitButtonStatus;
+  onPress: () => void;
+}) {
+  const fill = useMemo(() => new Animated.Value(0), []);
+  const actionable = status === "ready" && !disabled;
+  const terminal = status === "accepted" || status === "alreadyParticipated";
+  const iconColor = actionable ? "#FBFCFF" : "rgba(251, 252, 255, 0.45)";
+
+  function animate(toValue: number) {
+    if (!actionable) return;
+    fill.stopAnimation(() => {
+      Animated.timing(fill, {
+        toValue,
+        duration: 230,
+        easing: Easing.out(Easing.cubic),
+        useNativeDriver: true
+      }).start();
+    });
+  }
+
+  useEffect(() => {
+    if (!actionable) {
+      fill.setValue(0);
+    }
+  }, [actionable, fill]);
+
+  return (
+    <Pressable
+      accessibilityRole="button"
+      accessibilityState={{ disabled }}
+      disabled={disabled}
+      onHoverIn={() => animate(1)}
+      onHoverOut={() => animate(0)}
+      onPress={onPress}
+      style={() =>
+        StyleSheet.flatten([
+          styles.voteButton,
+          status === "empty" && styles.voteButtonInactive,
+          status === "loading" && styles.voteButtonInactive,
+          terminal && styles.voteButtonTerminal
+        ])
+      }
+    >
+      {actionable ? (
+        <Animated.View
+          pointerEvents="none"
+          style={StyleSheet.flatten([
+            styles.voteButtonFill,
+            { transform: [{ translateY: fill.interpolate({ inputRange: [0, 1], outputRange: [54, 0] }) }] }
+          ])}
+        />
+      ) : null}
+      <View pointerEvents="none" style={styles.voteButtonContent}>
+        <View style={styles.voteButtonIcon}>
+          <Check size={16} color={iconColor} />
+        </View>
+        <Text style={StyleSheet.flatten([
+          styles.voteButtonText,
+          !actionable && styles.voteButtonDisabledText
+        ])}>{label}</Text>
+      </View>
+    </Pressable>
+  );
+}
+
 const styles = StyleSheet.create({
   root: { flex: 1 },
   safe: { flex: 1 },
@@ -454,27 +521,37 @@ const styles = StyleSheet.create({
   discussionActionText: { color: palette.inkSecondary, fontFamily: fontFamilySemibold, fontSize: 11, textTransform: "uppercase", letterSpacing: 0.6 },
   discussionColumn: { width: "100%" },
   voteButton: {
-    minHeight: 48,
-    borderRadius: radius.sm,
+    alignSelf: "center",
+    width: 264,
+    maxWidth: "100%",
+    minHeight: 52,
+    marginTop: 8,
+    borderRadius: radius.md,
+    borderWidth: 1,
+    borderColor: "rgba(28, 110, 140, 0.55)",
     alignItems: "center",
     justifyContent: "center",
-    flexDirection: "row",
-    gap: 8,
-    backgroundColor: palette.primary,
-    ...shadows.panel
+    backgroundColor: "#101821",
+    overflow: "hidden",
+    shadowColor: "#000000",
+    shadowOpacity: 0.14,
+    shadowRadius: 10,
+    shadowOffset: { width: 0, height: 6 }
   },
-  voteButtonPressed: { transform: [{ translateY: 1 }] },
-  voteButtonDisabled: { backgroundColor: "rgba(148, 163, 184, 0.28)", shadowOpacity: 0 },
-  voteButtonAccepted: { backgroundColor: "#E0A526", shadowOpacity: 0.22 },
-  voteButtonAlreadyParticipated: {
-    backgroundColor: "rgba(212, 154, 42, 0.14)",
-    borderWidth: 1,
-    borderColor: "rgba(224, 174, 69, 0.42)",
-    shadowOpacity: 0
+  voteButtonFill: {
+    position: "absolute",
+    left: 0,
+    right: 0,
+    bottom: 0,
+    height: 54,
+    backgroundColor: "#1C6E8C"
   },
-  voteButtonText: { color: palette.onPrimary, fontFamily: fontFamilySemibold, fontSize: 14 },
-  voteButtonAlreadyParticipatedText: { color: "#E0AE45" },
-  voteButtonDisabledText: { color: palette.muted },
+  voteButtonContent: { zIndex: 1, flexDirection: "row", alignItems: "center", justifyContent: "center", gap: 8, paddingHorizontal: 22 },
+  voteButtonIcon: { width: 18, height: 18, alignItems: "center", justifyContent: "center" },
+  voteButtonInactive: { backgroundColor: "rgba(16, 24, 33, 0.46)", borderColor: "rgba(28, 110, 140, 0.18)", shadowOpacity: 0 },
+  voteButtonTerminal: { backgroundColor: "rgba(16, 24, 33, 0.56)", borderColor: "rgba(251, 252, 255, 0.16)", shadowOpacity: 0 },
+  voteButtonText: { color: "#FBFCFF", fontFamily: fontFamilySemibold, fontSize: 14, lineHeight: 18, letterSpacing: 0 },
+  voteButtonDisabledText: { color: "rgba(251, 252, 255, 0.45)" },
   closedBox: {
     borderRadius: radius.sm,
     borderWidth: 1,

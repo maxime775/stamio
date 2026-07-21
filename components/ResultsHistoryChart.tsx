@@ -12,15 +12,23 @@ type WebMouseEvent = {
   currentTarget?: { getBoundingClientRect?: () => { left: number; top: number } };
 };
 
-const CHART_HEIGHT = 190;
+const MIN_CHART_HEIGHT = 190;
+const CARD_VERTICAL_PADDING = 4;
+const CARD_HEADING_GAP = 8;
 const TOOLTIP_ESTIMATED_WIDTH = 180;
 const WEB_HIT_DISTANCE = 18;
 const TOUCH_HIT_DISTANCE = 30;
 
 export const ResultsHistoryChart = memo(function ResultsHistoryChart({ history, containerHeight }: Props) {
   const [width, setWidth] = useState(720);
+  const [headingHeight, setHeadingHeight] = useState(0);
+  const [legendHeight, setLegendHeight] = useState(0);
   const [activeIndex, setActiveIndex] = useState<number | null>(null);
-  const pad = { left: 42, right: 18, top: 18, bottom: 32 };
+  const availableChartHeight = containerHeight && headingHeight
+    ? containerHeight - headingHeight - legendHeight - CARD_VERTICAL_PADDING - CARD_HEADING_GAP
+    : MIN_CHART_HEIGHT;
+  const chartHeight = Math.max(MIN_CHART_HEIGHT, Math.floor(availableChartHeight));
+  const pad = { left: 42, right: 18, top: 8, bottom: 32 };
   const timestamps = useMemo(() => [...new Set(history.map((point) => point.captured_at))].sort(), [history]);
   const series = useMemo(() => {
     const groups = new Map<string, PollHistoryPoint[]>();
@@ -29,7 +37,7 @@ export const ResultsHistoryChart = memo(function ResultsHistoryChart({ history, 
   }, [history]);
   const byTimestamp = useMemo(() => new Map(timestamps.map((timestamp) => [timestamp, history.filter((point) => point.captured_at === timestamp)])), [history, timestamps]);
   const plotWidth = Math.max(1, width - pad.left - pad.right);
-  const plotHeight = Math.max(1, CHART_HEIGHT - pad.top - pad.bottom);
+  const plotHeight = Math.max(1, chartHeight - pad.top - pad.bottom);
   const xForIndex = (index: number) => pad.left + (index / Math.max(1, timestamps.length - 1)) * plotWidth;
   const xFor = (date: string) => xForIndex(Math.max(0, timestamps.indexOf(date)));
   const yFor = (value: number) => pad.top + plotHeight - (Math.min(100, Math.max(0, value)) / 100) * plotHeight;
@@ -39,7 +47,7 @@ export const ResultsHistoryChart = memo(function ResultsHistoryChart({ history, 
   const xTickIndexes = [...new Set([0, Math.floor((timestamps.length - 1) / 2), timestamps.length - 1])].filter((index) => index >= 0 && index < timestamps.length);
 
   function selectNear(locationX: number, locationY: number, threshold: number) {
-    if (timestamps.length === 0 || locationX < pad.left || locationX > width - pad.right || locationY < pad.top || locationY > CHART_HEIGHT - pad.bottom) {
+    if (timestamps.length === 0 || locationX < pad.left || locationX > width - pad.right || locationY < pad.top || locationY > chartHeight - pad.bottom) {
       setActiveIndex(null);
       return;
     }
@@ -87,7 +95,10 @@ export const ResultsHistoryChart = memo(function ResultsHistoryChart({ history, 
       const nextWidth = Math.max(240, event.nativeEvent.layout.width - 8);
       setWidth((current) => current === nextWidth ? current : nextWidth);
     }}>
-      <View style={styles.heading}>
+      <View style={styles.heading} onLayout={(event) => {
+        const nextHeight = Math.ceil(event.nativeEvent.layout.height);
+        setHeadingHeight((current) => current === nextHeight ? current : nextHeight);
+      }}>
         <View>
           <Text style={styles.kicker}>Évolution du vote</Text>
           <Text style={styles.title}>Résultats dans le temps</Text>
@@ -95,20 +106,20 @@ export const ResultsHistoryChart = memo(function ResultsHistoryChart({ history, 
         <Text style={styles.hint}>{Platform.OS === "web" ? "Survolez la courbe" : "Touchez la courbe"}</Text>
       </View>
       <View style={styles.chartBlock}>
-        <View style={styles.chartShell}>
-          <Svg width="100%" height={CHART_HEIGHT} viewBox={`0 0 ${width} ${CHART_HEIGHT}`}>
+        <View style={StyleSheet.flatten([styles.chartShell, { height: chartHeight }])}>
+          <Svg width="100%" height={chartHeight} viewBox={`0 0 ${width} ${chartHeight}`}>
             {[0, 25, 50, 75, 100].map((tick) => {
               const y = yFor(tick);
               return <Line key={tick} x1={pad.left} x2={width - pad.right} y1={y} y2={y} stroke="rgba(148,163,184,0.13)" strokeWidth={1} />;
             })}
             {[0, 50, 100].map((tick) => <SvgText key={tick} x={4} y={yFor(tick) + 4} fill="#718096" fontFamily={fontFamily} fontSize={11}>{tick}%</SvgText>)}
-            {xTickIndexes.map((index) => <SvgText key={timestamps[index]} x={xForIndex(index)} y={CHART_HEIGHT - 9} textAnchor={index === 0 ? "start" : index === timestamps.length - 1 ? "end" : "middle"} fill={palette.muted} fontFamily={fontFamily} fontSize={10}>{new Date(timestamps[index]).toLocaleDateString("fr-FR", { day: "2-digit", month: "short" })}</SvgText>)}
+            {xTickIndexes.map((index) => <SvgText key={timestamps[index]} x={xForIndex(index)} y={chartHeight - 9} textAnchor={index === 0 ? "start" : index === timestamps.length - 1 ? "end" : "middle"} fill={palette.muted} fontFamily={fontFamily} fontSize={10}>{new Date(timestamps[index]).toLocaleDateString("fr-FR", { day: "2-digit", month: "short" })}</SvgText>)}
             {series.map((points, index) => {
               const color = choiceColors[index % choiceColors.length];
               const path = points.map((point, pointIndex) => `${pointIndex === 0 ? "M" : "L"}${xFor(point.captured_at)},${yFor(point.percentage)}`).join(" ");
               return <Path key={points[0]?.choice_id} d={path} fill="none" stroke={color} strokeWidth={2.2} strokeLinecap="round" strokeLinejoin="round" />;
             })}
-            {activeX !== null ? <Line x1={activeX} x2={activeX} y1={pad.top} y2={CHART_HEIGHT - pad.bottom} stroke="rgba(220,229,255,0.48)" strokeWidth={1} strokeDasharray="4 5" /> : null}
+            {activeX !== null ? <Line x1={activeX} x2={activeX} y1={pad.top} y2={chartHeight - pad.bottom} stroke="rgba(220,229,255,0.48)" strokeWidth={1} strokeDasharray="4 5" /> : null}
             {selectedPoints.map((point) => {
               const seriesIndex = series.findIndex((points) => points[0]?.choice_id === point.choice_id);
               return <Circle key={point.choice_id} cx={activeX ?? 0} cy={yFor(point.percentage)} r={3.5} fill={choiceColors[Math.max(0, seriesIndex) % choiceColors.length]} stroke={palette.surface} strokeWidth={1.5} />;
@@ -143,7 +154,10 @@ export const ResultsHistoryChart = memo(function ResultsHistoryChart({ history, 
             </View>
           ) : null}
         </View>
-        <View style={styles.legend}>
+        <View style={styles.legend} onLayout={(event) => {
+          const nextHeight = Math.ceil(event.nativeEvent.layout.height);
+          setLegendHeight((current) => current === nextHeight ? current : nextHeight);
+        }}>
           {series.map((points, index) => <View key={points[0]?.choice_id} style={styles.legendItem}><View style={StyleSheet.flatten([styles.legendLine, { backgroundColor: choiceColors[index % choiceColors.length] }])} /><Text style={styles.legendText}>{points[0]?.label}</Text></View>)}
         </View>
       </View>
@@ -166,13 +180,13 @@ function distanceToSegment(
 }
 
 const styles = StyleSheet.create({
-  card: { width: "100%", boxSizing: "border-box", paddingHorizontal: 4, paddingVertical: 2, gap: 12 },
+  card: { width: "100%", boxSizing: "border-box", paddingHorizontal: 4, paddingVertical: 2, gap: CARD_HEADING_GAP },
   heading: { flexDirection: "row", justifyContent: "space-between", alignItems: "flex-start", gap: 12, flexWrap: "wrap" },
   kicker: { color: palette.primaryStrong, fontFamily: fontFamilySemibold, fontSize: 10, textTransform: "uppercase", letterSpacing: 1.1 },
   title: { color: palette.ink, fontFamily: fontFamilySemibold, fontSize: 15, lineHeight: 20, marginTop: 5 },
   hint: { color: palette.muted, fontFamily: fontFamilyMedium, fontSize: 10, paddingTop: 4 },
-  chartBlock: { marginTop: "auto", gap: 0 },
-  chartShell: { position: "relative", width: "100%", height: CHART_HEIGHT, overflow: "hidden" },
+  chartBlock: { flex: 1, gap: 0 },
+  chartShell: { position: "relative", width: "100%", overflow: "hidden" },
   pointerLayer: { ...StyleSheet.absoluteFillObject, backgroundColor: "transparent" },
   emptyOverlay: { ...StyleSheet.absoluteFillObject, alignItems: "center", justifyContent: "center", paddingHorizontal: 16 },
   emptyText: { color: palette.muted, fontFamily, fontSize: 12, textAlign: "center" },
