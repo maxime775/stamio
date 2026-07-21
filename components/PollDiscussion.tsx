@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState, type ReactNode } from "react";
+import { useEffect, useMemo, useRef, useState, type ReactNode } from "react";
 import { ActivityIndicator, Animated, Easing, Image, Platform, Pressable, StyleSheet, Text, TextInput, View, type TextStyle } from "react-native";
 import * as ImagePicker from "expo-image-picker";
 import { Code2, Heart, ImagePlus, Italic, Link2, List, ListOrdered, MessageCircle, Quote, X } from "lucide-react-native";
@@ -12,6 +12,13 @@ import {
   uploadPollCommentImage
 } from "@/lib/api";
 import { authField, fontFamily, fontFamilyBold, fontFamilyMedium, fontFamilySemibold, palette, radius } from "@/lib/design";
+import {
+  RichCommentBody,
+  RichDiscussionEditor,
+  type RichDiscussionEditorHandle,
+  type RichTextActiveFormats,
+  type RichTextFormatAction
+} from "@/components/RichDiscussionEditor";
 import type { PollComment, PollCommentImage } from "@/lib/types";
 
 export function PollDiscussion({ pollId }: { pollId: string }) {
@@ -117,7 +124,7 @@ function DiscussionSkeleton() {
 }
 
 type SelectedImage = Omit<PollCommentImage, "path"> & { uri: string; base64: string };
-type FormatAction = "bold" | "italic" | "link" | "quote" | "bullet" | "numbered" | "code";
+type FormatAction = RichTextFormatAction;
 
 const FORMAT_GLYPH_STYLE: TextStyle = { color: palette.inkSecondary, fontFamily: fontFamilyBold, fontSize: 13, lineHeight: 15 };
 
@@ -136,18 +143,21 @@ const WEB_INPUT_FOCUS_RESET = Platform.OS === "web"
   : null;
 
 function CommentComposer({ pollId, parent, onCancel, onCreated }: { pollId: string; parent: PollComment | null; onCancel: () => void; onCreated: () => Promise<void> }) {
+  const richEditorRef = useRef<RichDiscussionEditorHandle | null>(null);
   const [body, setBody] = useState("");
   const [editorFocused, setEditorFocused] = useState(false);
-  const [activeFormat, setActiveFormat] = useState<FormatAction | null>(null);
+  const [activeFormats, setActiveFormats] = useState<RichTextActiveFormats>({});
   const [hoveredFormat, setHoveredFormat] = useState<FormatAction | null>(null);
   const [image, setImage] = useState<SelectedImage | null>(null);
   const [sending, setSending] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const sendHover = useMemo(() => new Animated.Value(0), []);
+  const richEditorEnabled = Platform.OS === "web";
+  const canSubmit = body.trim().length > 0 && body.length <= 2000;
 
   useEffect(() => {
-    if (sending || !body.trim()) sendHover.setValue(0);
-  }, [body, sending, sendHover]);
+    if (sending || !canSubmit) sendHover.setValue(0);
+  }, [canSubmit, sending, sendHover]);
 
   async function pickImage() {
     setError(null);
@@ -169,19 +179,23 @@ function CommentComposer({ pollId, parent, onCancel, onCreated }: { pollId: stri
 
   async function submit() {
     const clean = body.trim();
-    if (!clean) return;
+    if (!clean || body.length > 2000) return;
+    const richTextBody = richEditorEnabled ? richEditorRef.current?.getSerializedBody() : null;
+    const content = richTextBody ?? clean;
     setSending(true);
     setError(null);
     let uploadedImage: PollCommentImage | undefined;
     try {
       if (image) uploadedImage = await uploadPollCommentImage(pollId, image.base64, image.mimeType, image.size);
-      const { error: submitError } = await createPollComment(pollId, clean, parent?.id ?? null, uploadedImage);
+      const { error: submitError } = await createPollComment(pollId, content, parent?.id ?? null, uploadedImage);
       if (submitError) {
         if (uploadedImage) await removePollCommentImage(uploadedImage.path);
         setError("Impossible de publier ce commentaire.");
         return;
       }
       setBody("");
+      setActiveFormats({});
+      richEditorRef.current?.clear();
       setImage(null);
       await onCreated();
     } catch {
@@ -193,7 +207,7 @@ function CommentComposer({ pollId, parent, onCancel, onCreated }: { pollId: stri
   }
 
   function animateSend(toValue: number) {
-    if (sending || !body.trim()) return;
+    if (sending || !canSubmit) return;
     Animated.timing(sendHover, {
       toValue,
       duration: 210,
@@ -209,7 +223,7 @@ function CommentComposer({ pollId, parent, onCancel, onCreated }: { pollId: stri
         {FORMAT_ACTIONS.map((action) => (
           <FormatButton
             key={action.id}
-            active={activeFormat === action.id}
+            active={Boolean(activeFormats[action.id])}
             hovered={hoveredFormat === action.id}
             label={action.label}
             shortcut={action.shortcut}
@@ -217,21 +231,39 @@ function CommentComposer({ pollId, parent, onCancel, onCreated }: { pollId: stri
             disabled={sending}
             onHoverIn={() => setHoveredFormat(action.id)}
             onHoverOut={() => setHoveredFormat(null)}
-            onPress={() => setActiveFormat((current) => current === action.id ? null : action.id)}
+            onPress={() => {
+              if (richEditorEnabled) {
+                richEditorRef.current?.applyFormat(action.id);
+                return;
+              }
+              setActiveFormats((current) => ({ ...current, [action.id]: !current[action.id] }));
+            }}
           />
         ))}
       </View>
-      <TextInput
-        value={body}
-        onChangeText={setBody}
-        multiline
-        maxLength={2000}
-        placeholder="Partagez un point de vue argumenté…"
-        placeholderTextColor={authField.placeholderColor}
-        onFocus={() => setEditorFocused(true)}
-        onBlur={() => setEditorFocused(false)}
-        style={StyleSheet.flatten([styles.input, WEB_INPUT_FOCUS_RESET])}
-      />
+      {richEditorEnabled ? (
+        <RichDiscussionEditor
+          ref={richEditorRef}
+          disabled={sending}
+          placeholder="Partagez un point de vue argumenté…"
+          style={styles.richInput}
+          onChangeText={setBody}
+          onActiveFormatsChange={setActiveFormats}
+          onFocusChange={setEditorFocused}
+        />
+      ) : (
+        <TextInput
+          value={body}
+          onChangeText={setBody}
+          multiline
+          maxLength={2000}
+          placeholder="Partagez un point de vue argumenté…"
+          placeholderTextColor={authField.placeholderColor}
+          onFocus={() => setEditorFocused(true)}
+          onBlur={() => setEditorFocused(false)}
+          style={StyleSheet.flatten([styles.input, WEB_INPUT_FOCUS_RESET])}
+        />
+      )}
     </View>
     {image ? <View style={styles.imagePreviewWrap}>
       <Image source={{ uri: image.uri }} resizeMode="contain" style={styles.imagePreview} accessibilityLabel="Aperçu de l’image à publier" />
@@ -242,11 +274,11 @@ function CommentComposer({ pollId, parent, onCancel, onCreated }: { pollId: stri
       <Text style={styles.counter}>{body.length}/2000</Text>
       {error ? <Text style={styles.error}>{error}</Text> : null}
       <Pressable
-        disabled={sending || !body.trim()}
+        disabled={sending || !canSubmit}
         onHoverIn={() => animateSend(1)}
         onHoverOut={() => animateSend(0)}
         onPress={submit}
-        style={({ pressed }) => StyleSheet.flatten([styles.send, (!body.trim() || sending) && styles.disabled, pressed && styles.pressed])}
+        style={({ pressed }) => StyleSheet.flatten([styles.send, (!canSubmit || sending) && styles.disabled, pressed && styles.pressed])}
       >
         <Animated.View pointerEvents="none" style={StyleSheet.flatten([styles.sendFill, { opacity: sendHover }])} />
         {sending ? <ActivityIndicator color={palette.primaryStrong} /> : <Text style={styles.sendText}>Publier</Text>}
@@ -305,7 +337,7 @@ function CommentItem({ comment, authenticated, onLike, onReply }: { comment: Pol
   const date = new Date(comment.created_at).toLocaleDateString("fr-FR", { day: "numeric", month: "short", hour: "2-digit", minute: "2-digit" });
   return <View style={styles.comment}>
     <View style={styles.commentMeta}><View style={styles.avatar}><Text style={styles.avatarText}>{comment.author_label.slice(0, 1)}</Text></View><Text style={styles.author}>{comment.author_label}</Text><Text style={styles.date}>{date}</Text></View>
-    <Text style={StyleSheet.flatten([styles.body, comment.deleted_at && styles.deleted])}>{comment.body}</Text>
+    <RichCommentBody value={comment.body} deleted={Boolean(comment.deleted_at)} bodyStyle={styles.body} deletedStyle={styles.deleted} />
     {comment.image_url && !comment.deleted_at ? <Image source={{ uri: comment.image_url }} resizeMode="contain" style={styles.commentImage} accessibilityLabel="Image jointe au commentaire" /> : null}
     {!comment.deleted_at ? <View style={styles.actions}>
       <Pressable onPress={onLike} accessibilityLabel={authenticated ? "Aimer ce commentaire" : "S’inscrire pour aimer"} style={styles.action}><Heart size={14} color={comment.liked_by_me ? palette.danger : palette.muted} fill={comment.liked_by_me ? palette.danger : "transparent"} /><Text style={styles.actionText}>{comment.likes}</Text></Pressable>
@@ -379,6 +411,7 @@ const styles = StyleSheet.create({
     zIndex: 20
   },
   tooltipText: { color: palette.inkSecondary, fontFamily: fontFamilyMedium, fontSize: 11, lineHeight: 14 },
+  richInput: { minHeight: 112, paddingHorizontal: 14, paddingVertical: 12 },
   input: { minHeight: 112, color: palette.ink, fontSize: 15, lineHeight: 22, textAlignVertical: "top", paddingHorizontal: 14, paddingVertical: 12, fontFamily: fontFamilyMedium },
   imagePreviewWrap: { position: "relative", alignSelf: "stretch", overflow: "hidden", borderRadius: radius.sm, borderWidth: 1, borderColor: palette.line, backgroundColor: palette.canvas },
   imagePreview: { width: "100%", height: 240 },
