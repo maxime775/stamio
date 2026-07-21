@@ -158,7 +158,8 @@ export default function Home() {
 const styles = StyleSheet.create({
   hero: {
     minHeight: 440,
-    paddingVertical: 34,
+    paddingTop: 20,
+    paddingBottom: 34,
     flexDirection: "row",
     flexWrap: "wrap",
     alignItems: "center",

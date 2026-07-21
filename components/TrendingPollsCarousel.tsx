@@ -1,5 +1,16 @@
 import { memo, useCallback, useEffect, useMemo, useRef } from "react";
-import { Animated, StyleSheet, Text, useWindowDimensions, View, type LayoutChangeEvent } from "react-native";
+import {
+  NativeScrollEvent,
+  NativeSyntheticEvent,
+  Platform,
+  ScrollView,
+  StyleSheet,
+  Text,
+  useWindowDimensions,
+  View,
+  type LayoutChangeEvent,
+  type ViewProps
+} from "react-native";
 import { PollTeaserCard } from "@/components/PollTeaserCard";
 import type { PollWithStats } from "@/lib/types";
 import { fontFamilyBold, fontFamilyMedium, fontFamilySemibold, palette, radius } from "@/lib/design";
@@ -15,11 +26,11 @@ const SCROLL_SPEED_PX_PER_SECOND = 36;
 export const TrendingPollsCarousel = memo(function TrendingPollsCarousel({ polls, loading = false }: Props) {
   const reducedMotion = useReducedMotion();
   const { width } = useWindowDimensions();
-  const translateX = useMemo(() => new Animated.Value(0), []);
+  const scrollRef = useRef<ScrollView | null>(null);
   const segmentWidthRef = useRef(1);
   const offsetRef = useRef(0);
   const hoverPausedRef = useRef(false);
-  const touchPausedRef = useRef(false);
+  const manualPausedRef = useRef(false);
   const lastFrameRef = useRef(0);
   const resumeTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
@@ -32,11 +43,11 @@ export const TrendingPollsCarousel = memo(function TrendingPollsCarousel({ polls
       const delta = Math.min(timestamp - lastFrameRef.current, 32);
       lastFrameRef.current = timestamp;
       const segment = segmentWidthRef.current;
-      if (!reducedMotion && !hoverPausedRef.current && !touchPausedRef.current && segment > 1) {
+      if (!reducedMotion && !hoverPausedRef.current && !manualPausedRef.current && segment > 1) {
         let next = offsetRef.current + (SCROLL_SPEED_PX_PER_SECOND * delta) / 1000;
         if (next >= segment * 2) next -= segment;
         offsetRef.current = next;
-        translateX.setValue(-next);
+        scrollRef.current?.scrollTo({ x: next, y: 0, animated: false });
       }
       frame = requestAnimationFrame(tick);
     }
@@ -46,13 +57,15 @@ export const TrendingPollsCarousel = memo(function TrendingPollsCarousel({ polls
       cancelAnimationFrame(frame);
       if (resumeTimerRef.current) clearTimeout(resumeTimerRef.current);
     };
-  }, [polls.length, reducedMotion, translateX]);
+  }, [polls.length, reducedMotion]);
 
-  const pauseTemporarily = useCallback(() => {
-    touchPausedRef.current = true;
+  const resumeAfterManualInteraction = useCallback(() => {
+    manualPausedRef.current = true;
     if (resumeTimerRef.current) clearTimeout(resumeTimerRef.current);
     resumeTimerRef.current = setTimeout(() => {
-      touchPausedRef.current = false;
+      normalizeLoopPosition();
+      manualPausedRef.current = false;
+      lastFrameRef.current = 0;
     }, 2600);
   }, []);
 
@@ -73,20 +86,53 @@ export const TrendingPollsCarousel = memo(function TrendingPollsCarousel({ polls
     segmentWidthRef.current = segment;
     const initial = polls.length > 1 ? segment : 0;
     offsetRef.current = initial;
-    translateX.setValue(-initial);
+    requestAnimationFrame(() => scrollRef.current?.scrollTo({ x: initial, y: 0, animated: false }));
+  }
+
+  function handleScroll(event: NativeSyntheticEvent<NativeScrollEvent>) {
+    offsetRef.current = event.nativeEvent.contentOffset.x;
+  }
+
+  function normalizeLoopPosition() {
+    if (polls.length < 2) return;
+    const segment = segmentWidthRef.current;
+    let next = offsetRef.current;
+    if (next < segment * 0.5) next += segment;
+    if (next > segment * 2.5) next -= segment;
+    if (next === offsetRef.current) return;
+    offsetRef.current = next;
+    scrollRef.current?.scrollTo({ x: next, y: 0, animated: false });
   }
 
   const segments = useMemo(() => polls.length > 1 ? [0, 1, 2] : [0], [polls.length]);
+  const visiblePollCount = polls.filter((poll) => {
+    if (poll.status !== "open") return false;
+    if (!poll.closes_at) return true;
+    return new Date(poll.closes_at).getTime() > Date.now();
+  }).length;
+  const countLabel = loading
+    ? "Chargement"
+    : `${visiblePollCount} question${visiblePollCount > 1 ? "s" : ""} à explorer`;
+  const webWheelProps = Platform.OS === "web" ? ({
+    onWheel: (event: WheelEvent) => {
+      const horizontalDelta = event.deltaX || event.deltaY;
+      if (!horizontalDelta || !scrollRef.current) return;
+      event.preventDefault();
+      resumeAfterManualInteraction();
+      const next = offsetRef.current + horizontalDelta;
+      offsetRef.current = next;
+      scrollRef.current.scrollTo({ x: next, y: 0, animated: false });
+    }
+  } as unknown as ViewProps) : {};
+
   return (
     <View style={styles.wrap}>
       <View style={styles.header}>
         <View style={styles.headerCopy}>
           <Text style={styles.title}>Les sujets qui font l’actu</Text>
-          <Text style={styles.subtitle}>Des questions ouvertes pour suivre les signaux d’opinion du moment, répondre simplement et lire les résultats sous forme agrégée.</Text>
+          <Text style={styles.subtitle}>Découvrez les questions ouvertes du moment, donnez votre avis et suivez l’évolution des réponses.</Text>
         </View>
-        <View style={styles.counterPill}>
-          <Text style={styles.counter}>{loading ? "Chargement" : `${polls.length} questions ouvertes`}</Text>
-        </View>
+        <Text style={styles.counter}>{countLabel}</Text>
       </View>
       {loading ? (
         <View style={styles.skeletonRail}>
@@ -98,8 +144,21 @@ export const TrendingPollsCarousel = memo(function TrendingPollsCarousel({ polls
           </View>)}
         </View>
       ) : null}
-      {!loading ? <View style={styles.scroller} onTouchStart={pauseTemporarily}>
-        <Animated.View style={StyleSheet.flatten([styles.rail, { transform: [{ translateX }] }])}>
+      {!loading ? <ScrollView
+        ref={scrollRef}
+        {...webWheelProps}
+        horizontal
+        showsHorizontalScrollIndicator={false}
+        decelerationRate="fast"
+        scrollEventThrottle={16}
+        style={styles.scroller}
+        contentContainerStyle={styles.rail}
+        onScroll={handleScroll}
+        onScrollBeginDrag={resumeAfterManualInteraction}
+        onScrollEndDrag={normalizeLoopPosition}
+        onMomentumScrollEnd={normalizeLoopPosition}
+        onTouchStart={resumeAfterManualInteraction}
+      >
         {segments.map((segment) => (
           <View key={segment} onLayout={handleSegmentLayout} style={styles.segment}>
             {polls.map((poll) => <PollTeaserCard
@@ -112,8 +171,7 @@ export const TrendingPollsCarousel = memo(function TrendingPollsCarousel({ polls
             />)}
           </View>
         ))}
-        </Animated.View>
-      </View> : null}
+      </ScrollView> : null}
     </View>
   );
 });
@@ -130,22 +188,12 @@ const styles = StyleSheet.create({
     borderBottomWidth: 1,
     borderColor: "rgba(208, 204, 208, 0.12)"
   },
-  scroller: { width: "100%", maxWidth: "100%", overflow: "hidden" },
+  scroller: { width: "100%", maxWidth: "100%" },
   header: { flexDirection: "row", justifyContent: "space-between", alignItems: "flex-end", gap: 18, flexWrap: "wrap" },
   headerCopy: { gap: 8, flex: 1, minWidth: 260 },
   title: { color: palette.ink, fontFamily: fontFamilyBold, fontSize: 31, lineHeight: 37, letterSpacing: 0 },
   subtitle: { color: palette.inkSecondary, fontFamily: fontFamilyMedium, fontSize: 14, lineHeight: 21, maxWidth: 660 },
-  counterPill: {
-    minHeight: 32,
-    borderRadius: radius.sm,
-    borderWidth: 1,
-    borderColor: "rgba(28, 110, 140, 0.36)",
-    backgroundColor: "rgba(16, 24, 33, 0.58)",
-    paddingHorizontal: 11,
-    alignItems: "center",
-    justifyContent: "center"
-  },
-  counter: { color: palette.inkSecondary, fontFamily: fontFamilySemibold, fontSize: 11 },
+  counter: { color: palette.muted, fontFamily: fontFamilySemibold, fontSize: 11, textAlign: "right" },
   rail: { flexDirection: "row", paddingTop: 4, paddingBottom: 10 },
   segment: { flexDirection: "row", gap: 18, paddingRight: 18 },
   skeletonRail: { flexDirection: "row", gap: 18, paddingTop: 4, paddingBottom: 10 },
