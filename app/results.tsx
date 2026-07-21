@@ -47,7 +47,7 @@ export default function ResultsPage() {
       <View style={styles.heading}>
         <Text style={styles.kicker}>Résultats agrégés</Text>
         <Text style={styles.title}>Les derniers résultats</Text>
-        <Text style={styles.intro}>Suivez les tendances récentes sans donnée personnelle, numéro de téléphone ou identifiant sensible.</Text>
+        <Text style={styles.intro}>Retrouvez les résultats des sujets clôturés, accompagnés d’une analyse Stamio pour éclairer les débats avec nuance.</Text>
       </View>
       <ThemeTabs active={filter} includeAll onSelect={setFilter} />
       <Animated.View style={StyleSheet.flatten([styles.list, { opacity: isLoading && !hasLoaded ? 1 : fade as unknown as number }])}>
@@ -56,7 +56,7 @@ export default function ResultsPage() {
         ) : filtered.length > 0 ? (
           filtered.map((poll) => <ResultsPreviewCard key={poll.id} poll={poll} />)
         ) : (
-          <EmptyState title="Aucun résultat disponible" message="Aucun vote n’a encore été comptabilisé pour ce filtre." />
+          <EmptyState title="Aucun résultat disponible" message={filter === "all" ? "Aucun résultat n’est disponible pour le moment." : "Aucun sujet n’a encore été clôturé pour ce thème. On vous tient informés dès que de nouvelles analyses sont disponibles."} />
         )}
       </Animated.View>
     </PageShell>
