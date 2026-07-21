@@ -58,7 +58,7 @@ export function ThemePollsPage({ activeTheme }: Props) {
         {isLoading ? (
           [0, 1].map((index) => <View key={index} style={styles.loadingCard} />)
         ) : polls.length > 0 ? (
-          polls.map((poll) => <PollTeaserCard key={poll.id} poll={poll} compact />)
+          polls.map((poll) => <PollTeaserCard key={poll.id} poll={poll} compact showBottomHoverRule={false} />)
         ) : (
           <EmptyState title="Aucun sondage ouvert" message="Ce thème n’a pas encore de question active." />
         )}

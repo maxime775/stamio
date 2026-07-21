@@ -44,7 +44,7 @@ export default function ThemesIndex() {
         <View style={styles.heading}>
           <Text style={styles.kicker}>Nos thèmes</Text>
           <Text style={styles.title}>Choisissez un sujet, puis donnez votre avis</Text>
-          <Text style={styles.intro}>Politique, économie, société ou sport : chaque thème regroupe des questions ouvertes et des résultats agrégés.</Text>
+          <Text style={styles.intro}>Politique, économie, société ou sport : parcourez nos différents sujets et prenez part aux débats.</Text>
         </View>
         {isLoading ? <View style={styles.metricPlaceholder} /> : <VotesMetric value={totalVotes} animationKey={activeTheme} />}
       </View>
@@ -53,7 +53,7 @@ export default function ThemesIndex() {
         {isLoading ? (
           <ThemeGridSkeleton />
         ) : polls.length > 0 ? (
-          polls.map((poll) => <PollTeaserCard key={poll.id} poll={poll} compact />)
+          polls.map((poll) => <PollTeaserCard key={poll.id} poll={poll} compact showBottomHoverRule={false} />)
         ) : (
           <EmptyState title="Aucun sondage ouvert" message="Aucune question n’est disponible pour ce filtre." />
         )}

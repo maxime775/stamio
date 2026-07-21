@@ -1,24 +1,33 @@
-import { useState } from "react";
+import { useState, type ReactNode } from "react";
 import { Pressable, StyleSheet, Text, View } from "react-native";
 import { Check } from "lucide-react-native";
 import type { Poll } from "@/lib/types";
-import { fontFamilyMedium, fontFamilySemibold, getThemeVisual, palette, radius } from "@/lib/design";
+import { fontFamilyMedium, fontFamilySemibold, palette, radius } from "@/lib/design";
+
+const VOTE_MODULE_ACCENT = "#D18A7E";
+const VOTE_MODULE_ACCENT_SOFT = "rgba(209, 138, 126, 0.14)";
+const VOTE_MODULE_ACCENT_LINE = "rgba(209, 138, 126, 0.42)";
 
 type Props = {
   poll: Poll;
   selectedChoiceId: string | null;
   onSelectChoice: (choiceId: string) => void;
   locked?: boolean;
+  footer?: ReactNode;
 };
 
-export function PollCard({ poll, selectedChoiceId, onSelectChoice, locked = false }: Props) {
-  const theme = getThemeVisual(poll.theme);
+export function PollCard({ poll, selectedChoiceId, onSelectChoice, locked = false, footer }: Props) {
   const [hoveredChoiceId, setHoveredChoiceId] = useState<string | null>(null);
   return (
     <View style={styles.card}>
+      <View style={styles.accentRail} />
       <View style={styles.heading}>
-        <Text style={styles.kicker}>Position</Text>
-        <View style={styles.headingRow}><Text style={styles.title}>Votre réponse</Text><Text style={styles.hint}>{locked ? "Participation enregistrée" : "Sélection unique"}</Text></View>
+        <View style={styles.headingRow}>
+          <Text style={styles.title}>Votre réponse</Text>
+          <Text style={styles.kicker}>Réponse unique</Text>
+        </View>
+        <Text style={styles.hint}>{locked ? "Participation enregistrée" : "Choisissez une réponse, puis validez votre participation."}</Text>
+        <View style={styles.headingRule} />
       </View>
       <View style={styles.options}>
         {poll.choices.map((choice, index) => {
@@ -40,75 +49,101 @@ export function PollCard({ poll, selectedChoiceId, onSelectChoice, locked = fals
                   hovered && styles.optionHovered,
                   selected && styles.optionSelected,
                   locked && !selected && styles.optionLocked,
-                  selected && { borderColor: theme.accent, borderLeftColor: theme.accent, backgroundColor: theme.soft },
                   pressed && !locked && styles.optionPressed
                 ])
               }
             >
-              <View style={StyleSheet.flatten([styles.optionCode, hovered && styles.optionCodeHovered, selected && { borderColor: theme.accent }])}><Text style={StyleSheet.flatten([styles.optionCodeText, hovered && styles.optionCodeTextHovered, selected && { color: theme.accent }])}>{String.fromCharCode(65 + index)}</Text></View>
-              <Text style={StyleSheet.flatten([styles.optionText, hovered && styles.optionTextHovered, selected && styles.optionTextSelected, selected && { color: theme.accent }])}>{choice.label}</Text>
-              {selected ? <Check size={15} color={theme.accent} /> : null}
+              <View style={StyleSheet.flatten([styles.optionRail, selected && styles.optionRailSelected])} />
+              <View style={StyleSheet.flatten([styles.optionCode, hovered && styles.optionCodeHovered, selected && styles.optionCodeSelected])}><Text style={StyleSheet.flatten([styles.optionCodeText, hovered && styles.optionCodeTextHovered, selected && styles.optionCodeTextSelected])}>{String.fromCharCode(65 + index)}</Text></View>
+              <Text style={StyleSheet.flatten([styles.optionText, hovered && styles.optionTextHovered, selected && styles.optionTextSelected])}>{choice.label}</Text>
+              {selected ? <View style={styles.selectedMark}><Check size={13} color={palette.canvas} /></View> : null}
             </Pressable>
           );
         })}
       </View>
+      {footer ? <View style={styles.footer}>{footer}</View> : null}
     </View>
   );
 }
 
 const styles = StyleSheet.create({
   card: {
+    position: "relative",
     borderRadius: radius.md,
-    padding: 16,
-    backgroundColor: palette.surface,
+    padding: 18,
+    paddingLeft: 20,
+    backgroundColor: "#081019",
     borderWidth: 1,
-    borderColor: palette.line,
-    borderTopWidth: 2,
-    borderTopColor: palette.primary,
+    borderColor: "rgba(143, 184, 198, 0.24)",
+    gap: 17,
+    overflow: "hidden",
+    shadowColor: "#000000",
+    shadowOpacity: 0.16,
+    shadowRadius: 16,
+    shadowOffset: { width: 0, height: 10 }
+  },
+  accentRail: { position: "absolute", top: 0, bottom: 0, left: 0, width: 2, backgroundColor: VOTE_MODULE_ACCENT, opacity: 0.82 },
+  heading: { gap: 12 },
+  headingRow: { flexDirection: "row", alignItems: "flex-end", justifyContent: "space-between", gap: 14 },
+  kicker: { color: VOTE_MODULE_ACCENT, fontFamily: fontFamilySemibold, fontSize: 9, lineHeight: 12, textTransform: "uppercase", letterSpacing: 1.1, textAlign: "right", flexShrink: 0, paddingBottom: 3 },
+  title: { color: palette.ink, fontFamily: fontFamilySemibold, fontSize: 20, lineHeight: 25 },
+  hint: { color: palette.muted, fontSize: 11, lineHeight: 16 },
+  headingRule: { height: 1, backgroundColor: "rgba(143, 184, 198, 0.14)" },
+  options: { gap: 10 },
+  option: {
+    position: "relative",
+    minHeight: 58,
+    borderRadius: radius.sm,
+    borderWidth: 1,
+    borderColor: "rgba(143, 184, 198, 0.16)",
+    backgroundColor: "rgba(13, 23, 34, 0.78)",
+    paddingHorizontal: 14,
+    paddingVertical: 11,
+    flexDirection: "row",
+    alignItems: "center",
     gap: 14,
     overflow: "hidden"
   },
-  heading: { gap: 5 },
-  headingRow: { flexDirection: "row", alignItems: "baseline", justifyContent: "space-between", gap: 12 },
-  kicker: { color: palette.primaryStrong, fontFamily: fontFamilySemibold, fontSize: 9, textTransform: "uppercase", letterSpacing: 1 },
-  title: { color: palette.ink, fontFamily: fontFamilySemibold, fontSize: 15 },
-  hint: { color: palette.muted, fontSize: 10 },
-  options: { gap: 8 },
-  option: {
-    minHeight: 52,
-    borderRadius: radius.sm,
-    borderWidth: 1,
-    borderLeftWidth: 3,
-    borderLeftColor: palette.lineStrong,
-    borderColor: palette.line,
-    backgroundColor: palette.surfaceSubtle,
-    paddingHorizontal: 13,
-    paddingVertical: 10,
-    flexDirection: "row",
-    alignItems: "center",
-    gap: 11,
-    overflow: "hidden"
-  },
   optionSelected: {
-    borderColor: palette.primaryStrong,
-    backgroundColor: palette.primarySoft
+    borderColor: VOTE_MODULE_ACCENT_LINE,
+    backgroundColor: VOTE_MODULE_ACCENT_SOFT
   },
-  optionLocked: { opacity: 0.58 },
-  optionHovered: { borderColor: "rgba(166, 176, 192, 0.34)", borderLeftColor: "rgba(166, 176, 192, 0.52)", backgroundColor: palette.surfaceRaised },
-  optionPressed: { transform: [{ scale: 0.995 }] },
+  optionLocked: { opacity: 0.52 },
+  optionHovered: { borderColor: "rgba(143, 184, 198, 0.38)", backgroundColor: "rgba(19, 34, 53, 0.56)" },
+  optionPressed: { opacity: 0.86 },
+  optionRail: {
+    position: "absolute",
+    top: 9,
+    bottom: 9,
+    left: 0,
+    width: 3,
+    backgroundColor: "rgba(143, 184, 198, 0.18)",
+    opacity: 0.6
+  },
+  optionRailSelected: { backgroundColor: VOTE_MODULE_ACCENT, opacity: 1 },
   optionCode: {
-    width: 24,
-    height: 24,
+    width: 27,
+    height: 27,
     borderRadius: radius.xs,
     alignItems: "center",
     justifyContent: "center",
     borderWidth: 1,
-    borderColor: palette.lineStrong
+    borderColor: "rgba(143, 184, 198, 0.24)",
+    backgroundColor: "rgba(8, 11, 16, 0.42)"
   },
   optionCodeText: { color: palette.muted, fontFamily: fontFamilySemibold, fontSize: 10 },
   optionCodeHovered: { borderColor: "rgba(199, 206, 216, 0.42)" },
   optionCodeTextHovered: { color: palette.inkSecondary },
-  optionText: { color: palette.inkSecondary, fontSize: 14, fontFamily: fontFamilyMedium, flex: 1 },
+  optionCodeSelected: { borderColor: VOTE_MODULE_ACCENT_LINE, backgroundColor: VOTE_MODULE_ACCENT_SOFT },
+  optionCodeTextSelected: { color: VOTE_MODULE_ACCENT },
+  optionText: { color: palette.inkSecondary, fontSize: 14, lineHeight: 19, fontFamily: fontFamilyMedium, flex: 1 },
   optionTextHovered: { color: palette.ink },
-  optionTextSelected: { color: palette.primaryStrong },
+  optionTextSelected: { color: VOTE_MODULE_ACCENT },
+  selectedMark: { width: 24, height: 24, borderRadius: radius.round, alignItems: "center", justifyContent: "center", backgroundColor: VOTE_MODULE_ACCENT },
+  footer: {
+    borderTopWidth: 1,
+    borderTopColor: "rgba(143, 184, 198, 0.16)",
+    paddingTop: 16,
+    alignItems: "center"
+  }
 });
