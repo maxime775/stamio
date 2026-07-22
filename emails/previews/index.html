@@ -1,0 +1,44 @@
+<!doctype html>
+<html lang="fr">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Stamio Email Previews</title>
+  <style>
+    body { margin: 0; background: #080B10; color: #FBFCFF; font-family: Arial, Helvetica, sans-serif; }
+    main { max-width: 1180px; margin: 0 auto; padding: 32px 16px 56px; }
+    h1 { margin: 0 0 8px; font-size: 30px; line-height: 36px; }
+    p { color: #D0CCD0; line-height: 24px; }
+    a { color: #FBFCFF; }
+    .grid { display: grid; gap: 28px; margin-top: 28px; }
+    .item { border: 1px solid #2A3848; background: #0D1219; border-radius: 16px; padding: 18px; }
+    .meta { display: grid; gap: 6px; margin-bottom: 14px; }
+    .type { color: #E0A526; font-size: 11px; letter-spacing: 1.1px; text-transform: uppercase; font-weight: 700; }
+    .subject { font-size: 18px; line-height: 24px; font-weight: 700; }
+    .preheader { color: #D0CCD0; font-size: 13px; line-height: 20px; }
+    .frames { display: flex; gap: 16px; align-items: flex-start; overflow-x: auto; padding-bottom: 4px; }
+    .frameBlock { flex: 0 0 auto; }
+    .label { color: #8C96A6; font-size: 11px; margin: 0 0 8px; text-transform: uppercase; letter-spacing: 0.8px; }
+    iframe { display: block; height: 720px; border: 1px solid #2A3848; border-radius: 14px; background: #080B10; }
+    .desktop { width: 680px; }
+    .mobile { width: 390px; }
+    @media (max-width: 760px) { .desktop { width: 600px; } iframe { height: 680px; } }
+  </style>
+</head>
+<body>
+  <main>
+    <h1>Stamio Email Previews</h1>
+    <p>Pass 1 visual gallery. Each preview uses fake values; final templates keep their Supabase or transactional variables.</p>
+    <div class="grid">
+      <section class="item"><div class="meta"><div class="type">Supabase Auth</div><div class="subject">Bienvenue chez Stamio</div><div class="preheader">Finalisez votre inscription et prenez part aux débats. <a href="confirmation-preview.html">Open standalone</a></div></div><div class="frames"><div class="frameBlock"><div class="label">Desktop</div><iframe class="desktop" src="confirmation-preview.html"></iframe></div><div class="frameBlock"><div class="label">Mobile</div><iframe class="mobile" src="confirmation-preview.html"></iframe></div></div></section>
+      <section class="item"><div class="meta"><div class="type">Supabase Auth</div><div class="subject">Réinitialisez votre mot de passe — Stamio</div><div class="preheader">Utilisez ce lien sécurisé pour choisir un nouveau mot de passe. <a href="recovery-preview.html">Open standalone</a></div></div><div class="frames"><div class="frameBlock"><div class="label">Desktop</div><iframe class="desktop" src="recovery-preview.html"></iframe></div><div class="frameBlock"><div class="label">Mobile</div><iframe class="mobile" src="recovery-preview.html"></iframe></div></div></section>
+      <section class="item"><div class="meta"><div class="type">Supabase Auth</div><div class="subject">Votre lien de connexion — Stamio</div><div class="preheader">Connectez-vous à Stamio avec ce lien sécurisé. <a href="magic-link-preview.html">Open standalone</a></div></div><div class="frames"><div class="frameBlock"><div class="label">Desktop</div><iframe class="desktop" src="magic-link-preview.html"></iframe></div><div class="frameBlock"><div class="label">Mobile</div><iframe class="mobile" src="magic-link-preview.html"></iframe></div></div></section>
+      <section class="item"><div class="meta"><div class="type">Supabase Auth</div><div class="subject">Confirmez votre nouvelle adresse email — Stamio</div><div class="preheader">Validez cette adresse pour mettre à jour votre compte. <a href="change-email-preview.html">Open standalone</a></div></div><div class="frames"><div class="frameBlock"><div class="label">Desktop</div><iframe class="desktop" src="change-email-preview.html"></iframe></div><div class="frameBlock"><div class="label">Mobile</div><iframe class="mobile" src="change-email-preview.html"></iframe></div></div></section>
+      <section class="item"><div class="meta"><div class="type">Supabase Auth</div><div class="subject">Vous êtes invité à rejoindre Stamio</div><div class="preheader">Créez votre compte pour accéder à Stamio. <a href="invite-preview.html">Open standalone</a></div></div><div class="frames"><div class="frameBlock"><div class="label">Desktop</div><iframe class="desktop" src="invite-preview.html"></iframe></div><div class="frameBlock"><div class="label">Mobile</div><iframe class="mobile" src="invite-preview.html"></iframe></div></div></section>
+      <section class="item"><div class="meta"><div class="type">Supabase Auth</div><div class="subject">Confirmez cette action — Stamio</div><div class="preheader">Une confirmation est nécessaire pour continuer. <a href="reauthentication-preview.html">Open standalone</a></div></div><div class="frames"><div class="frameBlock"><div class="label">Desktop</div><iframe class="desktop" src="reauthentication-preview.html"></iframe></div><div class="frameBlock"><div class="label">Mobile</div><iframe class="mobile" src="reauthentication-preview.html"></iframe></div></div></section>
+      <section class="item"><div class="meta"><div class="type">Security source template</div><div class="subject">Votre mot de passe a été modifié — Stamio</div><div class="preheader">Notification de sécurité concernant votre compte Stamio. <a href="password-changed-preview.html">Open standalone</a></div></div><div class="frames"><div class="frameBlock"><div class="label">Desktop</div><iframe class="desktop" src="password-changed-preview.html"></iframe></div><div class="frameBlock"><div class="label">Mobile</div><iframe class="mobile" src="password-changed-preview.html"></iframe></div></div></section>
+      <section class="item"><div class="meta"><div class="type">Transactional</div><div class="subject">Votre participation a bien été comptabilisée — Stamio</div><div class="preheader">Votre avis a été enregistré dans les résultats agrégés. <a href="vote-confirmation-preview.html">Open standalone</a></div></div><div class="frames"><div class="frameBlock"><div class="label">Desktop</div><iframe class="desktop" src="vote-confirmation-preview.html"></iframe></div><div class="frameBlock"><div class="label">Mobile</div><iframe class="mobile" src="vote-confirmation-preview.html"></iframe></div></div></section>
+    </div>
+  </main>
+</body>
+</html>
