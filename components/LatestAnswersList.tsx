@@ -3,7 +3,7 @@ import { useRouter, type Href } from "expo-router";
 import { EmptyState } from "@/components/EmptyState";
 import { getThemeLabel } from "@/lib/product";
 import type { UserPollAnswer } from "@/lib/types";
-import { fontFamilyBold, fontFamilyMedium, fontFamilySemibold, palette } from "@/lib/design";
+import { fontFamilyBold, fontFamilyMedium, fontFamilySemibold, getThemeTagStyle, palette } from "@/lib/design";
 
 type Props = {
   answers: UserPollAnswer[];
@@ -33,7 +33,7 @@ export function LatestAnswersList({ answers }: Props) {
           style={({ pressed }) => StyleSheet.flatten([styles.row, pressed && styles.pressed])}
         >
           <View style={styles.rowMain}>
-            <Text style={styles.theme}>{getThemeLabel(answer.polls?.theme ?? undefined)}</Text>
+            <Text style={StyleSheet.flatten([styles.theme, getThemeTagStyle(answer.polls?.theme ?? undefined)])}>{getThemeLabel(answer.polls?.theme ?? undefined)}</Text>
             <Text style={styles.question}>{answer.polls?.question ?? "Question indisponible"}</Text>
             <Text style={styles.date}>{new Date(answer.created_at).toLocaleDateString("fr-FR")}</Text>
           </View>

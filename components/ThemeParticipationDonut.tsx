@@ -4,7 +4,7 @@ import Svg, { Circle, Defs, G, Mask } from "react-native-svg";
 import { getThemeLabel } from "@/lib/product";
 import { useReducedMotion } from "@/lib/useReducedMotion";
 import type { AccountThemeParticipation } from "@/lib/types";
-import { fontFamilyBold, fontFamilyMedium, fontFamilySemibold, palette, themeVisuals } from "@/lib/design";
+import { fontFamilyBold, fontFamilyMedium, fontFamilySemibold, getThemeColor, palette } from "@/lib/design";
 
 type Props = {
   items: AccountThemeParticipation[];
@@ -19,7 +19,7 @@ const AnimatedCircle = Animated.createAnimatedComponent(Circle);
 export const ThemeParticipationDonut = memo(function ThemeParticipationDonut({ items }: Props) {
   const orderedItems = useMemo(() => items.map((item) => ({
     ...item,
-    color: themeVisuals[item.theme].accent,
+    color: getThemeColor(item.theme),
     label: item.label || getThemeLabel(item.theme)
   })), [items]);
   const total = useMemo(() => orderedItems.reduce((sum, item) => sum + item.count, 0), [orderedItems]);

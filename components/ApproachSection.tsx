@@ -1,6 +1,6 @@
 import { memo, useEffect, useMemo, useRef, useState } from "react";
 import { Animated, Easing, Platform, StyleSheet, Text, useWindowDimensions, View } from "react-native";
-import { fontFamilyBold, fontFamilyMedium, fontFamilySemibold, palette, radius, themeVisuals } from "@/lib/design";
+import { STAMIO_CORE_COLORS, fontFamilyBold, fontFamilyMedium, fontFamilySemibold, palette, radius } from "@/lib/design";
 import { useReducedMotion } from "@/lib/useReducedMotion";
 
 const SECTION_TITLE = "Notre approche";
@@ -10,7 +10,7 @@ const ITEMS = [
   { title: "La réflexion au centre", text: "Les questions peuvent être accompagnées de ressources et d’éléments de contexte pour encourager chacun à s’interroger plus en profondeur sur les enjeux du sujet. Avoir un avis est légitime ; prendre le temps de le confronter, de le nuancer ou de le faire évoluer l’est tout autant." },
   { title: "Suivre l’évolution du signal", text: "Les sujets évoluent, les arguments convainquent ou se renversent, les positions changent. Stamio permet de mettre les avis en perspective et d’observer la manière dont les points de vue se transforment ou se consolident au fil du débat." }
 ];
-const EDITORIAL_AMBER = themeVisuals.economie.accent;
+const EDITORIAL_AMBER = STAMIO_CORE_COLORS.editorialAmber;
 const EDITORIAL_TURQUOISE = palette.primaryStrong;
 const STEP_HOVER_COLORS = [EDITORIAL_TURQUOISE, EDITORIAL_AMBER, EDITORIAL_TURQUOISE, EDITORIAL_AMBER] as const;
 

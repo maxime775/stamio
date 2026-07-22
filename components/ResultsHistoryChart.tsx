@@ -1,8 +1,9 @@
-import { memo, useMemo, useState } from "react";
-import { Platform, StyleSheet, Text, View, type GestureResponderEvent, type ViewProps } from "react-native";
-import Svg, { Circle, Line, Path, Text as SvgText } from "react-native-svg";
-import { choiceColors, fontFamily, fontFamilyMedium, fontFamilySemibold, palette, radius } from "@/lib/design";
+import { memo, useEffect, useMemo, useState } from "react";
+import { Animated, Easing, Platform, StyleSheet, Text, View, type GestureResponderEvent, type ViewProps } from "react-native";
+import Svg, { Circle, G, Line, Path, Text as SvgText } from "react-native-svg";
+import { fontFamily, fontFamilyMedium, fontFamilySemibold, getAnswerColor, palette, radius } from "@/lib/design";
 import type { PollHistoryPoint } from "@/lib/types";
+import { useReducedMotion } from "@/lib/useReducedMotion";
 
 type Props = { history: PollHistoryPoint[]; containerHeight?: number };
 type WebMouseEvent = {
@@ -18,12 +19,15 @@ const CARD_HEADING_GAP = 8;
 const TOOLTIP_ESTIMATED_WIDTH = 180;
 const WEB_HIT_DISTANCE = 18;
 const TOUCH_HIT_DISTANCE = 30;
+const AnimatedCircle = Animated.createAnimatedComponent(Circle);
 
 export const ResultsHistoryChart = memo(function ResultsHistoryChart({ history, containerHeight }: Props) {
   const [width, setWidth] = useState(720);
   const [headingHeight, setHeadingHeight] = useState(0);
   const [legendHeight, setLegendHeight] = useState(0);
   const [activeIndex, setActiveIndex] = useState<number | null>(null);
+  const reducedMotion = useReducedMotion();
+  const latestPulse = useMemo(() => new Animated.Value(0), []);
   const availableChartHeight = containerHeight && headingHeight
     ? containerHeight - headingHeight - legendHeight - CARD_VERTICAL_PADDING - CARD_HEADING_GAP
     : MIN_CHART_HEIGHT;
@@ -45,6 +49,31 @@ export const ResultsHistoryChart = memo(function ResultsHistoryChart({ history, 
   const selectedPoints = selectedTimestamp ? byTimestamp.get(selectedTimestamp) ?? [] : [];
   const activeX = activeIndex === null ? null : xForIndex(activeIndex);
   const xTickIndexes = [...new Set([0, Math.floor((timestamps.length - 1) / 2), timestamps.length - 1])].filter((index) => index >= 0 && index < timestamps.length);
+
+  useEffect(() => {
+    latestPulse.stopAnimation();
+    if (reducedMotion) {
+      latestPulse.setValue(0.42);
+      return undefined;
+    }
+    let running = true;
+    function pulse() {
+      latestPulse.setValue(0);
+      Animated.timing(latestPulse, {
+        toValue: 1,
+        duration: 1750,
+        easing: Easing.out(Easing.cubic),
+        useNativeDriver: false
+      }).start(({ finished }) => {
+        if (finished && running) pulse();
+      });
+    }
+    pulse();
+    return () => {
+      running = false;
+      latestPulse.stopAnimation();
+    };
+  }, [latestPulse, reducedMotion]);
 
   function selectNear(locationX: number, locationY: number, threshold: number) {
     if (timestamps.length === 0 || locationX < pad.left || locationX > width - pad.right || locationY < pad.top || locationY > chartHeight - pad.bottom) {
@@ -115,14 +144,33 @@ export const ResultsHistoryChart = memo(function ResultsHistoryChart({ history, 
             {[0, 50, 100].map((tick) => <SvgText key={tick} x={4} y={yFor(tick) + 4} fill="#718096" fontFamily={fontFamily} fontSize={11}>{tick}%</SvgText>)}
             {xTickIndexes.map((index) => <SvgText key={timestamps[index]} x={xForIndex(index)} y={chartHeight - 9} textAnchor={index === 0 ? "start" : index === timestamps.length - 1 ? "end" : "middle"} fill={palette.muted} fontFamily={fontFamily} fontSize={10}>{new Date(timestamps[index]).toLocaleDateString("fr-FR", { day: "2-digit", month: "short" })}</SvgText>)}
             {series.map((points, index) => {
-              const color = choiceColors[index % choiceColors.length];
+              const color = getAnswerColor(index, points[0]?.label);
               const path = points.map((point, pointIndex) => `${pointIndex === 0 ? "M" : "L"}${xFor(point.captured_at)},${yFor(point.percentage)}`).join(" ");
               return <Path key={points[0]?.choice_id} d={path} fill="none" stroke={color} strokeWidth={2.2} strokeLinecap="round" strokeLinejoin="round" />;
+            })}
+            {series.map((points, index) => {
+              const latest = points[points.length - 1];
+              if (!latest) return null;
+              const color = getAnswerColor(index, latest.label);
+              const cx = xFor(latest.captured_at);
+              const cy = yFor(latest.percentage);
+              return (
+                <G key={`${latest.choice_id}-latest`}>
+                  <AnimatedCircle
+                    cx={cx}
+                    cy={cy}
+                    r={latestPulse.interpolate({ inputRange: [0, 1], outputRange: [4.5, 11.5] })}
+                    fill={color}
+                    opacity={latestPulse.interpolate({ inputRange: [0, 1], outputRange: [0.24, 0] })}
+                  />
+                  <Circle cx={cx} cy={cy} r={4.2} fill={color} stroke={palette.surface} strokeWidth={1.4} />
+                </G>
+              );
             })}
             {activeX !== null ? <Line x1={activeX} x2={activeX} y1={pad.top} y2={chartHeight - pad.bottom} stroke="rgba(220,229,255,0.48)" strokeWidth={1} strokeDasharray="4 5" /> : null}
             {selectedPoints.map((point) => {
               const seriesIndex = series.findIndex((points) => points[0]?.choice_id === point.choice_id);
-              return <Circle key={point.choice_id} cx={activeX ?? 0} cy={yFor(point.percentage)} r={3.5} fill={choiceColors[Math.max(0, seriesIndex) % choiceColors.length]} stroke={palette.surface} strokeWidth={1.5} />;
+              return <Circle key={point.choice_id} cx={activeX ?? 0} cy={yFor(point.percentage)} r={3.5} fill={getAnswerColor(Math.max(0, seriesIndex), point.label)} stroke={palette.surface} strokeWidth={1.5} />;
             })}
           </Svg>
           {history.length === 0 ? <View pointerEvents="none" style={styles.emptyOverlay}><Text style={styles.emptyText}>L'historique apparaitra apres les premiers votes.</Text></View> : null}
@@ -145,7 +193,7 @@ export const ResultsHistoryChart = memo(function ResultsHistoryChart({ history, 
                 const seriesIndex = series.findIndex((points) => points[0]?.choice_id === point.choice_id);
                 return (
                   <View key={point.choice_id} style={styles.tooltipRow}>
-                    <View style={StyleSheet.flatten([styles.tooltipDot, { backgroundColor: choiceColors[Math.max(0, seriesIndex) % choiceColors.length] }])} />
+                    <View style={StyleSheet.flatten([styles.tooltipDot, { backgroundColor: getAnswerColor(Math.max(0, seriesIndex), point.label) }])} />
                     <Text numberOfLines={1} style={styles.tooltipLabel}>{point.label}</Text>
                     <Text style={styles.tooltipValue}>{Math.round(point.percentage)}%</Text>
                   </View>
@@ -158,7 +206,7 @@ export const ResultsHistoryChart = memo(function ResultsHistoryChart({ history, 
           const nextHeight = Math.ceil(event.nativeEvent.layout.height);
           setLegendHeight((current) => current === nextHeight ? current : nextHeight);
         }}>
-          {series.map((points, index) => <View key={points[0]?.choice_id} style={styles.legendItem}><View style={StyleSheet.flatten([styles.legendLine, { backgroundColor: choiceColors[index % choiceColors.length] }])} /><Text style={styles.legendText}>{points[0]?.label}</Text></View>)}
+          {series.map((points, index) => <View key={points[0]?.choice_id} style={styles.legendItem}><View style={StyleSheet.flatten([styles.legendLine, { backgroundColor: getAnswerColor(index, points[0]?.label) }])} /><Text style={styles.legendText}>{points[0]?.label}</Text></View>)}
         </View>
       </View>
     </View>

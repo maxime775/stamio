@@ -1,7 +1,7 @@
 import { useEffect, useRef } from "react";
 import { Animated, StyleSheet, Text, View } from "react-native";
 import type { PollResult } from "@/lib/types";
-import { fontFamilyBold, fontFamilyMedium, fontFamilySemibold, palette, radius } from "@/lib/design";
+import { fontFamilyBold, fontFamilyMedium, fontFamilySemibold, getAnswerColor, palette, radius } from "@/lib/design";
 
 type Props = {
   results: PollResult[];
@@ -17,15 +17,15 @@ export function ResultsBars({ results }: Props) {
         <Text style={styles.total}>{total} vote{total > 1 ? "s" : ""}</Text>
       </View>
       <View style={styles.rows}>
-        {results.map((result) => (
-          <ResultRow key={result.choice_id} result={result} total={total} />
+        {results.map((result, index) => (
+          <ResultRow key={result.choice_id} result={result} total={total} color={getAnswerColor(index, result.label)} />
         ))}
       </View>
     </View>
   );
 }
 
-function ResultRow({ result, total }: { result: PollResult; total: number }) {
+function ResultRow({ result, total, color }: { result: PollResult; total: number; color: string }) {
   const progress = total === 0 ? 0 : result.votes / total;
   const width = useRef(new Animated.Value(0)).current;
 
@@ -54,7 +54,8 @@ function ResultRow({ result, total }: { result: PollResult; total: number }) {
             width: width.interpolate({
               inputRange: [0, 1],
               outputRange: ["0%", "100%"]
-            }) as unknown as `${number}%`
+            }) as unknown as `${number}%`,
+            backgroundColor: color
           }}
         />
       </View>

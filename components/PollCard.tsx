@@ -2,11 +2,9 @@ import { useState, type ReactNode } from "react";
 import { Pressable, StyleSheet, Text, View } from "react-native";
 import { Check } from "lucide-react-native";
 import type { Poll } from "@/lib/types";
-import { fontFamilyMedium, fontFamilySemibold, palette, radius } from "@/lib/design";
+import { STAMIO_CORE_COLORS, fontFamilyMedium, fontFamilySemibold, getAnswerBackgroundColor, getAnswerColor, getColorWithOpacity, palette, radius } from "@/lib/design";
 
-const VOTE_MODULE_ACCENT = "#D18A7E";
-const VOTE_MODULE_ACCENT_SOFT = "rgba(209, 138, 126, 0.14)";
-const VOTE_MODULE_ACCENT_LINE = "rgba(209, 138, 126, 0.42)";
+const VOTE_MODULE_ACCENT = STAMIO_CORE_COLORS.editorialAmber;
 
 type Props = {
   poll: Poll;
@@ -33,6 +31,9 @@ export function PollCard({ poll, selectedChoiceId, onSelectChoice, locked = fals
         {poll.choices.map((choice, index) => {
           const selected = selectedChoiceId === choice.id;
           const hovered = hoveredChoiceId === choice.id && !selected && !locked;
+          const answerColor = getAnswerColor(index, choice.label);
+          const answerBorderColor = getColorWithOpacity(answerColor, selected ? 0.72 : 0.52);
+          const answerBackgroundColor = getAnswerBackgroundColor(index, choice.label, selected ? 0.16 : 0.12);
           return (
             <Pressable
               key={choice.id}
@@ -47,16 +48,23 @@ export function PollCard({ poll, selectedChoiceId, onSelectChoice, locked = fals
                 StyleSheet.flatten([
                   styles.option,
                   hovered && styles.optionHovered,
+                  hovered && { borderColor: answerBorderColor, backgroundColor: answerBackgroundColor },
                   selected && styles.optionSelected,
+                  selected && { borderColor: answerBorderColor, backgroundColor: answerBackgroundColor },
                   locked && !selected && styles.optionLocked,
                   pressed && !locked && styles.optionPressed
                 ])
               }
             >
-              <View style={StyleSheet.flatten([styles.optionRail, selected && styles.optionRailSelected])} />
-              <View style={StyleSheet.flatten([styles.optionCode, hovered && styles.optionCodeHovered, selected && styles.optionCodeSelected])}><Text style={StyleSheet.flatten([styles.optionCodeText, hovered && styles.optionCodeTextHovered, selected && styles.optionCodeTextSelected])}>{String.fromCharCode(65 + index)}</Text></View>
-              <Text style={StyleSheet.flatten([styles.optionText, hovered && styles.optionTextHovered, selected && styles.optionTextSelected])}>{choice.label}</Text>
-              {selected ? <View style={styles.selectedMark}><Check size={13} color={palette.canvas} /></View> : null}
+              <View style={StyleSheet.flatten([styles.optionRail, (hovered || selected) && { backgroundColor: answerColor, opacity: selected ? 1 : 0.72 }])} />
+              <View style={StyleSheet.flatten([
+                styles.optionCode,
+                hovered && styles.optionCodeHovered,
+                selected && styles.optionCodeSelected,
+                (hovered || selected) && { borderColor: answerBorderColor, backgroundColor: getAnswerBackgroundColor(index, choice.label, selected ? 0.18 : 0.12) }
+              ])}><Text style={StyleSheet.flatten([styles.optionCodeText, (hovered || selected) && { color: answerColor }])}>{String.fromCharCode(65 + index)}</Text></View>
+              <Text style={StyleSheet.flatten([styles.optionText, hovered && styles.optionTextHovered, selected && styles.optionTextSelected, (hovered || selected) && { color: answerColor }])}>{choice.label}</Text>
+              {selected ? <View style={StyleSheet.flatten([styles.selectedMark, { backgroundColor: answerColor }])}><Check size={13} color={palette.canvas} /></View> : null}
             </Pressable>
           );
         })}
@@ -88,7 +96,7 @@ const styles = StyleSheet.create({
   kicker: { color: VOTE_MODULE_ACCENT, fontFamily: fontFamilySemibold, fontSize: 9, lineHeight: 12, textTransform: "uppercase", letterSpacing: 1.1, textAlign: "right", flexShrink: 0, paddingBottom: 3 },
   title: { color: palette.ink, fontFamily: fontFamilySemibold, fontSize: 20, lineHeight: 25 },
   hint: { color: palette.muted, fontSize: 11, lineHeight: 16 },
-  headingRule: { height: 1, backgroundColor: "rgba(143, 184, 198, 0.14)" },
+  headingRule: { height: 1, backgroundColor: STAMIO_CORE_COLORS.text, opacity: 0.24 },
   options: { gap: 10 },
   option: {
     position: "relative",
@@ -104,10 +112,7 @@ const styles = StyleSheet.create({
     gap: 14,
     overflow: "hidden"
   },
-  optionSelected: {
-    borderColor: VOTE_MODULE_ACCENT_LINE,
-    backgroundColor: VOTE_MODULE_ACCENT_SOFT
-  },
+  optionSelected: {},
   optionLocked: { opacity: 0.52 },
   optionHovered: { borderColor: "rgba(143, 184, 198, 0.38)", backgroundColor: "rgba(19, 34, 53, 0.56)" },
   optionPressed: { opacity: 0.86 },
@@ -120,7 +125,7 @@ const styles = StyleSheet.create({
     backgroundColor: "rgba(143, 184, 198, 0.18)",
     opacity: 0.6
   },
-  optionRailSelected: { backgroundColor: VOTE_MODULE_ACCENT, opacity: 1 },
+  optionRailSelected: { opacity: 1 },
   optionCode: {
     width: 27,
     height: 27,
@@ -134,11 +139,11 @@ const styles = StyleSheet.create({
   optionCodeText: { color: palette.muted, fontFamily: fontFamilySemibold, fontSize: 10 },
   optionCodeHovered: { borderColor: "rgba(199, 206, 216, 0.42)" },
   optionCodeTextHovered: { color: palette.inkSecondary },
-  optionCodeSelected: { borderColor: VOTE_MODULE_ACCENT_LINE, backgroundColor: VOTE_MODULE_ACCENT_SOFT },
-  optionCodeTextSelected: { color: VOTE_MODULE_ACCENT },
+  optionCodeSelected: {},
+  optionCodeTextSelected: {},
   optionText: { color: palette.inkSecondary, fontSize: 14, lineHeight: 19, fontFamily: fontFamilyMedium, flex: 1 },
   optionTextHovered: { color: palette.ink },
-  optionTextSelected: { color: VOTE_MODULE_ACCENT },
+  optionTextSelected: {},
   selectedMark: { width: 24, height: 24, borderRadius: radius.round, alignItems: "center", justifyContent: "center", backgroundColor: VOTE_MODULE_ACCENT },
   footer: {
     borderTopWidth: 1,

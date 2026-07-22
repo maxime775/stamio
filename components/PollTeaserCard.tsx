@@ -3,7 +3,7 @@ import { Animated, Easing, Pressable, StyleSheet, Text, View } from "react-nativ
 import { useRouter, type Href } from "expo-router";
 import { ArrowRight, TrendingUp } from "lucide-react-native";
 import { getThemeLabel } from "@/lib/product";
-import { getThemeVisual, fontFamilyBold, fontFamilyMedium, fontFamilySemibold, palette, radius } from "@/lib/design";
+import { getThemeTagStyle, getThemeVisual, fontFamilyBold, fontFamilyMedium, fontFamilySemibold, palette, radius } from "@/lib/design";
 import { PollTimer } from "@/components/PollTimer";
 import { prefetchPollDetail } from "@/lib/api";
 import type { PollWithStats } from "@/lib/types";
@@ -121,7 +121,7 @@ export const PollTeaserCard = memo(function PollTeaserCard({ poll, compact = fal
         <Animated.View style={StyleSheet.flatten([styles.topRule, { backgroundColor: theme.accent, opacity: topRuleOpacity }])} />
         {showBottomHoverRule ? <Animated.View style={StyleSheet.flatten([styles.bottomRule, { backgroundColor: theme.accent, transform: [{ translateX: bottomRuleTranslateX }] }])} /> : null}
       <View style={styles.top}>
-        <Text style={StyleSheet.flatten([styles.theme, { color: theme.accent }])}>{getThemeLabel(poll.theme)}</Text>
+        <Text style={StyleSheet.flatten([styles.theme, getThemeTagStyle(poll.theme)])}>{getThemeLabel(poll.theme)}</Text>
         {poll.trend_label ? (
           <View style={styles.trend}>
             <TrendingUp size={12} color="#C7B58B" />

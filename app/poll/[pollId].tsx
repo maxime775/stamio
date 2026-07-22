@@ -16,7 +16,7 @@ import { SkeletonPoll } from "@/components/SkeletonPoll";
 import { useAuth } from "@/components/AuthProvider";
 import { fetchPoll, getCachedPoll, getCachedResults, getCachedResultsHistory, getResults, getResultsHistory, getUserPollAnswer } from "@/lib/api";
 import { getPollDescription, getThemeLabel } from "@/lib/product";
-import { fontFamilyBold, fontFamilyMedium, fontFamilySemibold, getThemeVisual, palette, radius } from "@/lib/design";
+import { STAMIO_CORE_COLORS, fontFamilyBold, fontFamilyMedium, fontFamilySemibold, getColorWithOpacity, getThemeTagStyle, palette, radius } from "@/lib/design";
 import type { Poll, PollHistoryPoint, PollResource, PollResult, VoteStatus } from "@/lib/types";
 
 export default function PollScreen() {
@@ -178,7 +178,7 @@ export default function PollScreen() {
             <Animated.View style={StyleSheet.flatten([styles.contentStack, { opacity: fade as unknown as number }])}>
               <View style={styles.hero}>
                 <View style={styles.metaRow}>
-                  <Text style={StyleSheet.flatten([styles.theme, { color: getThemeVisual(poll.theme).accent }])}>{getThemeLabel(poll.theme)}</Text>
+                  <Text style={StyleSheet.flatten([styles.theme, getThemeTagStyle(poll.theme)])}>{getThemeLabel(poll.theme)}</Text>
                   <View style={styles.timerGroup}>
                     <Text style={styles.timerLabel}>Clôture dans</Text>
                     <PollTimer poll={poll} style={styles.timer} />
@@ -366,8 +366,9 @@ function mergeCurrentResultsIntoHistory(history: PollHistoryPoint[], results: Po
 
 type VoteSubmitButtonStatus = "empty" | "ready" | "loading" | "accepted" | "alreadyParticipated";
 
-const VOTE_CTA_BORDER = "rgba(209, 138, 126, 0.54)";
-const VOTE_CTA_FILL = "#A65F56";
+const VOTE_CTA_ACCENT = STAMIO_CORE_COLORS.editorialAmber;
+const VOTE_CTA_BORDER = getColorWithOpacity(VOTE_CTA_ACCENT, 0.56);
+const VOTE_CTA_FILL = VOTE_CTA_ACCENT;
 
 function VoteSubmitButton({ disabled, label, status, onPress }: {
   disabled: boolean;
@@ -378,7 +379,7 @@ function VoteSubmitButton({ disabled, label, status, onPress }: {
   const fill = useMemo(() => new Animated.Value(0), []);
   const actionable = status === "ready" && !disabled;
   const terminal = status === "accepted" || status === "alreadyParticipated";
-  const iconColor = actionable ? "#FBFCFF" : "rgba(251, 252, 255, 0.45)";
+  const iconColor = actionable ? palette.canvas : "rgba(251, 252, 255, 0.45)";
 
   function animate(toValue: number) {
     if (!actionable) return;
@@ -555,7 +556,7 @@ const styles = StyleSheet.create({
   voteButtonIcon: { width: 18, height: 18, alignItems: "center", justifyContent: "center" },
   voteButtonInactive: { backgroundColor: "rgba(16, 24, 33, 0.42)", borderColor: "rgba(143, 184, 198, 0.14)", shadowOpacity: 0 },
   voteButtonTerminal: { backgroundColor: "rgba(16, 24, 33, 0.5)", borderColor: "rgba(251, 252, 255, 0.15)", shadowOpacity: 0 },
-  voteButtonText: { color: "#FBFCFF", fontFamily: fontFamilySemibold, fontSize: 14, lineHeight: 18, letterSpacing: 0.15 },
+  voteButtonText: { color: palette.canvas, fontFamily: fontFamilySemibold, fontSize: 14, lineHeight: 18, letterSpacing: 0.15 },
   voteButtonDisabledText: { color: "rgba(251, 252, 255, 0.45)" },
   closedBox: {
     borderRadius: radius.sm,

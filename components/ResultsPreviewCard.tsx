@@ -4,7 +4,7 @@ import { useRouter, type Href } from "expo-router";
 import { ArrowRight } from "lucide-react-native";
 import { ResultsDonutSummary } from "@/components/ResultsDonutSummary";
 import { getThemeLabel } from "@/lib/product";
-import { fontFamilyBold, fontFamilyMedium, fontFamilySemibold, getThemeVisual, palette, radius } from "@/lib/design";
+import { fontFamilyBold, fontFamilyMedium, fontFamilySemibold, getAnswerColor, getThemeTagStyle, getThemeVisual, palette, radius } from "@/lib/design";
 import { PollTimer } from "@/components/PollTimer";
 import { prefetchPollDetail } from "@/lib/api";
 import type { PollWithStats } from "@/lib/types";
@@ -26,8 +26,9 @@ export const ResultsPreviewCard = memo(function ResultsPreviewCard({ poll }: Pro
   const tooltipRows = useMemo(() => {
     const results = poll.results ?? [];
     const total = results.reduce((sum, result) => sum + result.votes, 0);
-    return results.map((result) => ({
+    return results.map((result, index) => ({
       ...result,
+      color: getAnswerColor(index, result.label),
       percentage: total > 0 ? Math.round((result.votes / total) * 100) : 0
     }));
   }, [poll.results]);
@@ -47,7 +48,7 @@ export const ResultsPreviewCard = memo(function ResultsPreviewCard({ poll }: Pro
     <View style={styles.card}>
       <View style={StyleSheet.flatten([styles.topRule, { backgroundColor: visual.accent }])} />
       <View style={styles.metaRow}>
-        <Text style={StyleSheet.flatten([styles.theme, { color: visual.accent }])}>{getThemeLabel(poll.theme)}</Text>
+        <Text style={StyleSheet.flatten([styles.theme, getThemeTagStyle(poll.theme)])}>{getThemeLabel(poll.theme)}</Text>
         <View style={styles.dates}><PollTimer poll={poll} style={styles.timer} /><Text style={styles.date}>{date}</Text></View>
       </View>
       <Text style={styles.question}>{poll.question}</Text>
@@ -70,6 +71,7 @@ export const ResultsPreviewCard = memo(function ResultsPreviewCard({ poll }: Pro
               <View style={styles.tooltipRule} />
               {tooltipRows.map((result) => (
                 <View key={result.choice_id} style={styles.tooltipRow}>
+                  <View style={StyleSheet.flatten([styles.tooltipDot, { backgroundColor: result.color }])} />
                   <Text numberOfLines={1} style={styles.tooltipLabel}>{result.label}</Text>
                   <Text style={styles.tooltipValue}>{result.percentage}%</Text>
                 </View>
@@ -166,6 +168,7 @@ const styles = StyleSheet.create({
   tooltipDate: { color: palette.ink, fontFamily: fontFamilySemibold, fontSize: 10, textAlign: "center" },
   tooltipRule: { width: 34, height: 1, backgroundColor: palette.lineStrong, alignSelf: "center", marginBottom: 2 },
   tooltipRow: { flexDirection: "row", alignItems: "center", justifyContent: "space-between", gap: 10 },
+  tooltipDot: { width: 5, height: 5, borderRadius: 1, flexShrink: 0 },
   tooltipLabel: { color: palette.inkSecondary, maxWidth: 116, fontSize: 10 },
   tooltipValue: { color: palette.ink, fontFamily: fontFamilySemibold, fontSize: 11, fontVariant: ["tabular-nums"] },
   link: { minHeight: 30, borderRadius: radius.sm, borderWidth: 1, borderColor: "transparent", paddingHorizontal: 10, flexDirection: "row", alignItems: "center", gap: 6, alignSelf: "flex-start", overflow: "hidden" },

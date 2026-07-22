@@ -2,10 +2,10 @@ import { useEffect, useMemo, useRef, useState, type ReactNode } from "react";
 import { Animated, Easing, Platform, Pressable, StyleSheet, Text, useWindowDimensions, View } from "react-native";
 import { useRouter, type Href } from "expo-router";
 import { PageShell } from "@/components/PageShell";
-import { fontFamilyBold, fontFamilyMedium, fontFamilySemibold, palette, radius, themeVisuals } from "@/lib/design";
+import { STAMIO_CORE_COLORS, fontFamilyBold, fontFamilyMedium, fontFamilySemibold, palette, radius } from "@/lib/design";
 import { useReducedMotion } from "@/lib/useReducedMotion";
 
-const AMBER = themeVisuals.economie.accent;
+const AMBER = STAMIO_CORE_COLORS.editorialAmber;
 const TURQUOISE = palette.primaryStrong;
 
 const ABOUT_ANIMATION = {

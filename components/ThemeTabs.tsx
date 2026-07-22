@@ -4,7 +4,7 @@ import { useRouter, type Href } from "expo-router";
 import { THEMES } from "@/lib/product";
 import { prefetchThemePolls } from "@/lib/api";
 import type { ThemeSlug } from "@/lib/types";
-import { fontFamilyMedium, fontFamilySemibold, getThemeVisual, palette } from "@/lib/design";
+import { ALL_THEMES_TAB_COLOR, fontFamilyMedium, fontFamilySemibold, getThemeVisual, palette } from "@/lib/design";
 
 type Props = {
   active?: ThemeSlug | "all";
@@ -47,7 +47,7 @@ export function ThemeTabs({ active = "all", includeAll = false, onSelect }: Prop
 function ThemeTabItem({ label, slug, selected, onSelect }: { label: string; slug: ThemeSlug | "all"; selected: boolean; onSelect: (slug: ThemeSlug | "all") => void }) {
   const [hovered, setHovered] = useState(false);
   const line = useMemo(() => new Animated.Value(selected ? 1 : 0), []);
-  const accent = slug === "all" ? palette.ink : getThemeVisual(slug).accent;
+  const accent = slug === "all" ? ALL_THEMES_TAB_COLOR : getThemeVisual(slug).accent;
   const highlighted = selected || hovered;
 
   useEffect(() => {

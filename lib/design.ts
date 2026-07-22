@@ -1,4 +1,21 @@
 import { StyleSheet, Text, TextInput, type StyleProp, type TextStyle } from "react-native";
+import {
+  ALL_THEMES_TAB_COLOR,
+  STAMIO_CORE_COLORS,
+  STAMIO_GLOBAL_UI_COLORS,
+  STAMIO_NEUTRAL_COLORS,
+  USE_EXTENDED_CATEGORY_PALETTE,
+  activeAnswerSeriesColors,
+  activeThemeVisuals,
+  getAnswerBackgroundColor,
+  getAnswerColor,
+  getColorWithOpacity,
+  getThemeBackgroundColor,
+  getThemeColor,
+  getThemeTagStyle,
+  getThemeVisual as getStamioThemeVisual,
+  type ThemeVisualConfig
+} from "@/lib/stamioColors";
 import type { ThemeSlug } from "@/lib/types";
 
 export const fontFamily = "Inter_400Regular";
@@ -54,8 +71,6 @@ type AuthField = {
   placeholderColor: string;
   separatorColor: string;
 };
-
-type ThemeVisualConfig = Record<ThemeSlug, { accent: string; soft: string; line: string }>;
 
 type ColorScheme = {
   palette: Palette;
@@ -447,10 +462,25 @@ export function configureGlobalTypography() {
   }
 }
 
-export const themeVisuals: ThemeVisualConfig = colorSchemes[ACTIVE_COLOR_SCHEME].themeVisuals;
+export {
+  ALL_THEMES_TAB_COLOR,
+  STAMIO_CORE_COLORS,
+  STAMIO_GLOBAL_UI_COLORS,
+  STAMIO_NEUTRAL_COLORS,
+  USE_EXTENDED_CATEGORY_PALETTE,
+  getAnswerBackgroundColor,
+  getAnswerColor,
+  getColorWithOpacity,
+  getThemeBackgroundColor,
+  getThemeColor,
+  getThemeTagStyle
+};
+
+export const themeVisuals: ThemeVisualConfig = activeThemeVisuals;
 
 export function getThemeVisual(theme?: ThemeSlug | null) {
-  return themeVisuals[theme ?? "societe"];
+  return getStamioThemeVisual(theme);
 }
 
-export const choiceColors = colorSchemes[ACTIVE_COLOR_SCHEME].choiceColors;
+export const choiceColors = activeAnswerSeriesColors;
+export const answerSeriesColors = activeAnswerSeriesColors;
