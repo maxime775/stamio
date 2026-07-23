@@ -25,15 +25,18 @@ Supabase Auth templates keep Supabase-compatible variables in the final HTML:
 
 The transactional vote confirmation template uses application/server-side placeholders for a later sending pass:
 
+- `{{ pseudo }}`
 - `{{ poll_title }}`
 - `{{ results_url }}`
-- `{{ support_email }}`
+- `{{ recipient_email }}`
 
 ## Supabase Configuration
 
 Copy the final HTML body from each `auth/*.html` file into the corresponding Supabase Auth email template screen when configuring Auth emails. Subjects are documented in the comments at the top of each file and in `previews/index.html`.
 
 This pass does not configure SMTP. A custom SMTP/provider should be configured and verified before production email sending. The post-vote transactional email requires a later server-side sender/provider implementation and must not be sent from the client.
+
+TODO for the later Supabase/Auth integration pass: configure the actual password reset / recovery link expiry to 15 minutes in the authentication provider/Supabase settings so that the email copy matches the real behavior.
 
 ## Logo Handling
 
