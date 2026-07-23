@@ -20,9 +20,11 @@ Upload the contents of `dist/` to the OVH web hosting document root. Upload the 
 
 The `.htaccess` file must be present at the OVH web root next to `index.html`. Expo export does not copy the root `.htaccess` into `dist/` automatically, so copy `.htaccess` into `dist/.htaccess` before upload or include it manually when uploading the exported files.
 
-The current `.htaccess` keeps real files and directories working, then falls back all client-side routes to `index.html`. This is required for direct navigation or refresh on routes such as `/themes`, `/results`, `/poll/<pollId>`, `/auth/reset-password`, `/account`, and `/about`.
+The canonical production domain is `https://stamio.fr`. The current `.htaccess` redirects `http://stamio.fr`, `http://www.stamio.fr`, and `https://www.stamio.fr` to `https://stamio.fr`.
 
-Do not add HTTPS redirection until OVH SSL is confirmed active for `stamio.fr`.
+These redirects are configured as temporary `302` redirects for the first deployment to avoid browser cache issues while testing. After validation, they can be changed to permanent `301` redirects.
+
+The current `.htaccess` keeps real files and directories working, then falls back all client-side routes to `index.html`. This is required for direct navigation or refresh on routes such as `/themes`, `/results`, `/poll/<pollId>`, `/auth/reset-password`, `/account`, and `/about`.
 
 ## Email Assets
 
