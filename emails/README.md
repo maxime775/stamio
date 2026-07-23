@@ -48,7 +48,18 @@ The app includes SVG logo assets and email-oriented PNG logo assets:
 - `assets/email/social-instagram@4x.png`
 - `assets/email/social-tiktok@4x.png`
 
-Email clients do not reliably support inline SVG. Use the PNG logo and social PNG icons for previews. Before production sending, host these PNG assets publicly and replace template image sources with verified HTTPS URLs, such as the intended paths documented in the confirmation template. Do not use local filesystem paths in production email HTML.
+Email clients do not reliably support inline SVG. Use the PNG logo and social PNG icons for previews. Production email templates expect these assets to be hosted under `/email-assets/`.
+
+Source assets are stored in `assets/email/`. Web-public copies are stored in `public/email-assets/` so Expo web export includes them in the static output.
+
+After web deployment, verify these public URLs before configuring Supabase Auth templates:
+
+- `https://stamio.fr/email-assets/stamio-logo-horizontal-email@4x.png`
+- `https://stamio.fr/email-assets/social-x@4x.png`
+- `https://stamio.fr/email-assets/social-instagram@4x.png`
+- `https://stamio.fr/email-assets/social-tiktok@4x.png`
+
+Do not use local filesystem paths in production email HTML.
 
 ## Privacy And Security Notes
 
