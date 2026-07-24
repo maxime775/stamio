@@ -8,14 +8,17 @@ import { RegionSelect } from "@/components/RegionSelect";
 import { ProfessionSelect } from "@/components/ProfessionSelect";
 import { REGIONS_FR } from "@/lib/product";
 import { checkUsernameAvailability, signUpUser } from "@/lib/api";
-import { formatFrenchMobilePhoneDisplay, normalizeFrenchMobilePhoneInput } from "@/lib/validation";
 import { getVisibleSignupError, isValidSignupUsername, normalizeSignupEmail, normalizeSignupUsername, touchAllSignupFields, validateSignup, type SignupField, type SignupTouched, type SignupValues } from "@/lib/signupValidation";
 import type { Sex } from "@/lib/types";
 import { authField, fontFamilyMedium, fontFamilySemibold, palette, radius } from "@/lib/design";
 
 type UsernameAvailability = "idle" | "checking" | "available" | "taken" | "invalid";
 
-export function SignupForm() {
+export function SignupForm({
+  phoneVerificationToken
+}: {
+  phoneVerificationToken: string;
+}) {
   const router = useRouter();
   const [email, setEmail] = useState("");
   const [confirmEmail, setConfirmEmail] = useState("");
@@ -27,13 +30,12 @@ export function SignupForm() {
   const [age, setAge] = useState("");
   const [profession, setProfession] = useState("");
   const [region, setRegion] = useState(REGIONS_FR[0]);
-  const [phone, setPhone] = useState("");
   const [touched, setTouched] = useState<SignupTouched>({});
   const [submitted, setSubmitted] = useState<SignupTouched>({});
   const [globalError, setGlobalError] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
 
-  const values: SignupValues = { email, confirmEmail, password, confirmPassword, username, sex, age, profession, region, phone };
+  const values: SignupValues = { email, confirmEmail, password, confirmPassword, username, sex, age, profession, region };
   const validationErrors = validateSignup(values);
 
   useEffect(() => {
@@ -97,8 +99,7 @@ export function SignupForm() {
       return;
     }
 
-    const normalizedPhone = normalizeFrenchMobilePhoneInput(phone);
-    if (!normalizedPhone.ok || !sex) return;
+    if (!sex) return;
     const normalizedEmail = normalizeSignupEmail(email);
     const normalizedUsername = normalizeSignupUsername(username);
     const parsedAge = Number(age);
@@ -120,7 +121,7 @@ export function SignupForm() {
       password,
       username: username.trim(),
       sex,
-      phoneLast4: normalizedPhone.value.replace(/\D/g, "").slice(-4),
+      phoneVerificationToken,
       age: parsedAge,
       profession,
       region
@@ -165,7 +166,6 @@ export function SignupForm() {
           <ProfessionSelect error={fieldError("profession")} value={profession} onBlur={() => touch("profession")} onChange={(value) => edit("profession", () => setProfession(value))} />
         </View>
         <RegionSelect error={fieldError("region")} value={region} onBlur={() => touch("region")} onChange={(value) => edit("region", () => setRegion(value))} />
-        <Field field="phone" label="Téléphone" error={fieldError("phone")} value={phone} onBlur={() => touch("phone")} onChangeText={(value) => edit("phone", () => setPhone(formatFrenchMobilePhoneDisplay(value)))} keyboardType="phone-pad" placeholder="+33 06 12 34 56 78" />
       </View>
 
       {globalError ? <Text accessibilityLiveRegion="polite" style={styles.globalError}>{globalError}</Text> : null}

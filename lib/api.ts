@@ -17,6 +17,7 @@ import type {
   AdminSeriesHistoryPoint,
   AdminUpdatePollInput,
   SignupPayload,
+  SignupPhoneVerificationResponse,
   AccountPhoneVerificationResponse,
   StartVerificationResponse,
   ThemeSlug,
@@ -560,13 +561,34 @@ export async function signUpUser(payload: SignupPayload) {
       data: {
         username: payload.username,
         sex: payload.sex,
-        phone_last4: payload.phoneLast4,
+        phone_verification_token: payload.phoneVerificationToken,
         age: payload.age,
         profession: payload.profession,
         region: payload.region
       }
     }
   });
+}
+
+export async function startSignupPhoneVerification(phoneE164: string, turnstileToken?: string) {
+  const { data, error } = await supabase.functions.invoke<SignupPhoneVerificationResponse>("start-signup-phone-verification", {
+    body: {
+      phone_e164: phoneE164,
+      ...(turnstileToken ? { turnstile_token: turnstileToken } : {})
+    }
+  });
+  if (data) return data;
+  const errorPayload = await readFunctionError<SignupPhoneVerificationResponse>(error);
+  return errorPayload ?? { status: "error" as const, message: error?.message };
+}
+
+export async function confirmSignupPhoneVerification(phoneE164: string, otpCode: string) {
+  const { data, error } = await supabase.functions.invoke<SignupPhoneVerificationResponse>("confirm-signup-phone-verification", {
+    body: { phone_e164: phoneE164, otp_code: otpCode }
+  });
+  if (data) return data;
+  const errorPayload = await readFunctionError<SignupPhoneVerificationResponse>(error);
+  return errorPayload ?? { status: "error" as const, message: error?.message };
 }
 
 export async function signInUser(email: string, password: string) {

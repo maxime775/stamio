@@ -1,6 +1,6 @@
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.45.4";
 import { corsHeaders, jsonResponse } from "../_shared/cors.ts";
-import { hmacSha256Hex } from "../_shared/crypto.ts";
+import { encryptPhoneE164, hmacSha256Hex } from "../_shared/crypto.ts";
 import { checkOtpCode, getOtpConfig, type OtpConfig } from "../_shared/otp-provider.ts";
 import { isOtp, normalizeFrenchMobilePhone } from "../_shared/validation.ts";
 
@@ -57,24 +57,38 @@ Deno.serve(async (req) => {
     return jsonResponse({ status: "invalid_code" }, 401);
   }
 
+  const { count: linkedProfileCount, error: linkedProfileError } = await supabase
+    .from("profiles")
+    .select("id", { count: "exact", head: true })
+    .eq("phone_global_hash", phoneGlobalHash)
+    .neq("id", user.id);
+  if (linkedProfileError) {
+    return jsonResponse({ status: "error", message: "Phone ownership could not be checked" }, 500);
+  }
+  if ((linkedProfileCount ?? 0) > 0) {
+    return jsonResponse({ status: "phone_already_linked" }, 409);
+  }
+
+  let encryptedPhone;
+  try {
+    encryptedPhone = await encryptPhoneE164(normalizedPhone.phone);
+  } catch {
+    return jsonResponse({ status: "account_phone_unavailable" }, 500);
+  }
+
   const now = new Date().toISOString();
   const phoneLastChangedAt = shouldRefreshPhoneChangeTimestamp(phoneProfile.profile, phoneGlobalHash)
     ? now
     : phoneProfile.profile?.phone_last_changed_at ?? now;
-
-  const { error: authError } = await supabase.auth.admin.updateUserById(user.id, {
-    phone: normalizedPhone.phone,
-    phone_confirm: true
-  });
-  if (authError) {
-    return jsonResponse({ status: "error", message: "Phone could not be confirmed" }, 500);
-  }
 
   const { error: profileError } = await supabase
     .from("profiles")
     .update({
       phone_last4: phoneLast4,
       phone_global_hash: phoneGlobalHash,
+      phone_ciphertext: encryptedPhone.ciphertext,
+      phone_iv: encryptedPhone.iv,
+      phone_encryption_version: encryptedPhone.version,
       phone_verified_at: now,
       phone_last_changed_at: phoneLastChangedAt,
       updated_at: new Date().toISOString()
@@ -82,6 +96,9 @@ Deno.serve(async (req) => {
     .eq("id", user.id);
 
   if (profileError) {
+    if (profileError.code === "23505") {
+      return jsonResponse({ status: "phone_already_linked" }, 409);
+    }
     return jsonResponse({ status: "error", message: "Profile could not be updated" }, 500);
   }
 

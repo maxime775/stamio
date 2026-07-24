@@ -85,6 +85,7 @@ export function VotePanel({ visible, pollId, choiceId, choiceLabel, platform, on
   const [autoRequestStarted, setAutoRequestStarted] = useState(false);
   const [registeredPhoneLast4, setRegisteredPhoneLast4] = useState<string | null>(null);
   const [accountPhoneRequired, setAccountPhoneRequired] = useState(false);
+  const [accountPhoneUnavailable, setAccountPhoneUnavailable] = useState(false);
   const [accountLoginRequired, setAccountLoginRequired] = useState(false);
   const [duplicateParticipation, setDuplicateParticipation] = useState(false);
   const slide = useMemo(() => new Animated.Value(0), []);
@@ -107,6 +108,7 @@ export function VotePanel({ visible, pollId, choiceId, choiceLabel, platform, on
       setAutoRequestStarted(false);
       setRegisteredPhoneLast4(null);
       setAccountPhoneRequired(false);
+      setAccountPhoneUnavailable(false);
       setAccountLoginRequired(false);
       setDuplicateParticipation(false);
       Animated.spring(slide, { toValue: 1, damping: 18, stiffness: 160, useNativeDriver: true }).start();
@@ -115,6 +117,7 @@ export function VotePanel({ visible, pollId, choiceId, choiceLabel, platform, on
       setResendVisible(false);
       setLimitStatus(null);
       setAutoRequestStarted(false);
+      setAccountPhoneUnavailable(false);
       setAccountLoginRequired(false);
       setDuplicateParticipation(false);
     }
@@ -141,7 +144,7 @@ export function VotePanel({ visible, pollId, choiceId, choiceLabel, platform, on
   const otpPhoneLabel = isRegisteredUser
     ? registeredPhoneLast4
       ? `au numéro se terminant par ${registeredPhoneLast4}`
-      : "au numéro enregistré sur votre compte"
+      : "à votre numéro vérifié"
     : `au ${readablePhone}`;
   const phoneFeedback = phoneWarning ?? phoneError ?? undefined;
   const otpFeedback = otpWarning ?? otpError ?? undefined;
@@ -171,6 +174,7 @@ export function VotePanel({ visible, pollId, choiceId, choiceLabel, platform, on
     if (status === "poll_closed") return "Ce sondage est fermé.";
     if (status === "captcha_required") return "La validation anti-abus est requise. Complétez le captcha puis réessayez.";
     if (status === "registered_phone_required") return "Ajoutez un numéro de téléphone vérifié à votre compte pour recevoir votre code et participer.";
+    if (status === "account_phone_unavailable") return "Impossible d’utiliser votre numéro vérifié pour le moment. Veuillez réessayer plus tard.";
     return "Impossible d'envoyer le code pour le moment.";
   }
 
@@ -242,6 +246,12 @@ export function VotePanel({ visible, pollId, choiceId, choiceLabel, platform, on
       setResendError(null);
       return;
     }
+    if (response.status === "account_phone_unavailable") {
+      setAccountPhoneUnavailable(true);
+      setCodeRequested(false);
+      setResendVisible(false);
+      return;
+    }
 
     const limit = getLimitStatus(response.status);
     if (limit) {
@@ -301,6 +311,9 @@ export function VotePanel({ visible, pollId, choiceId, choiceLabel, platform, on
     } else if (response.status === "registered_phone_required") {
       setAccountPhoneRequired(true);
       setCodeRequested(false);
+    } else if (response.status === "account_phone_unavailable") {
+      setAccountPhoneUnavailable(true);
+      setCodeRequested(false);
     } else {
       setOtpError("Le vote n'a pas pu être comptabilisé.");
     }
@@ -347,15 +360,19 @@ export function VotePanel({ visible, pollId, choiceId, choiceLabel, platform, on
                     autoComplete="tel"
                     textContentType="telephoneNumber"
                   />
-                  {platform === "web" && siteKey ? <Turnstile compact siteKey={siteKey} onToken={setTurnstileToken} /> : null}
+                  {!isRegisteredUser && platform === "web" && siteKey ? <Turnstile compact siteKey={siteKey} onToken={setTurnstileToken} /> : null}
                   <AnimatedPrimaryButton disabled={loading || !canRequestCode} loading={loading} label="Recevoir mon code de vérification" onPress={() => requestCode("initial")} />
-                  <View style={styles.loginSeparator} />
-                  <View style={styles.loginPrompt}>
-                    <Text style={styles.loginPromptText}>Vous avez déjà un compte ?</Text>
-                    <Pressable accessibilityRole="link" onPress={goToLogin} style={styles.loginPromptLink}>
-                      <Text style={styles.loginPromptLinkText}>Connectez-vous</Text>
-                    </Pressable>
-                  </View>
+                  {!isRegisteredUser ? (
+                    <>
+                      <View style={styles.loginSeparator} />
+                      <View style={styles.loginPrompt}>
+                        <Text style={styles.loginPromptText}>Vous avez déjà un compte ?</Text>
+                        <Pressable accessibilityRole="link" onPress={goToLogin} style={styles.loginPromptLink}>
+                          <Text style={styles.loginPromptLinkText}>Connectez-vous</Text>
+                        </Pressable>
+                      </View>
+                    </>
+                  ) : null}
                 </View>
               </>
             ) : null}
@@ -372,8 +389,7 @@ export function VotePanel({ visible, pollId, choiceId, choiceLabel, platform, on
                   ) : null}
                   {accountPhoneRequired ? (
                     <>
-                      <Text style={styles.helperText}>Ajoutez un numéro vérifié à votre compte pour recevoir votre code et participer plus rapidement.</Text>
-                      <Text style={styles.noticeBox}>Le numéro affiché dans vos informations peut correspondre aux derniers chiffres renseignés lors de l’inscription. Pour envoyer un SMS, le serveur doit disposer d’un numéro complet vérifié.</Text>
+                      <Text style={styles.helperText}>Vérifiez un numéro de téléphone dans votre compte pour participer au vote.</Text>
                       <View style={styles.resendActions}>
                         <Pressable onPress={() => { closeAll(); router.push("/account/informations" as Href); }} style={styles.secondaryButton}>
                           <Text style={styles.secondaryText}>Mon compte</Text>
@@ -443,6 +459,11 @@ export function VotePanel({ visible, pollId, choiceId, choiceLabel, platform, on
         visible={visible && accountLoginRequired}
         onClose={() => setAccountLoginRequired(false)}
         onLogin={goToLogin}
+      />
+
+      <AccountPhoneUnavailableModal
+        visible={visible && accountPhoneUnavailable}
+        onClose={() => setAccountPhoneUnavailable(false)}
       />
 
       <DuplicateParticipationModal
@@ -531,6 +552,30 @@ function AccountLoginRequiredModal({
           <View style={styles.modalSeparator} />
           <View style={styles.limitActions}>
             <AnimatedPrimaryButton compact label="Se connecter" onPress={onLogin} />
+          </View>
+        </View>
+      </View>
+    </Modal>
+  );
+}
+
+function AccountPhoneUnavailableModal({
+  visible,
+  onClose
+}: {
+  visible: boolean;
+  onClose: () => void;
+}) {
+  return (
+    <Modal transparent visible={visible} animationType="fade" onRequestClose={onClose}>
+      <View style={styles.limitOverlay}>
+        <Pressable style={styles.scrim} onPress={onClose} />
+        <View style={styles.limitPanel}>
+          <SimpleModalHeader title="Numéro temporairement indisponible" onClose={onClose} compact />
+          <Text style={styles.limitText}>Impossible d’utiliser votre numéro vérifié pour le moment. Veuillez réessayer plus tard.</Text>
+          <View style={styles.modalSeparator} />
+          <View style={styles.limitActions}>
+            <AnimatedPrimaryButton compact label="Fermer" onPress={onClose} />
           </View>
         </View>
       </View>

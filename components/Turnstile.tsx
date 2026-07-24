@@ -5,6 +5,7 @@ type Props = {
   siteKey?: string;
   onToken: (token: string) => void;
   compact?: boolean;
+  resetKey?: number;
 };
 
 declare global {
@@ -16,7 +17,7 @@ declare global {
   }
 }
 
-export function Turnstile({ siteKey, onToken, compact = false }: Props) {
+export function Turnstile({ siteKey, onToken, compact = false, resetKey = 0 }: Props) {
   const id = `turnstile-${useId().replace(/:/g, "")}`;
   const widgetId = useRef<string | null>(null);
 
@@ -52,7 +53,7 @@ export function Turnstile({ siteKey, onToken, compact = false }: Props) {
         widgetId.current = null;
       }
     };
-  }, [id, onToken, siteKey]);
+  }, [id, onToken, resetKey, siteKey]);
 
   if (Platform.OS !== "web") return null;
 

@@ -93,7 +93,7 @@ export async function checkOtpCode(
   config: OtpConfig,
   phone: string,
   code: string
-): Promise<"approved" | "rejected"> {
+): Promise<"approved" | "rejected" | "expired"> {
   if (config.provider === "local_test") {
     return config.allowedPhones.has(phone) && constantTimeEquals(code, config.testCode) ? "approved" : "rejected";
   }
@@ -106,6 +106,7 @@ export async function checkOtpCode(
       body: new URLSearchParams({ To: phone, Code: code })
     }
   ).catch(() => null);
+  if (response?.status === 404) return "expired";
   if (!response?.ok) return "rejected";
   const payload = await response.json().catch(() => null);
   return payload?.status === "approved" ? "approved" : "rejected";

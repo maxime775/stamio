@@ -65,10 +65,34 @@ const checks = [
       poll_id: pollId
     },
     optionalIfMissing: true
+  },
+  {
+    table: "signup_phone_verifications",
+    row: {
+      token_hash: "d".repeat(64),
+      phone_global_hash: "e".repeat(64),
+      phone_last4: "1234",
+      phone_ciphertext: "not-readable",
+      phone_iv: "not-readable",
+      phone_encryption_version: 1,
+      expires_at: new Date(Date.now() + 60_000).toISOString()
+    },
+    optionalIfMissing: true,
+    verifyReadBlocked: true
   }
 ];
 
 const failures = [];
+
+const encryptedProfileProbe = await supabase
+  .from("profiles")
+  .select("phone_global_hash, phone_ciphertext, phone_iv, phone_encryption_version")
+  .limit(1);
+if (!encryptedProfileProbe.error) {
+  failures.push("profiles: authenticated-sensitive phone identity columns remain exposed to the public anon key");
+} else if (!["42501", "42703", "PGRST204"].includes(encryptedProfileProbe.error.code)) {
+  failures.push(`profiles: encrypted phone column probe failed unexpectedly (${encryptedProfileProbe.error.code ?? "unknown"}: ${encryptedProfileProbe.error.message})`);
+}
 
 for (const check of checks) {
   const { error } = await supabase.from(check.table).insert(check.row);
@@ -82,6 +106,15 @@ for (const check of checks) {
 
   if (error.code !== "42501") {
     failures.push(`${check.table}: insert was blocked by ${error.code ?? "an unknown error"} instead of RLS/permission denial (${error.message})`);
+  }
+
+  if (check.verifyReadBlocked) {
+    const { data, error: readError } = await supabase.from(check.table).select("*").limit(1);
+    if (!readError && Array.isArray(data) && data.length > 0) {
+      failures.push(`${check.table}: public anon key could read sensitive rows`);
+    } else if (readError && !(check.optionalIfMissing && (readError.code === "42P01" || readError.code === "PGRST205")) && readError.code !== "42501") {
+      failures.push(`${check.table}: read was blocked by ${readError.code ?? "an unknown error"} instead of RLS/permission denial (${readError.message})`);
+    }
   }
 }
 

@@ -1,6 +1,5 @@
 import { CSP_PROFESSIONS, REGIONS_FR } from "@/lib/product";
 import type { Sex } from "@/lib/types";
-import { normalizeFrenchMobilePhoneInput } from "@/lib/validation";
 import { isValidEmail, normalizeAuthEmail } from "@/lib/authValidation";
 
 export const SIGNUP_FIELDS = [
@@ -12,8 +11,7 @@ export const SIGNUP_FIELDS = [
   "sex",
   "age",
   "profession",
-  "region",
-  "phone"
+  "region"
 ] as const;
 
 export type SignupField = (typeof SIGNUP_FIELDS)[number];
@@ -28,7 +26,6 @@ export type SignupValues = {
   age: string;
   profession: string;
   region: string;
-  phone: string;
 };
 
 export type SignupErrors = Partial<Record<SignupField, string>>;
@@ -104,11 +101,6 @@ export function validateSignupField(field: SignupField, values: SignupValues): s
     case "region":
       if (!values.region) return "Veuillez sélectionner une région.";
       return REGIONS_FR.includes(values.region) ? null : "Veuillez sélectionner une région.";
-    case "phone":
-      if (!values.phone.trim()) return "Le numéro de téléphone est obligatoire.";
-      return normalizeFrenchMobilePhoneInput(values.phone).ok
-        ? null
-        : "Veuillez saisir un numéro de mobile français valide.";
   }
 }
 

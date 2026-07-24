@@ -369,6 +369,14 @@ function PhoneInfoModal({ visible, onClose, onConfirmed }: { visible: boolean; o
       });
       return;
     }
+    if (response.status === "phone_already_linked") {
+      setError("Ce numéro est déjà associé à un autre compte Stamio.");
+      return;
+    }
+    if (response.status === "account_phone_unavailable") {
+      setError("Impossible de sécuriser ce numéro pour le moment. Veuillez réessayer plus tard.");
+      return;
+    }
     if (response.status === "phone_change_limited") {
       setChangeLimited(true);
       return;

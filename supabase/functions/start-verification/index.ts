@@ -1,6 +1,6 @@
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.45.4";
 import { corsHeaders, jsonResponse } from "../_shared/cors.ts";
-import { hmacSha256Hex } from "../_shared/crypto.ts";
+import { decryptPhoneE164, hmacSha256Hex } from "../_shared/crypto.ts";
 import {
   getOtpConfig,
   startOtpVerification,
@@ -58,20 +58,41 @@ Deno.serve(async (req) => {
   }
   const authenticatedUser = authenticatedUserResult.user;
   const authenticatedUserId = typeof authenticatedUser?.id === "string" ? authenticatedUser.id : null;
-  const registeredPhone = authenticatedUser ? getNormalizedRegisteredPhone(authenticatedUser) : null;
-  if (authenticatedUser && !registeredPhone) {
-    return jsonResponse({ status: "registered_phone_required" }, 409);
-  }
-
-  const normalizedVisitorPhone = authenticatedUser
-    ? null
-    : normalizeFrenchMobilePhone(typeof body?.phone_e164 === "string" ? body.phone_e164 : "");
-  if (!authenticatedUser && !normalizedVisitorPhone?.ok) {
-    return jsonResponse({ status: "invalid_phone_type" }, 400);
-  }
-  const phone = registeredPhone ?? (normalizedVisitorPhone?.ok ? normalizedVisitorPhone.phone : null);
-  if (!phone) {
-    return jsonResponse({ status: "invalid_phone_type" }, 400);
+  let phone: string;
+  let registeredPhoneLast4: string | null = null;
+  if (authenticatedUserId) {
+    const phoneProfile = await getVerifiedPhoneProfile(supabase, authenticatedUserId);
+    if (phoneProfile.status === "error") {
+      return jsonResponse({ status: "error", message: "Account phone could not be verified" }, 500);
+    }
+    if (!phoneProfile.phone_global_hash
+      || !phoneProfile.phone_last4
+      || !phoneProfile.phone_ciphertext
+      || !phoneProfile.phone_iv
+      || phoneProfile.phone_encryption_version !== 1) {
+      return jsonResponse({ status: "registered_phone_required" }, 409);
+    }
+    try {
+      phone = await decryptPhoneE164(
+        phoneProfile.phone_ciphertext,
+        phoneProfile.phone_iv,
+        phoneProfile.phone_encryption_version
+      );
+    } catch {
+      return jsonResponse({ status: "account_phone_unavailable" }, 500);
+    }
+    const normalizedStoredPhone = normalizeFrenchMobilePhone(phone);
+    if (!normalizedStoredPhone.ok) return jsonResponse({ status: "account_phone_unavailable" }, 500);
+    phone = normalizedStoredPhone.phone;
+    const storedPhoneHash = await hmacSha256Hex(hmacSecret, `account-phone:${phone}`);
+    if (storedPhoneHash !== phoneProfile.phone_global_hash) {
+      return jsonResponse({ status: "account_phone_unavailable" }, 500);
+    }
+    registeredPhoneLast4 = phoneProfile.phone_last4;
+  } else {
+    const normalizedVisitorPhone = normalizeFrenchMobilePhone(typeof body?.phone_e164 === "string" ? body.phone_e164 : "");
+    if (!normalizedVisitorPhone.ok) return jsonResponse({ status: "invalid_phone_type" }, 400);
+    phone = normalizedVisitorPhone.phone;
   }
 
   // Turnstile bypass is only allowed for local_test in local/staging and must never apply in production.
@@ -135,9 +156,50 @@ Deno.serve(async (req) => {
   }
   return jsonResponse({
     status: "verification_started",
-    ...(authenticatedUserId ? { phone_last4: getPhoneLast4(phone) } : {})
+    ...(authenticatedUserId ? { phone_last4: registeredPhoneLast4 ?? getPhoneLast4(phone) } : {})
   });
 });
+
+async function getVerifiedPhoneProfile(
+  supabase: ReturnType<typeof createClient>,
+  userId: string
+): Promise<{
+  status: "ok";
+  phone_global_hash: string | null;
+  phone_last4: string | null;
+  phone_ciphertext: string | null;
+  phone_iv: string | null;
+  phone_encryption_version: number | null;
+} | {
+  status: "error";
+  phone_global_hash: null;
+  phone_last4: null;
+  phone_ciphertext: null;
+  phone_iv: null;
+  phone_encryption_version: null;
+}> {
+  const { data, error } = await supabase
+    .from("profiles")
+    .select("phone_global_hash, phone_last4, phone_ciphertext, phone_iv, phone_encryption_version")
+    .eq("id", userId)
+    .maybeSingle();
+  if (error) return {
+    status: "error",
+    phone_global_hash: null,
+    phone_last4: null,
+    phone_ciphertext: null,
+    phone_iv: null,
+    phone_encryption_version: null
+  };
+  return {
+    status: "ok",
+    phone_global_hash: typeof data?.phone_global_hash === "string" ? data.phone_global_hash : null,
+    phone_last4: typeof data?.phone_last4 === "string" ? data.phone_last4 : null,
+    phone_ciphertext: typeof data?.phone_ciphertext === "string" ? data.phone_ciphertext : null,
+    phone_iv: typeof data?.phone_iv === "string" ? data.phone_iv : null,
+    phone_encryption_version: typeof data?.phone_encryption_version === "number" ? data.phone_encryption_version : null
+  };
+}
 
 async function countVisitorPhoneParticipations(
   supabase: ReturnType<typeof createClient>,
@@ -180,11 +242,6 @@ async function getAuthenticatedVerifiedUser(
     status: "authenticated",
     user: adminData.user as { id?: unknown; phone?: unknown; email_confirmed_at?: unknown }
   };
-}
-
-function getNormalizedRegisteredPhone(user: { phone?: unknown }) {
-  const normalizedPhone = normalizeFrenchMobilePhone(typeof user.phone === "string" ? user.phone : "");
-  return normalizedPhone.ok ? normalizedPhone.phone : null;
 }
 
 function getPhoneLast4(phone: string) {

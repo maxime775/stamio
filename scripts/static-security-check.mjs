@@ -8,6 +8,7 @@ const forbiddenClientSnippets = [
   "TWILIO_AUTH_TOKEN",
   "TWILIO_VERIFY_SERVICE_SID",
   "HMAC_SECRET",
+  "PHONE_ENCRYPTION_KEY",
   "APP_ENV",
   "OTP_PROVIDER",
   "OTP_TEST_PHONE_ALLOWLIST",
@@ -90,6 +91,66 @@ if (!startVerificationSource.includes('otpConfig.provider === "local_test" &&') 
 if (!startVerificationSource.includes("const turnstileRequired = !authenticatedUserId && !canBypassTurnstile;") ||
     !startVerificationSource.includes("if (turnstileRequired)")) {
   failures.push("start-verification: Turnstile is not required from the server-only bypass decision");
+}
+
+const signupPhoneMigrationSource = readFileSync(join(root, "supabase", "migrations", "20260724120000_verified_phone_signup.sql"), "utf8");
+if (signupPhoneMigrationSource.includes("phone_match_hash")) {
+  failures.push("signup phone verification: unkeyed phone matching hash must not be stored");
+}
+if (signupPhoneMigrationSource.includes("new.phone :=") || signupPhoneMigrationSource.includes("new.phone_confirmed_at :=")) {
+  failures.push("signup phone verification: clear phone must not be stored in auth.users");
+}
+if (!signupPhoneMigrationSource.includes("alter table public.signup_phone_verifications enable row level security") ||
+    !signupPhoneMigrationSource.includes("revoke all on public.signup_phone_verifications from public, anon, authenticated")) {
+  failures.push("signup phone verification: temporary proof table must be locked down");
+}
+if (signupPhoneMigrationSource.includes("phone_e164") ||
+    !signupPhoneMigrationSource.includes("phone_ciphertext text not null") ||
+    !signupPhoneMigrationSource.includes("phone_iv text not null") ||
+    !signupPhoneMigrationSource.includes("phone_encryption_version smallint not null")) {
+  failures.push("signup phone verification: temporary proof table must contain encrypted phone fields only");
+}
+if (!signupPhoneMigrationSource.includes("revoke select on public.profiles from authenticated") ||
+    !signupPhoneMigrationSource.includes("grant select (")) {
+  failures.push("account phone encryption: encrypted profile columns must not be client-readable");
+}
+
+const signupApiSource = readFileSync(join(root, "lib", "api.ts"), "utf8");
+const signupFunctionBlock = signupApiSource.slice(
+  signupApiSource.indexOf("export async function signUpUser"),
+  signupApiSource.indexOf("export async function startSignupPhoneVerification")
+);
+if (signupFunctionBlock.includes("phone_e164")) {
+  failures.push("signup: clear phone must not be sent in auth metadata");
+}
+
+const confirmAccountPhoneSource = readFileSync(join(root, "supabase", "functions", "confirm-account-phone", "index.ts"), "utf8");
+if (confirmAccountPhoneSource.includes("auth.admin.updateUserById")) {
+  failures.push("account phone verification: clear phone must not be stored in auth.users");
+}
+
+const cryptoSource = readFileSync(join(root, "supabase", "functions", "_shared", "crypto.ts"), "utf8");
+if (!cryptoSource.includes('Deno.env.get("PHONE_ENCRYPTION_KEY")') ||
+    !cryptoSource.includes('name: "AES-GCM"') ||
+    !cryptoSource.includes("crypto.getRandomValues(new Uint8Array(12))") ||
+    !cryptoSource.includes("keyBytes.byteLength !== 32")) {
+  failures.push("account phone encryption: strict AES-256-GCM helper requirements are missing");
+}
+if (cryptoSource.includes("EXPO_PUBLIC_PHONE_ENCRYPTION_KEY")) {
+  failures.push("account phone encryption: secret must never use an EXPO_PUBLIC variable");
+}
+
+for (const relativePath of [
+  "supabase/functions/confirm-signup-phone-verification/index.ts",
+  "supabase/functions/confirm-account-phone/index.ts",
+  "supabase/functions/start-verification/index.ts",
+  "supabase/functions/submit-vote/index.ts"
+]) {
+  const source = readFileSync(join(root, ...relativePath.split("/")), "utf8");
+  if (/console\.(?:log|info|warn|error)\(\s*(?:phone|normalizedPhone|phoneGlobalHash|encryptedPhone|phoneProfile)\b/.test(source) ||
+      /console\.(?:log|info|warn|error)\([^)]*\$\{(?:phone|normalizedPhone|phoneGlobalHash|encryptedPhone|phoneProfile)/.test(source)) {
+    failures.push(`${relativePath}: sensitive phone material must not be logged`);
+  }
 }
 
 if (failures.length > 0) {
