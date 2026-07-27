@@ -212,6 +212,8 @@ export type Profile = {
   reputation_score: number;
   created_at: string;
   updated_at: string;
+  passkey_required_at?: string | null;
+  passkey_enrolled_at?: string | null;
 };
 
 export type ProfileUpdateField = "username" | "sex" | "age" | "profession" | "region";
@@ -257,30 +259,14 @@ export type SignupPayload = {
   password: string;
   username: string;
   sex: Sex;
-  phoneVerificationToken: string;
   age: number;
   profession: string;
   region: string;
 };
 
-export type SignupPhoneVerificationResponse =
-  | { status: "verification_started" }
-  | { status: "phone_confirmed"; verification_token: string }
-  | { status: "phone_already_linked" }
-  | { status: "invalid_phone_type" | "invalid_code" | "code_expired" | "captcha_required" | "account_phone_unavailable" | "error"; message?: string };
-
-export type AccountPhoneVerificationResponse =
-  | { status: "verification_started" }
-  | { status: "phone_confirmed"; phone_last4: string; phone_verified_at?: string; phone_last_changed_at?: string }
-  | { status: "phone_change_limited"; next_allowed_at?: string; message?: string }
-  | { status: "phone_already_linked" }
-  | { status: "authentication_required" | "invalid_phone_type" | "invalid_code" | "account_phone_unavailable" | "error"; message?: string };
-
-export type StartVerificationResponse =
-  | { status: "verification_started"; phone_last4?: string }
-  | { status: "invalid_phone_type" | "poll_closed" | "captcha_required" | "visitor_phone_limit_reached" | "visitor_connection_limit_reached" | "rate_limited" | "registered_phone_required" | "account_phone_unavailable" | "error"; message?: string };
+export type SignupEmailStatus = "available" | "existing_confirmed" | "existing_unconfirmed";
 
 export type VoteStatus =
-  | { status: "accepted"; receipt_hash: string }
+  | { status: "accepted"; receipt_hash: string; results?: PollResult[]; results_unavailable?: boolean }
   | { status: "duplicate"; message: string }
-  | { status: "invalid_phone_type" | "invalid_code" | "poll_closed" | "registered_phone_required" | "account_phone_unavailable" | "account_login_required" | "error"; message?: string };
+  | { status: "poll_closed" | "authentication_required" | "passkey_required" | "rate_limited" | "error"; message?: string };

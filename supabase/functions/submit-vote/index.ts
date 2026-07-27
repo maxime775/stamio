@@ -1,233 +1,135 @@
-import { createClient } from "https://esm.sh/@supabase/supabase-js@2.45.4";
+import { createClient } from "https://esm.sh/@supabase/supabase-js@2.106.2";
 import { corsHeaders, jsonResponse } from "../_shared/cors.ts";
-import { decryptPhoneE164, hmacSha256Hex } from "../_shared/crypto.ts";
-import { checkOtpCode, getOtpConfig, type OtpConfig } from "../_shared/otp-provider.ts";
-import { isOtp, isUuid, normalizeFrenchMobilePhone } from "../_shared/validation.ts";
+import { hmacSha256Hex } from "../_shared/crypto.ts";
+import { isUuid } from "../_shared/validation.ts";
+
+type VoteRpcResult = { status: string; receipt_hash: string | null };
 
 Deno.serve(async (req) => {
   if (req.method === "OPTIONS") return new Response("ok", { headers: corsHeaders });
-  if (req.method !== "POST") return jsonResponse({ status: "error", message: "Method not allowed" }, 405);
+  if (req.method !== "POST") return jsonResponse({ status: "error" }, 405);
 
-  const supabaseUrl = Deno.env.get("SUPABASE_URL");
-  const serviceRoleKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY");
-  const hmacSecret = Deno.env.get("HMAC_SECRET");
+  const url = Deno.env.get("SUPABASE_URL");
+  const serviceKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY");
+  const voterHashSecret = Deno.env.get("VOTER_HASH_SECRET");
+  const receiptSecret = Deno.env.get("HMAC_SECRET");
+  const token = req.headers.get("Authorization")?.match(/^Bearer\s+(.+)$/i)?.[1];
+  if (!url || !serviceKey || !voterHashSecret || !receiptSecret) return jsonResponse({ status: "error" }, 500);
 
-  if (!supabaseUrl || !serviceRoleKey || !hmacSecret) {
-    return jsonResponse({ status: "error", message: "Server configuration error" }, 500);
-  }
-
-  let otpConfig: OtpConfig;
-  try {
-    otpConfig = getOtpConfig();
-  } catch {
-    return jsonResponse({ status: "error", message: "Server configuration error" }, 500);
+  const admin = createClient(url, serviceKey, {
+    auth: { persistSession: false, autoRefreshToken: false, experimental: { passkey: true } }
+  });
+  if (!token) {
+    await logAttempt(admin, "vote_auth_failed", null, null, null);
+    return jsonResponse({ status: "authentication_required" }, 401);
   }
 
   const body = await req.json().catch(() => null);
   const pollId = body?.poll_id;
   const choiceId = body?.choice_id;
-  const otpCode = body?.otp_code;
+  if (!isUuid(pollId) || !isUuid(choiceId)) return jsonResponse({ status: "error" }, 400);
 
-  if (!isUuid(pollId) || !isUuid(choiceId) || !isOtp(otpCode)) {
-    return jsonResponse({ status: "invalid_code" }, 400);
+  const { data: userData, error: userError } = await admin.auth.getUser(token);
+  const user = userData.user;
+  if (userError || !user?.id || !user.email_confirmed_at) {
+    await logAttempt(admin, "vote_auth_failed", pollId, choiceId, null);
+    return jsonResponse({ status: "authentication_required" }, 401);
   }
 
-  const supabase = createClient(supabaseUrl, serviceRoleKey, {
-    auth: { persistSession: false }
+  const voterHash = await hmacSha256Hex(voterHashSecret, `vote-user:${pollId}:${user.id}`);
+  const { data: profile, error: profileError } = await admin
+    .from("profiles")
+    .select("passkey_required_at, passkey_enrolled_at")
+    .eq("id", user.id)
+    .maybeSingle();
+  if (profileError || !profile) {
+    await logAttempt(admin, "vote_server_error", pollId, choiceId, voterHash);
+    return jsonResponse({ status: "error" }, 500);
+  }
+
+  if (profile.passkey_required_at && !profile.passkey_enrolled_at) {
+    const { data: passkeys, error: passkeyError } = await admin.auth.admin.passkey.listPasskeys({ userId: user.id });
+    if (passkeyError) {
+      await logAttempt(admin, "vote_server_error", pollId, choiceId, voterHash);
+      return jsonResponse({ status: "error" }, 502);
+    }
+    if (!passkeys?.length) {
+      await logAttempt(admin, "vote_passkey_required", pollId, choiceId, voterHash);
+      return jsonResponse({ status: "passkey_required" }, 403);
+    }
+    const { error: syncError } = await admin
+      .from("profiles")
+      .update({ passkey_enrolled_at: new Date().toISOString() })
+      .eq("id", user.id);
+    if (syncError) {
+      await logAttempt(admin, "vote_server_error", pollId, choiceId, voterHash);
+      return jsonResponse({ status: "error" }, 500);
+    }
+  }
+
+  const { data: rateAllowed, error: rateError } = await admin.rpc("consume_rate_limit", {
+    p_key_hash: voterHash,
+    p_action: "vote",
+    p_limit: 30,
+    p_window_seconds: 600
   });
-  const authenticatedUserResult = await getAuthenticatedVerifiedUser(supabase, req.headers.get("Authorization"));
-  if (authenticatedUserResult.status === "error") {
-    return jsonResponse({ status: "error", message: "Account could not be verified" }, 500);
+  if (rateError) {
+    await logAttempt(admin, "vote_server_error", pollId, choiceId, voterHash);
+    return jsonResponse({ status: "error" }, 500);
   }
-  const authenticatedUser = authenticatedUserResult.user;
-  const authenticatedUserId = typeof authenticatedUser?.id === "string" ? authenticatedUser.id : null;
-  let phone: string;
-  if (authenticatedUserId) {
-    const phoneProfile = await getVerifiedPhoneProfile(supabase, authenticatedUserId);
-    if (phoneProfile.status === "error") {
-      return jsonResponse({ status: "error", message: "Account phone could not be verified" }, 500);
-    }
-    if (!phoneProfile.phone_global_hash
-      || !phoneProfile.phone_last4
-      || !phoneProfile.phone_ciphertext
-      || !phoneProfile.phone_iv
-      || phoneProfile.phone_encryption_version !== 1) {
-      return jsonResponse({ status: "registered_phone_required" }, 409);
-    }
-    try {
-      phone = await decryptPhoneE164(
-        phoneProfile.phone_ciphertext,
-        phoneProfile.phone_iv,
-        phoneProfile.phone_encryption_version
-      );
-    } catch {
-      return jsonResponse({ status: "account_phone_unavailable" }, 500);
-    }
-    const normalizedStoredPhone = normalizeFrenchMobilePhone(phone);
-    if (!normalizedStoredPhone.ok) return jsonResponse({ status: "account_phone_unavailable" }, 500);
-    phone = normalizedStoredPhone.phone;
-    const storedPhoneHash = await hmacSha256Hex(hmacSecret, `account-phone:${phone}`);
-    if (storedPhoneHash !== phoneProfile.phone_global_hash) {
-      return jsonResponse({ status: "account_phone_unavailable" }, 500);
-    }
-  } else {
-    const normalizedVisitorPhone = normalizeFrenchMobilePhone(typeof body?.phone_e164 === "string" ? body.phone_e164 : "");
-    if (!normalizedVisitorPhone.ok) return jsonResponse({ status: "invalid_phone_type" }, 400);
-    phone = normalizedVisitorPhone.phone;
+  if (rateAllowed !== true) {
+    await logAttempt(admin, "vote_rate_limited", pollId, choiceId, voterHash);
+    return jsonResponse({ status: "rate_limited" }, 429);
   }
 
-  const otpStatus = await checkOtpCode(otpConfig, phone, otpCode);
-  if (otpStatus !== "approved") {
-    await supabase.from("vote_attempts").insert({
-      poll_id: isUuid(pollId) ? pollId : null,
-      choice_id: isUuid(choiceId) ? choiceId : null,
-      event: "otp_rejected"
-    });
-    return jsonResponse({ status: "invalid_code" }, 401);
-  }
-
-  if (!authenticatedUserId) {
-    const phoneAccountHash = await hmacSha256Hex(hmacSecret, `account-phone:${phone}`);
-    const linkedAccountStatus = await hasLinkedAccountPhone(supabase, phoneAccountHash);
-    if (linkedAccountStatus === "error") {
-      return jsonResponse({ status: "error", message: "Vote could not be recorded" }, 500);
-    }
-    if (linkedAccountStatus === "linked") {
-      return jsonResponse({ status: "account_login_required" }, 409);
-    }
-  }
-
-  const phonePollHash = await hmacSha256Hex(hmacSecret, `${pollId}:${phone}`);
-  const visitorPhoneHash = authenticatedUserId ? null : await hmacSha256Hex(hmacSecret, `visitor-phone:${phone}`);
-  const receiptHash = await hmacSha256Hex(hmacSecret, `receipt:${pollId}:${choiceId}:${phonePollHash}:${crypto.randomUUID()}`);
-
-  const { data, error } = await supabase.rpc("submit_verified_vote", {
+  const receiptHash = await hmacSha256Hex(receiptSecret, `receipt:${pollId}:${choiceId}:${user.id}:${crypto.randomUUID()}`);
+  const { data, error } = await admin.rpc("submit_authenticated_vote", {
+    p_user_id: user.id,
     p_poll_id: pollId,
     p_choice_id: choiceId,
-    p_phone_poll_hash: phonePollHash,
-    p_receipt_hash: receiptHash,
-    p_visitor_phone_hash: visitorPhoneHash
+    p_voter_hash: voterHash,
+    p_receipt_hash: receiptHash
   });
-
-  if (error || !data?.[0]) {
-    await supabase.from("vote_attempts").insert({
-      poll_id: pollId,
-      choice_id: choiceId,
-      phone_poll_hash: phonePollHash,
-      event: "vote_error"
-    });
-    return jsonResponse({ status: "error", message: "Vote could not be recorded" }, 500);
+  const result = (Array.isArray(data) ? data[0] : data) as VoteRpcResult | null;
+  if (error || !result) {
+    await logAttempt(admin, "vote_server_error", pollId, choiceId, voterHash);
+    return jsonResponse({ status: "error" }, 500);
   }
-
-  const result = data[0] as { status: string; receipt_hash: string | null };
-  await supabase.from("vote_attempts").insert({
-    poll_id: pollId,
-    choice_id: choiceId,
-    phone_poll_hash: phonePollHash,
-    event: result.status === "accepted" ? "vote_accepted" : result.status === "duplicate" ? "vote_duplicate" : "vote_error"
-  });
-
   if (result.status === "accepted" && result.receipt_hash) {
-    if (authenticatedUserId) {
-      const { error: answerError } = await supabase.rpc("record_verified_user_answer", {
-        p_user_id: authenticatedUserId,
-        p_poll_id: pollId,
-        p_choice_id: choiceId
-      });
-      if (answerError) console.error("record_verified_user_answer failed", answerError.message);
+    const { data: aggregate, error: aggregateError } = await admin.rpc("get_poll_results", { p_poll_id: pollId });
+    if (aggregateError || !Array.isArray(aggregate)) {
+      return jsonResponse({ status: "accepted", receipt_hash: result.receipt_hash, results_unavailable: true });
     }
-    return jsonResponse({ status: "accepted", receipt_hash: result.receipt_hash });
+    return jsonResponse({
+      status: "accepted",
+      receipt_hash: result.receipt_hash,
+      results: aggregate.map((row: Record<string, unknown>) => ({
+        choice_id: row.choice_id,
+        label: row.label,
+        votes: Number(row.votes ?? 0)
+      }))
+    });
   }
-  if (result.status === "duplicate") {
-    return jsonResponse({ status: "duplicate", message: "Ce numéro a déjà été utilisé pour cette question." }, 409);
+  if (result.status === "already_voted") {
+    return jsonResponse({ status: "duplicate", message: "Vous avez déjà participé à cette question." }, 409);
   }
-  if (result.status === "poll_closed") {
-    return jsonResponse({ status: "poll_closed" }, 409);
-  }
+  if (result.status === "poll_closed") return jsonResponse({ status: "poll_closed" }, 409);
+  if (result.status === "invalid_choice") return jsonResponse({ status: "error" }, 400);
   return jsonResponse({ status: "error" }, 500);
 });
 
-async function getVerifiedPhoneProfile(
-  supabase: ReturnType<typeof createClient>,
-  userId: string
-): Promise<{
-  status: "ok";
-  phone_global_hash: string | null;
-  phone_last4: string | null;
-  phone_ciphertext: string | null;
-  phone_iv: string | null;
-  phone_encryption_version: number | null;
-} | {
-  status: "error";
-  phone_global_hash: null;
-  phone_last4: null;
-  phone_ciphertext: null;
-  phone_iv: null;
-  phone_encryption_version: null;
-}> {
-  const { data, error } = await supabase
-    .from("profiles")
-    .select("phone_global_hash, phone_last4, phone_ciphertext, phone_iv, phone_encryption_version")
-    .eq("id", userId)
-    .maybeSingle();
-  if (error) return {
-    status: "error",
-    phone_global_hash: null,
-    phone_last4: null,
-    phone_ciphertext: null,
-    phone_iv: null,
-    phone_encryption_version: null
-  };
-  return {
-    status: "ok",
-    phone_global_hash: typeof data?.phone_global_hash === "string" ? data.phone_global_hash : null,
-    phone_last4: typeof data?.phone_last4 === "string" ? data.phone_last4 : null,
-    phone_ciphertext: typeof data?.phone_ciphertext === "string" ? data.phone_ciphertext : null,
-    phone_iv: typeof data?.phone_iv === "string" ? data.phone_iv : null,
-    phone_encryption_version: typeof data?.phone_encryption_version === "number" ? data.phone_encryption_version : null
-  };
-}
-
-async function getAuthenticatedVerifiedUser(
-  supabase: ReturnType<typeof createClient>,
-  authorization: string | null
-): Promise<
-  | { status: "authenticated"; user: { id?: unknown; phone?: unknown; email_confirmed_at?: unknown } }
-  | { status: "none"; user: null }
-  | { status: "error"; user: null }
-> {
-  const token = authorization?.match(/^Bearer\s+(.+)$/i)?.[1];
-  if (!token) return { status: "none", user: null };
-
-  const { data, error } = await supabase.auth.getUser(token);
-  if (error || !data.user?.id || !data.user.email_confirmed_at) {
-    return { status: "none", user: null };
-  }
-
-  const { data: adminData, error: adminError } = await supabase.auth.admin.getUserById(data.user.id);
-  if (adminError || !adminData.user?.email_confirmed_at) {
-    console.error("authenticated user refresh failed", adminError?.message ?? "missing user");
-    return { status: "error", user: null };
-  }
-  return {
-    status: "authenticated",
-    user: adminData.user as { id?: unknown; phone?: unknown; email_confirmed_at?: unknown }
-  };
-}
-
-async function hasLinkedAccountPhone(
-  supabase: ReturnType<typeof createClient>,
-  phoneAccountHash: string
-): Promise<"linked" | "none" | "error"> {
-  const { count, error } = await supabase
-    .from("profiles")
-    .select("id", { count: "exact", head: true })
-    .eq("phone_global_hash", phoneAccountHash)
-    .limit(1);
-
-  if (error) {
-    console.error("account phone lookup failed", error.message);
-    return "error";
-  }
-  return (count ?? 0) > 0 ? "linked" : "none";
+async function logAttempt(
+  admin: ReturnType<typeof createClient>,
+  eventType: string,
+  pollId: string | null,
+  choiceId: string | null,
+  voterHash: string | null
+) {
+  const { error } = await admin.rpc("log_vote_attempt", {
+    p_event: eventType,
+    p_poll_id: pollId,
+    p_choice_id: choiceId,
+    p_voter_hash: voterHash
+  });
+  if (error) console.error("vote_attempt_log_failed", { eventType });
 }

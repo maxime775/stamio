@@ -17,38 +17,18 @@ import type {
   AdminSeriesHistoryPoint,
   AdminUpdatePollInput,
   SignupPayload,
-  SignupPhoneVerificationResponse,
-  AccountPhoneVerificationResponse,
-  StartVerificationResponse,
+  SignupEmailStatus,
   ThemeSlug,
   OpenPollStats,
   UserPollAnswer,
   VoteStatus
 } from "@/lib/types";
 
-type StartPayload = {
-  poll_id: string;
-  choice_id: string;
-  phone_e164?: string;
-  platform: "web" | "native";
-  turnstile_token?: string;
-};
-
 type SubmitPayload = {
   poll_id: string;
   choice_id: string;
-  phone_e164?: string;
-  otp_code: string;
 };
 
-type StartAccountPhonePayload = {
-  phone_e164: string;
-};
-
-type ConfirmAccountPhonePayload = {
-  phone_e164: string;
-  otp_code: string;
-};
 
 const PUBLIC_CACHE_TTL_MS = 45_000;
 const isDevRuntime = typeof __DEV__ !== "undefined" ? __DEV__ : process.env.NODE_ENV !== "production";
@@ -101,17 +81,6 @@ export async function fetchPoll(pollId: string, options: CacheOptions = {}): Pro
   }, { ...options, label: options.label ?? "fetchPoll" });
 }
 
-export async function startVerification(payload: StartPayload): Promise<StartVerificationResponse> {
-  const headers = await getFunctionAuthHeaders();
-  const { data, error } = await supabase.functions.invoke<StartVerificationResponse>("start-verification", {
-    body: payload,
-    headers
-  });
-  if (data) return data;
-  const errorPayload = await readFunctionError<StartVerificationResponse>(error);
-  return errorPayload ?? { status: "error", message: error?.message };
-}
-
 export async function submitVote(payload: SubmitPayload): Promise<VoteStatus> {
   const headers = await getFunctionAuthHeaders();
   const { data, error } = await supabase.functions.invoke<VoteStatus>("submit-vote", {
@@ -123,27 +92,15 @@ export async function submitVote(payload: SubmitPayload): Promise<VoteStatus> {
   return errorPayload ?? { status: "error", message: error?.message };
 }
 
-export async function startAccountPhoneVerification(payload: StartAccountPhonePayload): Promise<AccountPhoneVerificationResponse> {
+export async function verifyPasskeyEnrollment() {
   const headers = await getFunctionAuthHeaders();
-  const { data, error } = await supabase.functions.invoke<AccountPhoneVerificationResponse>("start-account-phone-verification", {
-    body: payload,
+  const { data, error } = await supabase.functions.invoke<{ enrolled: boolean }>("verify-passkey-enrollment", {
+    body: {},
     headers
   });
-  if (data) return data;
-  const errorPayload = await readFunctionError<AccountPhoneVerificationResponse>(error);
-  return errorPayload ?? { status: "error", message: error?.message };
+  return { enrolled: data?.enrolled === true, error };
 }
 
-export async function confirmAccountPhone(payload: ConfirmAccountPhonePayload): Promise<AccountPhoneVerificationResponse> {
-  const headers = await getFunctionAuthHeaders();
-  const { data, error } = await supabase.functions.invoke<AccountPhoneVerificationResponse>("confirm-account-phone", {
-    body: payload,
-    headers
-  });
-  if (data) return data;
-  const errorPayload = await readFunctionError<AccountPhoneVerificationResponse>(error);
-  return errorPayload ?? { status: "error", message: error?.message };
-}
 
 export async function getResults(pollId: string, options: CacheOptions = {}): Promise<PollResult[]> {
   return cached(cacheKeys.results(pollId), async () => {
@@ -448,7 +405,7 @@ export async function getCurrentUserProfile(): Promise<Profile | null> {
 
   const { data, error } = await supabase
     .from("profiles")
-    .select("id, email, username, username_normalized, sex, phone_last4, phone_verified_at, phone_last_changed_at, age, profession, region, reputation_score, created_at, updated_at")
+    .select("id, email, username, username_normalized, sex, phone_last4, phone_verified_at, phone_last_changed_at, age, profession, region, reputation_score, created_at, updated_at, passkey_required_at, passkey_enrolled_at")
     .eq("id", user.id)
     .maybeSingle();
 
@@ -561,34 +518,30 @@ export async function signUpUser(payload: SignupPayload) {
       data: {
         username: payload.username,
         sex: payload.sex,
-        phone_verification_token: payload.phoneVerificationToken,
         age: payload.age,
         profession: payload.profession,
         region: payload.region
-      }
+      },
+      emailRedirectTo: getAuthRedirectUrl("/auth/callback")
     }
   });
 }
 
-export async function startSignupPhoneVerification(phoneE164: string, turnstileToken?: string) {
-  const { data, error } = await supabase.functions.invoke<SignupPhoneVerificationResponse>("start-signup-phone-verification", {
-    body: {
-      phone_e164: phoneE164,
-      ...(turnstileToken ? { turnstile_token: turnstileToken } : {})
-    }
+export async function checkSignupEmail(email: string): Promise<{ status: SignupEmailStatus | "rate_limited" | "error" }> {
+  const { data, error } = await supabase.functions.invoke<{ status: SignupEmailStatus | "rate_limited" | "error" }>("check-signup-email", {
+    body: { email: email.trim().toLowerCase() }
   });
   if (data) return data;
-  const errorPayload = await readFunctionError<SignupPhoneVerificationResponse>(error);
-  return errorPayload ?? { status: "error" as const, message: error?.message };
+  const errorPayload = await readFunctionError<{ status: SignupEmailStatus | "rate_limited" | "error" }>(error);
+  return errorPayload ?? { status: "error" };
 }
 
-export async function confirmSignupPhoneVerification(phoneE164: string, otpCode: string) {
-  const { data, error } = await supabase.functions.invoke<SignupPhoneVerificationResponse>("confirm-signup-phone-verification", {
-    body: { phone_e164: phoneE164, otp_code: otpCode }
+export async function resendSignupConfirmation(email: string) {
+  return supabase.auth.resend({
+    type: "signup",
+    email: email.trim().toLowerCase(),
+    options: { emailRedirectTo: getAuthRedirectUrl("/auth/callback") }
   });
-  if (data) return data;
-  const errorPayload = await readFunctionError<SignupPhoneVerificationResponse>(error);
-  return errorPayload ?? { status: "error" as const, message: error?.message };
 }
 
 export async function signInUser(email: string, password: string) {
@@ -599,6 +552,12 @@ export async function requestPasswordReset(email: string, redirectTo?: string) {
   return supabase.auth.resetPasswordForEmail(email, {
     redirectTo
   });
+}
+
+function getAuthRedirectUrl(path: string) {
+  return typeof window !== "undefined" && window.location?.origin
+    ? `${window.location.origin}${path}`
+    : undefined;
 }
 
 export async function updateCurrentUserPassword(password: string) {

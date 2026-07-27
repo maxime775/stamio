@@ -2,163 +2,98 @@ import { readdirSync, readFileSync, statSync } from "node:fs";
 import { join, relative } from "node:path";
 
 const root = process.cwd();
-const clientDirs = ["app", "components", "lib"];
-const forbiddenClientSnippets = [
-  "SUPABASE_SERVICE_ROLE_KEY",
-  "TWILIO_AUTH_TOKEN",
-  "TWILIO_VERIFY_SERVICE_SID",
-  "HMAC_SECRET",
-  "PHONE_ENCRYPTION_KEY",
-  "APP_ENV",
-  "OTP_PROVIDER",
-  "OTP_TEST_PHONE_ALLOWLIST",
-  "OTP_TEST_CODE",
-  ".from(\"votes\").insert",
-  ".from('votes').insert",
-  ".from(\"vote_phone_locks\").insert",
-  ".from('vote_phone_locks').insert",
-  ".from(\"user_poll_answers\").insert",
-  ".from('user_poll_answers').insert",
-  ".from(\"user_reputation_events\").insert",
-  ".from('user_reputation_events').insert",
-  ".from(\"visitor_phone_participations\").insert",
-  ".from('visitor_phone_participations').insert"
-];
-
-const otp = "OTP";
-const forbiddenRepoPatterns = [
-  new RegExp(["DEV", "SKIP", otp].join("[_-]?"), "i"),
-  new RegExp(["BYPASS", otp].join("[_-]?"), "i"),
-  new RegExp(["ACCEPT", "ALL", "CODES"].join("[_-]?"), "i")
-];
-
 const failures = [];
-const fixedOtpPattern = /["'`]\d{6}["'`]/;
+const clientDirs = ["app", "components", "lib"];
+const forbiddenClient = [
+  "SUPABASE_SERVICE_ROLE_KEY", "HMAC_SECRET", "IP_HASH_SECRET", "VOTER_HASH_SECRET",
+  ".from(\"votes\").insert", ".from('votes').insert",
+  ".from(\"vote_phone_locks\").insert", ".from('vote_phone_locks').insert",
+  ".from(\"vote_user_locks\").insert", ".from('vote_user_locks').insert",
+  ".from(\"user_poll_answers\").insert", ".from('user_poll_answers').insert",
+  ".from(\"user_reputation_events\").insert", ".from('user_reputation_events').insert",
+  ".from(\"abuse_rate_limits\").insert", ".from('abuse_rate_limits').insert",
+  "passkey_enrolled_at:"
+];
 
 for (const file of walk(root)) {
   const rel = relative(root, file).replaceAll("\\", "/");
-  if (rel.includes("node_modules/") || rel.startsWith(".git/")) continue;
-  const text = readFileSync(file, "utf8");
-
+  if (rel.includes("node_modules/") || rel.startsWith(".git/") || rel.startsWith(".expo/")) continue;
+  const source = readFileSync(file, "utf8");
   if (clientDirs.some((dir) => rel.startsWith(`${dir}/`))) {
-    for (const snippet of forbiddenClientSnippets) {
-      if (text.includes(snippet)) failures.push(`${rel}: client contains ${snippet}`);
+    for (const snippet of forbiddenClient) {
+      if (source.includes(snippet)) failures.push(`${rel}: client contains forbidden ${snippet}`);
     }
-    if (fixedOtpPattern.test(text)) failures.push(`${rel}: client contains a hardcoded six-digit OTP`);
-  }
-
-  for (const pattern of forbiddenRepoPatterns) {
-    if (pattern.test(text) && rel !== "scripts/static-security-check.mjs") {
-      failures.push(`${rel}: forbidden OTP shortcut pattern`);
-    }
+    if (/signInWithOtp|phone_e164|otp_code/.test(source)) failures.push(`${rel}: phone/OTP flow remains in client`);
   }
 }
 
-const otpProviderSource = readFileSync(join(root, "supabase", "functions", "_shared", "otp-provider.ts"), "utf8");
-if (!otpProviderSource.includes('appEnv === "production" && provider !== "twilio"')) {
-  failures.push("otp-provider.ts: missing strict production provider guard");
+const discussion = read("supabase/migrations/20260701090000_poll_history_and_discussion.sql");
+if (!discussion.includes("v_user_id uuid := auth.uid()") || discussion.includes("p_user_id uuid")) {
+  failures.push("poll discussion: write RPCs must derive identity from auth.uid()");
 }
-if (!otpProviderSource.includes('appEnv !== "local" && appEnv !== "staging"')) {
-  failures.push("otp-provider.ts: local_test is not restricted to local/staging");
+if (!discussion.includes("revoke all on public.poll_comments from anon, authenticated") ||
+    !discussion.includes("grant select (id, poll_id, parent_comment_id, body, created_at, updated_at, deleted_at)")) {
+  failures.push("poll discussion: public reads and protected direct writes must remain");
 }
-if (!otpProviderSource.includes('config.provider === "local_test" && (config.appEnv === "local" || config.appEnv === "staging")')) {
-  failures.push("otp-provider.ts: Turnstile bypass is not restricted to local_test in local/staging");
-}
-
-const startVerificationSource = readFileSync(join(root, "supabase", "functions", "start-verification", "index.ts"), "utf8");
-if (!startVerificationSource.includes("Turnstile bypass is only allowed for local_test in local/staging and must never apply in production.")) {
-  failures.push("start-verification: missing explicit Turnstile bypass safety comment");
-}
-
-const discussionMigrationSource = readFileSync(join(root, "supabase", "migrations", "20260701090000_poll_history_and_discussion.sql"), "utf8");
-if (!discussionMigrationSource.includes("v_user_id uuid := auth.uid()") || discussionMigrationSource.includes("p_user_id uuid")) {
-  failures.push("poll discussion: write RPCs must derive the user from auth.uid()");
-}
-if (!discussionMigrationSource.includes("revoke all on public.poll_comments from anon, authenticated") ||
-    !discussionMigrationSource.includes("grant select (id, poll_id, parent_comment_id, body, created_at, updated_at, deleted_at)")) {
-  failures.push("poll discussion: comments must be public-read and protected from direct writes");
-}
-if (!discussionMigrationSource.includes("grant execute on function public.get_poll_results_history(uuid) to service_role")) {
+if (!discussion.includes("grant execute on function public.get_poll_results_history(uuid) to service_role")) {
   failures.push("results history: raw aggregation RPC must remain server-only");
 }
-if (/\bplatform\b/.test(startVerificationSource)) {
-  failures.push("start-verification: client-provided platform must not affect Turnstile");
-}
-if (!startVerificationSource.includes('otpConfig.provider === "local_test" &&') ||
-    !startVerificationSource.includes('(otpConfig.appEnv === "local" || otpConfig.appEnv === "staging")')) {
-  failures.push("start-verification: Turnstile bypass is not restricted to local_test in local/staging");
-}
-if (!startVerificationSource.includes("const turnstileRequired = !authenticatedUserId && !canBypassTurnstile;") ||
-    !startVerificationSource.includes("if (turnstileRequired)")) {
-  failures.push("start-verification: Turnstile is not required from the server-only bypass decision");
+
+const client = read("lib/supabase.ts");
+if (!client.includes("experimental: { passkey: true }")) failures.push("Supabase client: passkey opt-in missing");
+
+const verifier = read("supabase/functions/verify-passkey-enrollment/index.ts");
+if (!verifier.includes("auth.getUser(token)") || !verifier.includes("admin.passkey.listPasskeys({ userId: user.id })")) {
+  failures.push("passkey verifier: session-derived identity and admin verification required");
 }
 
-const signupPhoneMigrationSource = readFileSync(join(root, "supabase", "migrations", "20260724120000_verified_phone_signup.sql"), "utf8");
-if (signupPhoneMigrationSource.includes("phone_match_hash")) {
-  failures.push("signup phone verification: unkeyed phone matching hash must not be stored");
-}
-if (signupPhoneMigrationSource.includes("new.phone :=") || signupPhoneMigrationSource.includes("new.phone_confirmed_at :=")) {
-  failures.push("signup phone verification: clear phone must not be stored in auth.users");
-}
-if (!signupPhoneMigrationSource.includes("alter table public.signup_phone_verifications enable row level security") ||
-    !signupPhoneMigrationSource.includes("revoke all on public.signup_phone_verifications from public, anon, authenticated")) {
-  failures.push("signup phone verification: temporary proof table must be locked down");
-}
-if (signupPhoneMigrationSource.includes("phone_e164") ||
-    !signupPhoneMigrationSource.includes("phone_ciphertext text not null") ||
-    !signupPhoneMigrationSource.includes("phone_iv text not null") ||
-    !signupPhoneMigrationSource.includes("phone_encryption_version smallint not null")) {
-  failures.push("signup phone verification: temporary proof table must contain encrypted phone fields only");
-}
-if (!signupPhoneMigrationSource.includes("revoke select on public.profiles from authenticated") ||
-    !signupPhoneMigrationSource.includes("grant select (")) {
-  failures.push("account phone encryption: encrypted profile columns must not be client-readable");
+const deletion = read("supabase/functions/delete-passkey/index.ts");
+if (!deletion.includes("auth.getUser(token)") || !deletion.includes("deletePasskey({ userId: user.id, passkeyId })") ||
+    !deletion.includes("listPasskeys({ userId: user.id })")) {
+  failures.push("passkey deletion: ownership, last-key recovery and server resync required");
 }
 
-const signupApiSource = readFileSync(join(root, "lib", "api.ts"), "utf8");
-const signupFunctionBlock = signupApiSource.slice(
-  signupApiSource.indexOf("export async function signUpUser"),
-  signupApiSource.indexOf("export async function startSignupPhoneVerification")
-);
-if (signupFunctionBlock.includes("phone_e164")) {
-  failures.push("signup: clear phone must not be sent in auth metadata");
+const vote = read("supabase/functions/submit-vote/index.ts");
+for (const expected of ["auth.getUser(token)", "VOTER_HASH_SECRET", "consume_rate_limit", "submit_authenticated_vote", "passkey_required_at"]) {
+  if (!vote.includes(expected)) failures.push(`submit-vote: missing ${expected}`);
 }
+if (/\bnew Map\s*</.test(vote) || vote.includes("voteWindows")) failures.push("submit-vote: in-memory rate limit is forbidden");
+if (vote.includes("record_verified_user_answer") || vote.includes("submit_verified_vote")) failures.push("submit-vote: split or phone-based vote RPC remains");
+if (/body\?\.(?:user_id|userId)/.test(vote)) failures.push("submit-vote: user identity must not come from request body");
+if (/console\.(?:log|info|warn|error)\([^)]*(?:token|credential|user\.id|email|rawIp)/i.test(vote)) failures.push("submit-vote: sensitive material may be logged");
 
-const confirmAccountPhoneSource = readFileSync(join(root, "supabase", "functions", "confirm-account-phone", "index.ts"), "utf8");
-if (confirmAccountPhoneSource.includes("auth.admin.updateUserById")) {
-  failures.push("account phone verification: clear phone must not be stored in auth.users");
-}
-
-const cryptoSource = readFileSync(join(root, "supabase", "functions", "_shared", "crypto.ts"), "utf8");
-if (!cryptoSource.includes('Deno.env.get("PHONE_ENCRYPTION_KEY")') ||
-    !cryptoSource.includes('name: "AES-GCM"') ||
-    !cryptoSource.includes("crypto.getRandomValues(new Uint8Array(12))") ||
-    !cryptoSource.includes("keyBytes.byteLength !== 32")) {
-  failures.push("account phone encryption: strict AES-256-GCM helper requirements are missing");
-}
-if (cryptoSource.includes("EXPO_PUBLIC_PHONE_ENCRYPTION_KEY")) {
-  failures.push("account phone encryption: secret must never use an EXPO_PUBLIC variable");
-}
-
-for (const relativePath of [
-  "supabase/functions/confirm-signup-phone-verification/index.ts",
-  "supabase/functions/confirm-account-phone/index.ts",
-  "supabase/functions/start-verification/index.ts",
-  "supabase/functions/submit-vote/index.ts"
+const migration = read("supabase/migrations/20260727120000_passkey_auth.sql");
+const serviceRoleGrants = read("supabase/migrations/20260727183000_passkey_service_role_grants.sql");
+for (const expected of [
+  "passkey_required_at", "passkey_enrolled_at", "vote_user_locks", "abuse_rate_limits",
+  "submit_authenticated_vote", "consume_rate_limit", "set search_path = pg_catalog, public",
+  "revoke all on function public.submit_authenticated_vote", "grant execute on function public.submit_authenticated_vote",
+  "insert into public.vote_user_locks", "insert into public.votes", "insert into public.user_poll_answers"
 ]) {
-  const source = readFileSync(join(root, ...relativePath.split("/")), "utf8");
-  if (/console\.(?:log|info|warn|error)\(\s*(?:phone|normalizedPhone|phoneGlobalHash|encryptedPhone|phoneProfile)\b/.test(source) ||
-      /console\.(?:log|info|warn|error)\([^)]*\$\{(?:phone|normalizedPhone|phoneGlobalHash|encryptedPhone|phoneProfile)/.test(source)) {
-    failures.push(`${relativePath}: sensitive phone material must not be logged`);
-  }
+  if (!migration.includes(expected)) failures.push(`passkey migration: missing ${expected}`);
+}
+if (!/grant execute on function public\.submit_authenticated_vote\([^;]+to service_role;/s.test(migration) ||
+    /grant execute on function public\.submit_authenticated_vote\([^;]+to (?:anon|authenticated|public);/s.test(migration)) {
+  failures.push("passkey migration: sensitive RPC execution must be service_role-only");
+}
+if (!migration.includes("passkey_required_at is not null") || !migration.includes("passkey_enrolled_at is null")) {
+  failures.push("passkey migration: progressive account gating missing");
+}
+if (/phone_poll_hash\s*=\s*p_voter_hash/.test(migration)) failures.push("passkey migration: voter hash must not reuse phone_poll_hash");
+if (!serviceRoleGrants.includes("to service_role") ||
+    /to (?:anon|authenticated)/.test(serviceRoleGrants)) {
+  failures.push("passkey service-role grants: backend tables must remain restricted to service_role");
 }
 
-if (failures.length > 0) {
+if (failures.length) {
   console.error(failures.join("\n"));
   process.exit(1);
 }
-
 console.log("Static security checks passed.");
+
+function read(path) {
+  return readFileSync(join(root, ...path.split("/")), "utf8");
+}
 
 function* walk(dir) {
   for (const entry of readdirSync(dir)) {

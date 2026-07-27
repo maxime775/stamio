@@ -1,5 +1,5 @@
-import { useEffect, useState } from "react";
-import { ActivityIndicator, Pressable, StyleSheet, Text, View } from "react-native";
+import { useEffect, useRef, useState } from "react";
+import { ActivityIndicator, Platform, Pressable, StyleSheet, Text, useWindowDimensions, View } from "react-native";
 import { useRouter, type Href } from "expo-router";
 import { AuthSexSegmented, AuthTextField } from "@/components/AuthFields";
 import { AuthForm } from "@/components/AuthForm";
@@ -7,19 +7,18 @@ import { PasswordStrengthRules } from "@/components/PasswordStrengthRules";
 import { RegionSelect } from "@/components/RegionSelect";
 import { ProfessionSelect } from "@/components/ProfessionSelect";
 import { REGIONS_FR } from "@/lib/product";
-import { checkUsernameAvailability, signUpUser } from "@/lib/api";
+import { checkSignupEmail, checkUsernameAvailability, resendSignupConfirmation, signUpUser } from "@/lib/api";
 import { getVisibleSignupError, isValidSignupUsername, normalizeSignupEmail, normalizeSignupUsername, touchAllSignupFields, validateSignup, type SignupField, type SignupTouched, type SignupValues } from "@/lib/signupValidation";
 import type { Sex } from "@/lib/types";
 import { authField, fontFamilyMedium, fontFamilySemibold, palette, radius } from "@/lib/design";
 
 type UsernameAvailability = "idle" | "checking" | "available" | "taken" | "invalid";
+type ExistingEmailState = "existing_confirmed" | "existing_unconfirmed";
 
-export function SignupForm({
-  phoneVerificationToken
-}: {
-  phoneVerificationToken: string;
-}) {
+export function SignupForm() {
   const router = useRouter();
+  const compact = useWindowDimensions().width < 600;
+  const focusEmailAfterReturn = useRef(false);
   const [email, setEmail] = useState("");
   const [confirmEmail, setConfirmEmail] = useState("");
   const [password, setPassword] = useState("");
@@ -34,6 +33,8 @@ export function SignupForm({
   const [submitted, setSubmitted] = useState<SignupTouched>({});
   const [globalError, setGlobalError] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
+  const [existingEmailState, setExistingEmailState] = useState<ExistingEmailState | null>(null);
+  const [resendMessage, setResendMessage] = useState<string | null>(null);
 
   const values: SignupValues = { email, confirmEmail, password, confirmPassword, username, sex, age, profession, region };
   const validationErrors = validateSignup(values);
@@ -69,6 +70,15 @@ export function SignupForm({
       clearTimeout(timer);
     };
   }, [username]);
+
+  useEffect(() => {
+    if (existingEmailState !== null || !focusEmailAfterReturn.current || Platform.OS !== "web") return;
+    focusEmailAfterReturn.current = false;
+    const frame = window.requestAnimationFrame(() => {
+      (document.getElementById("email") as HTMLInputElement | null)?.focus({ preventScroll: true });
+    });
+    return () => window.cancelAnimationFrame(frame);
+  }, [existingEmailState]);
 
   function touch(field: SignupField) {
     setTouched((current) => ({ ...current, [field]: true }));
@@ -116,12 +126,24 @@ export function SignupForm({
 
     setLoading(true);
     setGlobalError(null);
+    const emailStatus = await checkSignupEmail(normalizedEmail);
+    if (emailStatus.status === "existing_confirmed" || emailStatus.status === "existing_unconfirmed") {
+      setLoading(false);
+      setExistingEmailState(emailStatus.status);
+      return;
+    }
+    if (emailStatus.status !== "available") {
+      setLoading(false);
+      setGlobalError(emailStatus.status === "rate_limited"
+        ? "Trop de tentatives ont été effectuées. Réessayez un peu plus tard."
+        : "Impossible de vérifier cette adresse pour le moment. Réessayez dans quelques instants.");
+      return;
+    }
     const { error: signupError } = await signUpUser({
       email: normalizedEmail,
       password,
       username: username.trim(),
       sex,
-      phoneVerificationToken,
       age: parsedAge,
       profession,
       region
@@ -140,6 +162,65 @@ export function SignupForm({
     }
 
     router.replace({ pathname: "/auth/verify-email", params: { email: normalizedEmail } } as Href);
+  }
+
+  function useAnotherEmail() {
+    focusEmailAfterReturn.current = true;
+    setExistingEmailState(null);
+    setEmail("");
+    setConfirmEmail("");
+    setPassword("");
+    setConfirmPassword("");
+    setTouched((current) => resetCredentialFieldFlags(current));
+    setSubmitted((current) => resetCredentialFieldFlags(current));
+    setResendMessage(null);
+    setGlobalError(null);
+  }
+
+  async function resendExistingConfirmation() {
+    if (loading) return;
+    setLoading(true);
+    setResendMessage(null);
+    const { error } = await resendSignupConfirmation(normalizeSignupEmail(email));
+    setLoading(false);
+    setResendMessage(error
+      ? "Impossible de renvoyer l’email pour le moment."
+      : "Si cette inscription est valide, un nouvel email de confirmation vient d’être envoyé.");
+  }
+
+  if (existingEmailState) {
+    const confirmed = existingEmailState === "existing_confirmed";
+    return (
+      <View style={styles.existingContent}>
+        <Text style={styles.existingEyebrow}>INSCRIPTION</Text>
+        <Text style={[styles.existingTitle, compact && styles.existingTitleCompact]}>
+          {confirmed ? "Cette adresse email est déjà utilisée" : "Cette adresse attend déjà une confirmation"}
+        </Text>
+        <Text style={styles.existingText}>
+          {confirmed
+            ? "Un compte est déjà associé à cette adresse. Utilisez une autre adresse pour vous inscrire ou connectez-vous à votre compte."
+            : "Un compte a déjà été créé avec cette adresse. Vous pouvez renvoyer l’email de confirmation ou utiliser une autre adresse."}
+        </Text>
+        <View style={styles.existingDivider} />
+        {resendMessage ? <Text accessibilityLiveRegion="polite" style={styles.existingMessage}>{resendMessage}</Text> : null}
+        <View style={styles.existingActions}>
+          <Pressable
+            accessibilityRole="button"
+            disabled={loading}
+            onPress={confirmed ? () => router.push("/auth/login" as Href) : resendExistingConfirmation}
+            style={[styles.existingPrimary, compact && styles.existingActionCompact]}
+          >
+            {loading ? <ActivityIndicator color={palette.onPrimary} /> : <Text style={styles.primaryText}>{confirmed ? "Se connecter" : "Renvoyer l’email de confirmation"}</Text>}
+          </Pressable>
+          <Pressable accessibilityRole="button" onPress={useAnotherEmail} style={[styles.existingSecondary, compact && styles.existingActionCompact]}>
+            <Text style={styles.existingSecondaryText}>Utiliser une autre adresse</Text>
+          </Pressable>
+        </View>
+        <Pressable accessibilityRole="link" onPress={() => router.push((confirmed ? "/auth/reset-password" : "/auth/login") as Href)} style={styles.existingLink}>
+          <Text style={styles.existingLinkText}>{confirmed ? "Mot de passe oublié ?" : "Se connecter"}</Text>
+        </Pressable>
+      </View>
+    );
   }
 
   return (
@@ -188,7 +269,31 @@ export function SignupForm({
 
 const Field = AuthTextField;
 
+function resetCredentialFieldFlags(current: SignupTouched): SignupTouched {
+  return {
+    ...current,
+    email: false,
+    confirmEmail: false,
+    password: false,
+    confirmPassword: false
+  };
+}
+
 const styles = StyleSheet.create({
+  existingContent: { width: "100%", maxWidth: 720, alignSelf: "center", gap: 18 },
+  existingEyebrow: { color: palette.primaryStrong, fontFamily: fontFamilySemibold, fontSize: 10, letterSpacing: 1.2 },
+  existingTitle: { color: palette.ink, fontFamily: fontFamilySemibold, fontSize: 32, lineHeight: 39, maxWidth: 620 },
+  existingTitleCompact: { fontSize: 29, lineHeight: 35 },
+  existingText: { color: palette.inkSecondary, fontFamily: fontFamilyMedium, fontSize: 15, lineHeight: 24, maxWidth: 660 },
+  existingDivider: { width: "100%", height: 1, backgroundColor: palette.line },
+  existingMessage: { color: palette.positiveText, fontFamily: fontFamilyMedium, lineHeight: 22 },
+  existingActions: { flexDirection: "row", flexWrap: "wrap", gap: 12 },
+  existingPrimary: { minHeight: 44, borderRadius: radius.sm, backgroundColor: palette.primary, paddingHorizontal: 18, alignItems: "center", justifyContent: "center" },
+  existingSecondary: { minHeight: 44, borderRadius: radius.sm, borderWidth: 1, borderColor: palette.lineStrong, paddingHorizontal: 18, alignItems: "center", justifyContent: "center" },
+  existingSecondaryText: { color: palette.inkSecondary, fontFamily: fontFamilyMedium },
+  existingActionCompact: { width: "100%" },
+  existingLink: { alignSelf: "flex-start", paddingVertical: 4 },
+  existingLinkText: { color: palette.primaryStrong, fontFamily: fontFamilySemibold, fontSize: 13 },
   profileBlock: {
     borderTopWidth: 1,
     borderTopColor: "rgba(148, 163, 184, 0.16)",

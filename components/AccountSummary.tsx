@@ -8,28 +8,14 @@ import { fontFamilyBold, fontFamilyMedium, fontFamilySemibold, palette, radius }
 type Props = {
   profile: Profile | null;
   email?: string | null;
-  phoneVerified?: boolean;
-  phoneActionLabel?: string;
-  phoneActionDisabled?: boolean;
   onEdit?: (field: ProfileUpdateField | "email") => void;
-  onPhoneInfo?: () => void;
 };
 
 export function AccountSummary({
   profile,
   email,
-  phoneVerified = false,
-  phoneActionLabel,
-  phoneActionDisabled = false,
-  onEdit,
-  onPhoneInfo
+  onEdit
 }: Props) {
-  const phone = phoneVerified && profile?.phone_last4
-    ? `Numéro vérifié · se termine par ${profile.phone_last4}`
-    : profile?.phone_last4
-      ? `Numéro à confirmer · se termine par ${profile.phone_last4}`
-      : "Téléphone non configuré pour la vérification";
-
   return (
     <View style={styles.wrap}>
       <Text style={styles.title}>Mes informations</Text>
@@ -40,13 +26,6 @@ export function AccountSummary({
         <Field label="Âge" value={profile?.age ? `${profile.age} ans` : "Non renseigné"} onEdit={onEdit ? () => onEdit("age") : undefined} />
         <Field label="Profession" value={profile?.profession ?? "Non renseigné"} onEdit={onEdit ? () => onEdit("profession") : undefined} />
         <Field label="Région" value={profile?.region ?? "Non renseigné"} onEdit={onEdit ? () => onEdit("region") : undefined} />
-        <Field
-          label="Téléphone"
-          value={phone}
-          onEdit={onPhoneInfo}
-          actionLabel={phoneActionLabel ?? (phoneVerified ? "Modifier" : "Configurer")}
-          actionDisabled={phoneActionDisabled}
-        />
       </View>
     </View>
   );

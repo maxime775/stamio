@@ -35,6 +35,10 @@ export default function AccountPage() {
     Promise.all([getCurrentUserProfile(), getLatestUserAnswers(), getMyAccountStats()])
       .then(([nextProfile, nextAnswers, nextStats]) => {
         if (!active) return;
+        if (nextProfile?.passkey_required_at && !nextProfile.passkey_enrolled_at) {
+          router.replace("/auth/passkey-enrollment" as Href);
+          return;
+        }
         setProfile(nextProfile);
         setAnswers(nextAnswers);
         setStats(nextStats);

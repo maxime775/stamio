@@ -1,4 +1,5 @@
-import { useEffect, useMemo, useState } from "react";
+import { useCallback, useMemo, useState } from "react";
+import { useFocusEffect } from "expo-router";
 import { StyleSheet, Text, View } from "react-native";
 import { EmptyState } from "@/components/EmptyState";
 import { PageShell } from "@/components/PageShell";
@@ -14,7 +15,7 @@ export default function ThemesIndex() {
   const [polls, setPolls] = useState<PollWithStats[]>([]);
   const [isLoading, setIsLoading] = useState(true);
 
-  useEffect(() => {
+  useFocusEffect(useCallback(() => {
     let active = true;
     setIsLoading(true);
     setPolls([]);
@@ -34,7 +35,7 @@ export default function ThemesIndex() {
     return () => {
       active = false;
     };
-  }, [activeTheme]);
+  }, [activeTheme]));
 
   const totalVotes = useMemo(() => polls.reduce((sum, poll) => sum + poll.totalVotes, 0), [polls]);
 

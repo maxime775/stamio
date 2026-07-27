@@ -1,18 +1,18 @@
 # Verified Polls
 
-V1 Expo + Supabase d'une plateforme de sondages interactifs avec vote unique vérifié par OTP SMS Twilio.
+Application Expo + Supabase de sondages interactifs avec comptes confirmés par email et sécurisés par passkeys.
 
 ## Architecture
 
 - `app/` contient les écrans Expo Router pour web, iOS et Android.
-- `components/` contient l'interface de vote, OTP, résultats animés et Turnstile web.
+- `components/` contient l'interface de vote, d'authentification et de résultats.
 - `lib/` contient le client Supabase public, les appels aux Edge Functions et la validation côté client.
 - `supabase/migrations/` contient le schéma PostgreSQL, RLS, contraintes et fonctions SQL.
-- `supabase/functions/start-verification` envoie l'OTP via Twilio Verify après validation Turnstile sur web.
-- `supabase/functions/submit-vote` vérifie l'OTP auprès de Twilio, calcule le hash, puis appelle la fonction SQL transactionnelle.
+- `supabase/functions/verify-passkey-enrollment` vérifie côté serveur la présence réelle d'une passkey Supabase.
+- `supabase/functions/submit-vote` vérifie la session, l'email confirmé et la passkey avant l'écriture transactionnelle.
 - `supabase/functions/get-results` retourne les résultats agrégés.
 
-Le client n'insère jamais dans `votes` ou `vote_phone_locks`. Les secrets Supabase service role, Twilio et HMAC ne sont utilisés que dans les Edge Functions.
+Le client n'insère jamais dans `votes` ou `vote_phone_locks`. Les secrets Supabase service role, HMAC et IP HMAC ne sont utilisés que dans les Edge Functions.
 
 ## Installation
 
@@ -28,7 +28,7 @@ Renseignez les variables publiques Expo dans `.env`.
 ```bash
 supabase start
 supabase db reset
-supabase functions serve start-verification --env-file .env
+supabase functions serve verify-passkey-enrollment --env-file .env
 supabase functions serve submit-vote --env-file .env
 supabase functions serve get-results --env-file .env
 ```
@@ -38,22 +38,17 @@ En production, configurez les secrets Edge Functions :
 ```bash
 supabase secrets set SUPABASE_URL=...
 supabase secrets set SUPABASE_SERVICE_ROLE_KEY=...
-supabase secrets set TWILIO_ACCOUNT_SID=...
-supabase secrets set TWILIO_AUTH_TOKEN=...
-supabase secrets set TWILIO_VERIFY_SERVICE_SID=...
 supabase secrets set TURNSTILE_SECRET_KEY=...
 supabase secrets set HMAC_SECRET=...
+supabase secrets set IP_HASH_SECRET=...
 ```
 
-Le provider OTP est configuré uniquement dans les secrets des Edge Functions. En production, utilisez
-`APP_ENV=production` et `OTP_PROVIDER=twilio`; toute autre combinaison est refusée côté serveur.
-Pour une instance Supabase locale ou un projet staging séparé, `OTP_PROVIDER=local_test` exige
-`OTP_TEST_PHONE_ALLOWLIST` et `OTP_TEST_CODE`. Ce mode ne doit jamais pointer vers les données de production.
+Les passkeys doivent être activées dans Supabase Auth avec le RP ID stable `stamio.fr`. Voir `docs/PASSKEY_SETUP.md`.
 
 Puis déployez :
 
 ```bash
-supabase functions deploy start-verification
+supabase functions deploy verify-passkey-enrollment
 supabase functions deploy submit-vote
 supabase functions deploy get-results
 ```
@@ -76,15 +71,20 @@ Options : `Oui`, `Non`, `Ne se prononce pas`.
 
 1. L'utilisateur sélectionne une réponse.
 2. Sur web, Cloudflare Turnstile produit un token.
-3. `start-verification` valide Turnstile si nécessaire, vérifie que le sondage est ouvert, puis appelle Twilio Verify pour envoyer le SMS.
-4. `submit-vote` appelle Twilio Verify Check.
-5. Le vote n'est poursuivi que si Twilio retourne `approved`.
-6. Le téléphone est normalisé en E.164 puis transformé en `HMAC_SHA256(HMAC_SECRET, poll_id + ":" + phone_e164)`.
-7. `submit_verified_vote` insère d'abord dans `vote_phone_locks`.
-8. `UNIQUE(poll_id, phone_poll_hash)` garantit qu'un même numéro ne peut voter qu'une fois pour une même question, y compris en concurrence.
-9. Le vote est inséré avec un `receipt_hash` anonyme.
+3. `submit-vote` valide la session Supabase et l'adresse email confirmée.
+4. L'API admin Supabase confirme qu'au moins une passkey existe réellement.
+5. Une clé HMAC serveur dérivée de `user_id` et du sondage alimente le verrou transactionnel historique.
+6. `submit_verified_vote` insère d'abord dans `vote_phone_locks`.
+7. `UNIQUE(poll_id, phone_poll_hash)` et `UNIQUE(user_id, poll_id)` garantissent un vote unique, y compris en concurrence.
+8. Le vote est inséré avec un `receipt_hash` anonyme.
 
 Le numéro de téléphone n'est jamais stocké en clair.
+
+## Convention visuelle des pages de compte et d'authentification
+
+Une nouvelle fonctionnalité ne doit pas être automatiquement présentée dans une carte ou un encart bordé. Utiliser en priorité la hiérarchie typographique, l'espacement, l'alignement, un trait horizontal fin et les listes à plat.
+
+Les cartes bordées sont réservées aux composants du produit qui nécessitent réellement une délimitation, comme certaines cartes de questions ou certains résultats. Elles ne doivent pas être utilisées par défaut pour une étape d'inscription, une confirmation email, une création de passkey, une section de réglage, une ligne de passkey ou une information de compte.
 
 ## Vérifications
 

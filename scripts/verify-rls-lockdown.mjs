@@ -4,8 +4,8 @@ import { randomUUID } from "node:crypto";
 import { resolve } from "node:path";
 
 const env = readDotEnv(resolve(process.cwd(), ".env"));
-const supabaseUrl = env.EXPO_PUBLIC_SUPABASE_URL ?? process.env.EXPO_PUBLIC_SUPABASE_URL;
-const anonKey = env.EXPO_PUBLIC_SUPABASE_ANON_KEY ?? process.env.EXPO_PUBLIC_SUPABASE_ANON_KEY;
+const supabaseUrl = process.env.EXPO_PUBLIC_SUPABASE_URL ?? env.EXPO_PUBLIC_SUPABASE_URL;
+const anonKey = process.env.EXPO_PUBLIC_SUPABASE_ANON_KEY ?? env.EXPO_PUBLIC_SUPABASE_ANON_KEY;
 
 if (!supabaseUrl || !anonKey) {
   console.error("Set EXPO_PUBLIC_SUPABASE_URL and EXPO_PUBLIC_SUPABASE_ANON_KEY in .env before running this script.");
@@ -22,6 +22,23 @@ const choiceId = choice?.id ?? randomUUID();
 const lockId = randomUUID();
 
 const checks = [
+  {
+    table: "vote_user_locks",
+    row: {
+      poll_id: pollId,
+      voter_hash: "f".repeat(64)
+    }
+  },
+  {
+    table: "abuse_rate_limits",
+    row: {
+      key_hash: "a".repeat(64),
+      action: "rls_probe",
+      window_started_at: new Date().toISOString(),
+      request_count: 1,
+      expires_at: new Date(Date.now() + 60_000).toISOString()
+    }
+  },
   {
     table: "votes",
     row: {

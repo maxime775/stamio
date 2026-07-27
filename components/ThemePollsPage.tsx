@@ -1,5 +1,6 @@
-import { useEffect, useMemo, useState } from "react";
+import { useCallback, useMemo, useState } from "react";
 import { Animated, StyleSheet, Text, View } from "react-native";
+import { useFocusEffect } from "expo-router";
 import { EmptyState } from "@/components/EmptyState";
 import { PageShell } from "@/components/PageShell";
 import { PollTeaserCard } from "@/components/PollTeaserCard";
@@ -22,7 +23,7 @@ export function ThemePollsPage({ activeTheme }: Props) {
   const visual = getThemeVisual(activeTheme);
   const totalVotes = useMemo(() => polls.reduce((sum, poll) => sum + poll.totalVotes, 0), [polls]);
 
-  useEffect(() => {
+  useFocusEffect(useCallback(() => {
     let active = true;
     setIsLoading(true);
     setPolls([]);
@@ -41,7 +42,7 @@ export function ThemePollsPage({ activeTheme }: Props) {
     return () => {
       active = false;
     };
-  }, [activeTheme, fade]);
+  }, [activeTheme, fade]));
 
   return (
     <PageShell>

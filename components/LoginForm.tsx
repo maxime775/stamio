@@ -3,7 +3,8 @@ import { ActivityIndicator, Platform, Pressable, StyleSheet, Text, TextInput, Vi
 import { useRouter, type Href } from "expo-router";
 import { Eye, EyeOff } from "lucide-react-native";
 import { AuthForm } from "@/components/AuthForm";
-import { signInUser } from "@/lib/api";
+import { getCurrentUserProfile, signInUser } from "@/lib/api";
+import { getPasskeyErrorMessage, signInWithPasskey } from "@/lib/auth/passkeys";
 import { getVisibleLoginError, normalizeAuthEmail, validateLogin, type LoginField } from "@/lib/authValidation";
 import { authField, fontFamilyMedium, fontFamilySemibold, palette, radius } from "@/lib/design";
 
@@ -16,6 +17,7 @@ export function LoginForm() {
   const [globalError, setGlobalError] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
   const [passwordVisible, setPasswordVisible] = useState(false);
+  const [passkeyLoading, setPasskeyLoading] = useState(false);
   const submittingRef = useRef(false);
   const values = { email, password };
   const validationErrors = validateLogin(values);
@@ -56,11 +58,30 @@ export function LoginForm() {
       return;
     }
 
-    router.replace("/" as Href);
+    const profile = await getCurrentUserProfile();
+    router.replace((profile?.passkey_required_at && !profile.passkey_enrolled_at ? "/auth/passkey-enrollment" : "/") as Href);
+  }
+
+  async function handlePasskeySignIn() {
+    if (passkeyLoading) return;
+    setPasskeyLoading(true);
+    setGlobalError(null);
+    try {
+      await signInWithPasskey();
+      router.replace("/" as Href);
+    } catch (error) {
+      setGlobalError(getPasskeyErrorMessage(error, "signin"));
+    } finally {
+      setPasskeyLoading(false);
+    }
   }
 
   return (
-    <AuthForm title="Bienvenue" subtitle="Accédez à votre profil, votre historique et votre réputation." maxWidth={390} compact>
+    <AuthForm title="Se connecter" subtitle="Utilisez Face ID, votre empreinte, Windows Hello ou le code de votre appareil." maxWidth={390} compact>
+      <Pressable accessibilityRole="button" disabled={passkeyLoading} onPress={handlePasskeySignIn} style={({ pressed }) => StyleSheet.flatten([styles.primary, pressed && !passkeyLoading && styles.primaryPressed, passkeyLoading && styles.primaryDisabled])}>
+        {passkeyLoading ? <ActivityIndicator color={palette.onPrimary} /> : <Text style={styles.primaryText}>Se connecter avec une clé d’accès</Text>}
+      </Pressable>
+      <Text style={styles.alternative}>Utiliser une autre méthode</Text>
       <LoginInput
         field="email"
         label="Adresse e-mail"
@@ -212,6 +233,7 @@ const styles = StyleSheet.create({
   eyeButtonPressed: { backgroundColor: "rgba(148, 163, 184, 0.1)" },
   forgotLink: { alignSelf: "flex-end", paddingVertical: 2, paddingHorizontal: 2, marginTop: -4 },
   forgotText: { color: palette.primaryStrong, fontFamily: fontFamilyMedium, fontSize: 12 },
+  alternative: { color: palette.muted, fontFamily: fontFamilyMedium, fontSize: 12, textAlign: "center", marginVertical: 2 },
   separator: { height: 1, width: "100%", backgroundColor: authField.separatorColor, marginTop: 6, marginBottom: 2 },
   signupPrompt: { flexDirection: "row", justifyContent: "center", alignItems: "center", gap: 5, flexWrap: "wrap", paddingTop: 2 },
   signupPromptText: { color: palette.inkSecondary, fontFamily: fontFamilyMedium, fontSize: 13 },

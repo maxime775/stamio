@@ -60,6 +60,7 @@ export function ResetPasswordForm() {
     }
 
     setStatus("Votre mot de passe a été mis à jour.");
+    router.replace("/auth/passkey-enrollment" as Href);
   }
 
   return (

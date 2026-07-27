@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useRef, useState } from "react";
-import { Animated, Easing, Linking, Platform, Pressable, ScrollView, StyleSheet, Text, useWindowDimensions, View } from "react-native";
+import { ActivityIndicator, Animated, Easing, Linking, Platform, Pressable, ScrollView, StyleSheet, Text, useWindowDimensions, View } from "react-native";
 import { LinearGradient } from "expo-linear-gradient";
 import { Check, ExternalLink, MessagesSquare } from "lucide-react-native";
 import { useLocalSearchParams } from "expo-router";
@@ -129,9 +129,7 @@ export default function PollScreen() {
     ? "Vote comptabilisé"
     : alreadyParticipated
       ? "Vous avez déjà participé"
-      : participationStatusLoading
-        ? "Vérification en cours"
-        : "Valider mon vote";
+      : "Valider mon vote";
   const voteButtonStatus: VoteSubmitButtonStatus = voteAccepted
     ? "accepted"
     : alreadyParticipated
@@ -379,7 +377,7 @@ function VoteSubmitButton({ disabled, label, status, onPress }: {
   const fill = useMemo(() => new Animated.Value(0), []);
   const actionable = status === "ready" && !disabled;
   const terminal = status === "accepted" || status === "alreadyParticipated";
-  const iconColor = actionable ? palette.canvas : "rgba(251, 252, 255, 0.45)";
+  const iconColor = actionable ? palette.ink : "rgba(251, 252, 255, 0.45)";
 
   function animate(toValue: number) {
     if (!actionable) return;
@@ -402,7 +400,7 @@ function VoteSubmitButton({ disabled, label, status, onPress }: {
   return (
     <Pressable
       accessibilityRole="button"
-      accessibilityState={{ disabled }}
+      accessibilityState={{ disabled, busy: status === "loading" }}
       disabled={disabled}
       onHoverIn={() => animate(1)}
       onHoverOut={() => animate(0)}
@@ -426,6 +424,9 @@ function VoteSubmitButton({ disabled, label, status, onPress }: {
         />
       ) : null}
       <View pointerEvents="none" style={styles.voteButtonContent}>
+        <View style={styles.voteButtonLoaderSlot}>
+          <ActivityIndicator animating={status === "loading"} size="small" color={palette.inkSecondary} style={status !== "loading" && styles.voteButtonLoaderHidden} />
+        </View>
         <View style={styles.voteButtonIcon}>
           <Check size={16} color={iconColor} />
         </View>
@@ -553,10 +554,12 @@ const styles = StyleSheet.create({
     backgroundColor: VOTE_CTA_FILL
   },
   voteButtonContent: { zIndex: 1, flexDirection: "row", alignItems: "center", justifyContent: "center", gap: 9, paddingHorizontal: 24 },
+  voteButtonLoaderSlot: { width: 18, height: 18, alignItems: "center", justifyContent: "center" },
+  voteButtonLoaderHidden: { opacity: 0 },
   voteButtonIcon: { width: 18, height: 18, alignItems: "center", justifyContent: "center" },
   voteButtonInactive: { backgroundColor: "rgba(16, 24, 33, 0.42)", borderColor: "rgba(143, 184, 198, 0.14)", shadowOpacity: 0 },
   voteButtonTerminal: { backgroundColor: "rgba(16, 24, 33, 0.5)", borderColor: "rgba(251, 252, 255, 0.15)", shadowOpacity: 0 },
-  voteButtonText: { color: palette.canvas, fontFamily: fontFamilySemibold, fontSize: 14, lineHeight: 18, letterSpacing: 0.15 },
+  voteButtonText: { color: palette.ink, fontFamily: fontFamilySemibold, fontSize: 14, lineHeight: 18, letterSpacing: 0.15 },
   voteButtonDisabledText: { color: "rgba(251, 252, 255, 0.45)" },
   closedBox: {
     borderRadius: radius.sm,
