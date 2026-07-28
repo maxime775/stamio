@@ -1,7 +1,7 @@
 import { useEffect, useMemo, useState } from "react";
 import { Animated, Easing, Pressable, ScrollView, StyleSheet, Text, View } from "react-native";
 import { useRouter, type Href } from "expo-router";
-import { THEMES } from "@/lib/product";
+import { getThemeRoute, THEMES } from "@/lib/product";
 import { prefetchThemePolls } from "@/lib/api";
 import type { ThemeSlug } from "@/lib/types";
 import { ALL_THEMES_TAB_COLOR, fontFamilyMedium, fontFamilySemibold, getThemeVisual, palette } from "@/lib/design";
@@ -12,7 +12,7 @@ type Props = {
   onSelect?: (theme: ThemeSlug | "all") => void;
 };
 
-export function ThemeTabs({ active = "all", includeAll = false, onSelect }: Props) {
+export function ThemeTabs({ active = "all", includeAll = true, onSelect }: Props) {
   const router = useRouter();
   const items = includeAll ? [{ slug: "all" as const, label: "Tous" }, ...THEMES] : THEMES;
 
@@ -21,7 +21,7 @@ export function ThemeTabs({ active = "all", includeAll = false, onSelect }: Prop
       onSelect(slug);
       return;
     }
-    router.push((slug === "all" ? "/themes" : `/themes/${slug}`) as Href);
+    router.push(getThemeRoute(slug) as Href);
   }
 
   return (
@@ -52,35 +52,26 @@ function ThemeTabItem({ label, slug, selected, onSelect }: { label: string; slug
 
   useEffect(() => {
     Animated.timing(line, {
-      toValue: selected ? 1 : 0,
+      toValue: highlighted ? 1 : 0,
       duration: 220,
       easing: Easing.out(Easing.cubic),
       useNativeDriver: true
     }).start();
-  }, [line, selected]);
-
-  function animateLine(toValue: number) {
-    Animated.timing(line, {
-      toValue,
-      duration: 220,
-      easing: Easing.out(Easing.cubic),
-      useNativeDriver: true
-    }).start();
-  }
+  }, [highlighted, line]);
 
   function handleHoverIn() {
     setHovered(true);
-    animateLine(1);
     prefetchThemePolls(slug);
   }
 
   function handleHoverOut() {
     setHovered(false);
-    animateLine(selected ? 1 : 0);
   }
 
   return (
     <Pressable
+      accessibilityRole="tab"
+      accessibilityState={{ selected }}
       onPress={() => onSelect(slug)}
       onPressIn={() => prefetchThemePolls(slug)}
       onFocus={() => prefetchThemePolls(slug)}

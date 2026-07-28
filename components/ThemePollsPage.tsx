@@ -46,29 +46,32 @@ export function ThemePollsPage({ activeTheme }: Props) {
 
   return (
     <PageShell>
-      <View style={styles.hero}>
-        <View style={styles.heading}>
-          <Text style={StyleSheet.flatten([styles.kicker, { color: visual.accent }])}>Nos thèmes</Text>
-          <Text style={styles.title}>{getThemeLabel(activeTheme)}</Text>
-          <Text style={styles.intro}>{theme?.intro}</Text>
+      <View style={styles.pageGrid}>
+        <View style={styles.hero}>
+          <View style={styles.heading}>
+            <Text style={StyleSheet.flatten([styles.kicker, { color: visual.accent }])}>Nos thèmes</Text>
+            <Text style={styles.title}>{getThemeLabel(activeTheme)}</Text>
+            <Text style={styles.intro}>{theme?.intro}</Text>
+          </View>
+          {isLoading ? <View style={styles.metricPlaceholder} /> : <VotesMetric value={totalVotes} accent={visual.accent} animationKey={activeTheme} />}
         </View>
-        {isLoading ? <View style={styles.metricPlaceholder} /> : <VotesMetric value={totalVotes} accent={visual.accent} animationKey={activeTheme} />}
+        <ThemeTabs active={activeTheme} />
+        <Animated.View style={StyleSheet.flatten([styles.grid, { opacity: fade as unknown as number }])}>
+          {isLoading ? (
+            [0, 1].map((index) => <View key={index} style={styles.loadingCard} />)
+          ) : polls.length > 0 ? (
+            polls.map((poll) => <PollTeaserCard key={poll.id} poll={poll} compact showBottomHoverRule={false} />)
+          ) : (
+            <EmptyState title="Aucun sondage ouvert" message="Ce thème n’a pas encore de question active." />
+          )}
+        </Animated.View>
       </View>
-      <ThemeTabs active={activeTheme} />
-      <Animated.View style={StyleSheet.flatten([styles.grid, { opacity: fade as unknown as number }])}>
-        {isLoading ? (
-          [0, 1].map((index) => <View key={index} style={styles.loadingCard} />)
-        ) : polls.length > 0 ? (
-          polls.map((poll) => <PollTeaserCard key={poll.id} poll={poll} compact showBottomHoverRule={false} />)
-        ) : (
-          <EmptyState title="Aucun sondage ouvert" message="Ce thème n’a pas encore de question active." />
-        )}
-      </Animated.View>
     </PageShell>
   );
 }
 
 const styles = StyleSheet.create({
+  pageGrid: { width: "100%", maxWidth: 1120, alignSelf: "center", gap: 24 },
   hero: { flexDirection: "row", alignItems: "center", justifyContent: "space-between", flexWrap: "wrap", gap: 24 },
   heading: { gap: 8, flex: 1, minWidth: 280 },
   kicker: { color: palette.primaryStrong, fontFamily: fontFamilySemibold, textTransform: "uppercase", fontSize: 10, letterSpacing: 1.2 },

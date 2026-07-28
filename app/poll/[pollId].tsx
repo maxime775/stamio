@@ -2,7 +2,7 @@ import { useEffect, useMemo, useRef, useState } from "react";
 import { ActivityIndicator, Animated, Easing, Linking, Platform, Pressable, ScrollView, StyleSheet, Text, useWindowDimensions, View } from "react-native";
 import { LinearGradient } from "expo-linear-gradient";
 import { Check, ExternalLink, MessagesSquare } from "lucide-react-native";
-import { useLocalSearchParams } from "expo-router";
+import { useLocalSearchParams, useRouter, type Href } from "expo-router";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { PollCard } from "@/components/PollCard";
 import { PollTimer } from "@/components/PollTimer";
@@ -13,14 +13,16 @@ import { MarkdownContent } from "@/components/MarkdownContent";
 import { AppFooter } from "@/components/AppFooter";
 import { VotePanel } from "@/components/VotePanel";
 import { SkeletonPoll } from "@/components/SkeletonPoll";
+import { siteContainerStyle } from "@/components/SiteContainer";
 import { useAuth } from "@/components/AuthProvider";
 import { fetchPoll, getCachedPoll, getCachedResults, getCachedResultsHistory, getResults, getResultsHistory, getUserPollAnswer } from "@/lib/api";
-import { getPollDescription, getThemeLabel } from "@/lib/product";
+import { getPollDescription, getThemeLabel, getThemeRoute } from "@/lib/product";
 import { STAMIO_CORE_COLORS, fontFamilyBold, fontFamilyMedium, fontFamilySemibold, getColorWithOpacity, getThemeTagStyle, palette, radius } from "@/lib/design";
 import type { Poll, PollHistoryPoint, PollResource, PollResult, VoteStatus } from "@/lib/types";
 
 export default function PollScreen() {
   const { pollId } = useLocalSearchParams<{ pollId: string }>();
+  const router = useRouter();
   const { user, loading: authLoading } = useAuth();
   const compact = useWindowDimensions().width < 760;
   const [poll, setPoll] = useState<Poll | null>(null);
@@ -176,7 +178,15 @@ export default function PollScreen() {
             <Animated.View style={StyleSheet.flatten([styles.contentStack, { opacity: fade as unknown as number }])}>
               <View style={styles.hero}>
                 <View style={styles.metaRow}>
-                  <Text style={StyleSheet.flatten([styles.theme, getThemeTagStyle(poll.theme)])}>{getThemeLabel(poll.theme)}</Text>
+                  <Pressable
+                    accessibilityRole="link"
+                    onPress={() => {
+                      if (poll.theme) router.push(getThemeRoute(poll.theme) as Href);
+                    }}
+                    style={({ hovered, pressed }) => StyleSheet.flatten([styles.themeLink, hovered && styles.themeLinkHighlighted, pressed && styles.themeLinkPressed])}
+                  >
+                    <Text style={StyleSheet.flatten([styles.theme, getThemeTagStyle(poll.theme)])}>{getThemeLabel(poll.theme)}</Text>
+                  </Pressable>
                   <View style={styles.timerGroup}>
                     <Text style={styles.timerLabel}>Clôture dans</Text>
                     <PollTimer poll={poll} style={styles.timer} />
@@ -443,12 +453,9 @@ const styles = StyleSheet.create({
   root: { flex: 1 },
   safe: { flex: 1 },
   scroll: {
-    paddingHorizontal: 20,
+    ...siteContainerStyle,
     paddingBottom: 36,
     gap: 22,
-    width: "100%",
-    maxWidth: 1160,
-    alignSelf: "center"
   },
   hero: {
     gap: 18,
@@ -458,6 +465,9 @@ const styles = StyleSheet.create({
     borderBottomColor: palette.line
   },
   metaRow: { flexDirection: "row", alignItems: "center", justifyContent: "space-between", flexWrap: "wrap", columnGap: 18, rowGap: 10 },
+  themeLink: { alignSelf: "flex-start", borderRadius: radius.sm },
+  themeLinkHighlighted: { opacity: 0.82 },
+  themeLinkPressed: { opacity: 0.66 },
   theme: { fontFamily: fontFamilySemibold, textTransform: "uppercase", fontSize: 10, letterSpacing: 1.2 },
   timerGroup: { alignItems: "flex-end", justifyContent: "center", gap: 3 },
   timerLabel: { color: palette.muted, fontFamily: fontFamilyMedium, fontSize: 10, textTransform: "uppercase", letterSpacing: 0.8 },
@@ -553,13 +563,13 @@ const styles = StyleSheet.create({
     height: 53,
     backgroundColor: VOTE_CTA_FILL
   },
-  voteButtonContent: { zIndex: 1, flexDirection: "row", alignItems: "center", justifyContent: "center", gap: 9, paddingHorizontal: 24 },
-  voteButtonLoaderSlot: { width: 18, height: 18, alignItems: "center", justifyContent: "center" },
+  voteButtonContent: { zIndex: 1, flexDirection: "row", alignItems: "center", justifyContent: "center", gap: 8, paddingHorizontal: 12 },
+  voteButtonLoaderSlot: { position: "absolute", left: 12, width: 18, height: 18, alignItems: "center", justifyContent: "center" },
   voteButtonLoaderHidden: { opacity: 0 },
   voteButtonIcon: { width: 18, height: 18, alignItems: "center", justifyContent: "center" },
   voteButtonInactive: { backgroundColor: "rgba(16, 24, 33, 0.42)", borderColor: "rgba(143, 184, 198, 0.14)", shadowOpacity: 0 },
   voteButtonTerminal: { backgroundColor: "rgba(16, 24, 33, 0.5)", borderColor: "rgba(251, 252, 255, 0.15)", shadowOpacity: 0 },
-  voteButtonText: { color: palette.ink, fontFamily: fontFamilySemibold, fontSize: 14, lineHeight: 18, letterSpacing: 0.15 },
+  voteButtonText: { color: palette.ink, fontFamily: fontFamilySemibold, fontSize: 14, lineHeight: 18, letterSpacing: 0.15, flexShrink: 0, flexWrap: "nowrap" },
   voteButtonDisabledText: { color: "rgba(251, 252, 255, 0.45)" },
   closedBox: {
     borderRadius: radius.sm,

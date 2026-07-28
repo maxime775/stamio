@@ -226,8 +226,8 @@ export function SignupForm() {
   return (
     <AuthForm
       title="S'inscrire"
-      subtitle="Votre compte débloque la participation au-delà de la limite visiteur et prépare votre réputation citoyenne."
-      maxWidth={460}
+      subtitle="Créer un compte permet de participer à tous les sujets et prendre part aux débats"
+      maxWidth={390}
       compact
     >
       <Field field="email" label="Adresse e-mail" error={fieldError("email")} value={email} onBlur={() => touch("email")} onChangeText={(value) => edit("email", () => setEmail(value))} keyboardType="email-address" autoCapitalize="none" placeholder="Saisissez votre adresse e-mail" />
@@ -243,7 +243,7 @@ export function SignupForm() {
         {usernameStatus === "available" && !usernameError() ? <Text accessibilityLiveRegion="polite" style={styles.availabilityOk}>Ce pseudo est disponible.</Text> : null}
         <AuthSexSegmented error={fieldError("sex")} value={sex} onBlur={() => touch("sex")} onChange={(value) => { edit("sex", () => setSex(value)); touch("sex"); }} />
         <View style={styles.twoCols}>
-          <Field field="age" label="Âge" error={fieldError("age")} value={age} onBlur={() => touch("age")} onChangeText={(value) => edit("age", () => setAge(value))} keyboardType="number-pad" placeholder="34" containerStyle={styles.twoColField} />
+          <Field field="age" label="Âge" error={fieldError("age")} value={age} onBlur={() => touch("age")} onChangeText={(value) => edit("age", () => setAge(value))} keyboardType="number-pad" placeholder="34" containerStyle={styles.ageField} />
           <ProfessionSelect error={fieldError("profession")} value={profession} onBlur={() => touch("profession")} onChange={(value) => edit("profession", () => setProfession(value))} />
         </View>
         <RegionSelect error={fieldError("region")} value={region} onBlur={() => touch("region")} onChange={(value) => edit("region", () => setRegion(value))} />
@@ -251,7 +251,7 @@ export function SignupForm() {
 
       {globalError ? <Text accessibilityLiveRegion="polite" style={styles.globalError}>{globalError}</Text> : null}
       <Text style={styles.privacyText}>
-        En continuant, vous acceptez notre <Text accessibilityRole="link" onPress={() => router.push("/confidentialite" as Href)} style={styles.privacyLink}>politique de confidentialité</Text> applicable au traitement de vos données personnelles.
+        En continuant, vous acceptez nos <Text accessibilityRole="link" onPress={() => router.push("/conditions-utilisation" as Href)} style={styles.privacyLink}>conditions d’utilisation</Text> et notre <Text accessibilityRole="link" onPress={() => router.push("/confidentialite" as Href)} style={styles.privacyLink}>politique de confidentialité</Text> applicable au traitement de vos données personnelles.
       </Text>
       <Pressable accessibilityRole="button" disabled={loading} onPress={handleSubmit} style={({ pressed }) => ({ ...styles.primary, ...(pressed ? styles.primaryPressed : {}) })}>
         {loading ? <ActivityIndicator color={palette.onPrimary} /> : <Text style={styles.primaryText}>S'inscrire</Text>}
@@ -302,7 +302,7 @@ const styles = StyleSheet.create({
   },
   blockTitle: { color: palette.ink, fontFamily: fontFamilySemibold, fontSize: 15 },
   twoCols: { flexDirection: "row", alignItems: "flex-start", gap: 12, flexWrap: "wrap" },
-  twoColField: { flexGrow: 1, flexBasis: 0, minWidth: 150 },
+  ageField: { flexGrow: 0, flexShrink: 1, flexBasis: "30%", minWidth: 104 },
   availabilityPending: { color: palette.muted, fontSize: 11, lineHeight: 15, marginTop: -8 },
   availabilityOk: { color: palette.positiveText, fontSize: 11, lineHeight: 15, marginTop: -8 },
   globalError: { color: palette.dangerText, backgroundColor: palette.dangerSoft, borderRadius: radius.sm, padding: 12 },

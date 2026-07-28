@@ -24,6 +24,7 @@ export default function Home() {
   const subtitleReveal = useMemo(() => new Animated.Value(0), []);
   const primaryHover = useMemo(() => new Animated.Value(0), []);
   const secondaryHover = useMemo(() => new Animated.Value(0), []);
+  const [secondaryHovered, setSecondaryHovered] = useState(false);
   const reducedMotion = useReducedMotion();
   const { width } = useWindowDimensions();
   const compact = width < 720;
@@ -132,15 +133,23 @@ export default function Home() {
               <Pressable
                 onPress={() => router.push("/results" as Href)}
                 onPressIn={prefetchLatestResults}
-                onFocus={prefetchLatestResults}
+                onFocus={() => {
+                  setSecondaryHovered(true);
+                  prefetchLatestResults();
+                }}
+                onBlur={() => setSecondaryHovered(false)}
                 onHoverIn={() => {
+                  setSecondaryHovered(true);
                   animateHover(secondaryHover, 1);
                   prefetchLatestResults();
                 }}
-                onHoverOut={() => animateHover(secondaryHover, 0)}
+                onHoverOut={() => {
+                  setSecondaryHovered(false);
+                  animateHover(secondaryHover, 0);
+                }}
                 style={({ pressed }) => StyleSheet.flatten([styles.secondary, pressed && styles.secondaryPressed])}
               >
-                <Text style={styles.secondaryText}>Voir les derniers résultats</Text>
+                <Text style={StyleSheet.flatten([styles.secondaryText, secondaryHovered && styles.secondaryTextHovered])}>Voir les derniers résultats</Text>
               </Pressable>
             </Animated.View>
           </View>
@@ -182,5 +191,6 @@ const styles = StyleSheet.create({
   primaryText: { color: palette.onPrimary, fontFamily: fontFamilySemibold, fontSize: 14 },
   secondary: { minHeight: 48, borderRadius: radius.sm, backgroundColor: "transparent", paddingHorizontal: 18, justifyContent: "center", borderWidth: 1, borderColor: palette.lineStrong },
   secondaryPressed: { backgroundColor: "rgba(166, 176, 192, 0.08)" },
-  secondaryText: { color: palette.inkSecondary, fontFamily: fontFamilyMedium, fontSize: 14 }
+  secondaryText: { color: palette.inkSecondary, fontFamily: fontFamilyMedium, fontSize: 14 },
+  secondaryTextHovered: { color: palette.ink }
 });

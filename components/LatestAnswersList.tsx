@@ -7,9 +7,10 @@ import { fontFamilyBold, fontFamilyMedium, fontFamilySemibold, getThemeTagStyle,
 
 type Props = {
   answers: UserPollAnswer[];
+  showTitle?: boolean;
 };
 
-export function LatestAnswersList({ answers }: Props) {
+export function LatestAnswersList({ answers, showTitle = true }: Props) {
   const router = useRouter();
 
   if (answers.length === 0) {
@@ -25,7 +26,7 @@ export function LatestAnswersList({ answers }: Props) {
 
   return (
     <View style={styles.wrap}>
-      <Text style={styles.title}>Mes dernières réponses</Text>
+      {showTitle ? <Text style={styles.title}>Mes dernières réponses</Text> : null}
       {answers.map((answer) => (
         <Pressable
           key={answer.id}
@@ -61,7 +62,7 @@ const styles = StyleSheet.create({
   },
   pressed: { transform: [{ scale: 0.99 }] },
   rowMain: { flex: 1, gap: 5 },
-  theme: { color: palette.primaryStrong, fontFamily: fontFamilySemibold, fontSize: 10, textTransform: "uppercase" },
+  theme: { color: palette.primaryStrong, fontFamily: fontFamilySemibold, fontSize: 10, textTransform: "uppercase", alignSelf: "flex-start", paddingVertical: 2 },
   question: { color: palette.ink, fontFamily: fontFamilyMedium, fontSize: 14, lineHeight: 21 },
   date: { color: palette.muted, fontSize: 11 },
   choice: { color: palette.inkSecondary, fontFamily: fontFamilySemibold }

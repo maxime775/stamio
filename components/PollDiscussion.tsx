@@ -375,7 +375,7 @@ const styles = StyleSheet.create({
     backgroundColor: authField.background,
     overflow: "visible"
   },
-  editorFrameFocused: { borderColor: authField.focusBorderColor, backgroundColor: authField.backgroundFocused },
+  editorFrameFocused: { borderColor: palette.ink, backgroundColor: authField.backgroundFocused },
   formatToolbar: {
     minHeight: 38,
     paddingHorizontal: 8,

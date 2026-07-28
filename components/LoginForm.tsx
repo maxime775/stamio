@@ -81,7 +81,11 @@ export function LoginForm() {
       <Pressable accessibilityRole="button" disabled={passkeyLoading} onPress={handlePasskeySignIn} style={({ pressed }) => StyleSheet.flatten([styles.primary, pressed && !passkeyLoading && styles.primaryPressed, passkeyLoading && styles.primaryDisabled])}>
         {passkeyLoading ? <ActivityIndicator color={palette.onPrimary} /> : <Text style={styles.primaryText}>Se connecter avec une clé d’accès</Text>}
       </Pressable>
-      <Text style={styles.alternative}>Utiliser une autre méthode</Text>
+      <View accessibilityRole="none" style={styles.alternative}>
+        <View aria-hidden style={styles.alternativeLine} />
+        <Text style={styles.alternativeText}>ou</Text>
+        <View aria-hidden style={styles.alternativeLine} />
+      </View>
       <LoginInput
         field="email"
         label="Adresse e-mail"
@@ -233,7 +237,9 @@ const styles = StyleSheet.create({
   eyeButtonPressed: { backgroundColor: "rgba(148, 163, 184, 0.1)" },
   forgotLink: { alignSelf: "flex-end", paddingVertical: 2, paddingHorizontal: 2, marginTop: -4 },
   forgotText: { color: palette.primaryStrong, fontFamily: fontFamilyMedium, fontSize: 12 },
-  alternative: { color: palette.muted, fontFamily: fontFamilyMedium, fontSize: 12, textAlign: "center", marginVertical: 2 },
+  alternative: { width: "100%", flexDirection: "row", alignItems: "center", gap: 12, marginVertical: 2 },
+  alternativeLine: { flex: 1, height: 1, backgroundColor: authField.separatorColor },
+  alternativeText: { color: palette.muted, fontFamily: fontFamilyMedium, fontSize: 12, lineHeight: 18, textAlign: "center" },
   separator: { height: 1, width: "100%", backgroundColor: authField.separatorColor, marginTop: 6, marginBottom: 2 },
   signupPrompt: { flexDirection: "row", justifyContent: "center", alignItems: "center", gap: 5, flexWrap: "wrap", paddingTop: 2 },
   signupPromptText: { color: palette.inkSecondary, fontFamily: fontFamilyMedium, fontSize: 13 },

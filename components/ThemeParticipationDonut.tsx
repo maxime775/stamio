@@ -1,5 +1,5 @@
 import { memo, useEffect, useId, useMemo, useState } from "react";
-import { Animated, StyleSheet, Text, View } from "react-native";
+import { Animated, Easing, Pressable, StyleSheet, Text, View } from "react-native";
 import Svg, { Circle, Defs, G, Mask } from "react-native-svg";
 import { getThemeLabel } from "@/lib/product";
 import { useReducedMotion } from "@/lib/useReducedMotion";
@@ -8,6 +8,7 @@ import { fontFamilyBold, fontFamilyMedium, fontFamilySemibold, getThemeColor, pa
 
 type Props = {
   items: AccountThemeParticipation[];
+  showTitle?: boolean;
 };
 
 const SIZE = 112;
@@ -16,7 +17,9 @@ const RADIUS = 43;
 const CIRCUMFERENCE = 2 * Math.PI * RADIUS;
 const AnimatedCircle = Animated.createAnimatedComponent(Circle);
 
-export const ThemeParticipationDonut = memo(function ThemeParticipationDonut({ items }: Props) {
+export const ThemeParticipationDonut = memo(function ThemeParticipationDonut({ items, showTitle = true }: Props) {
+  const [hoveredIndex, setHoveredIndex] = useState<number | null>(null);
+  const hoverEmphasis = useMemo(() => new Animated.Value(0), []);
   const orderedItems = useMemo(() => items.map((item) => ({
     ...item,
     color: getThemeColor(item.theme),
@@ -30,6 +33,15 @@ export const ThemeParticipationDonut = memo(function ThemeParticipationDonut({ i
   const [drawComplete, setDrawComplete] = useState(false);
   const reducedMotion = useReducedMotion();
   const maskId = `theme-donut-mask-${useId().replace(/:/g, "")}`;
+
+  useEffect(() => {
+    Animated.timing(hoverEmphasis, {
+      toValue: hoveredIndex === null ? 0 : 1,
+      duration: 160,
+      easing: Easing.out(Easing.cubic),
+      useNativeDriver: false
+    }).start();
+  }, [hoverEmphasis, hoveredIndex]);
 
   useEffect(() => {
     const listener = counter.addListener(({ value }) => setCounterProgress(value));
@@ -89,7 +101,7 @@ export const ThemeParticipationDonut = memo(function ThemeParticipationDonut({ i
   if (total === 0) {
     return (
       <View style={styles.wrap}>
-        <Text style={styles.title}>Mes thèmes</Text>
+        {showTitle ? <Text style={styles.title}>Mes thèmes</Text> : null}
         <View style={styles.empty}>
           <Text style={styles.emptyText}>La répartition apparaîtra après vos premières réponses vérifiées.</Text>
         </View>
@@ -99,7 +111,7 @@ export const ThemeParticipationDonut = memo(function ThemeParticipationDonut({ i
 
   return (
     <View style={styles.wrap}>
-      <Text style={styles.title}>Mes thèmes</Text>
+      {showTitle ? <Text style={styles.title}>Mes thèmes</Text> : null}
       <View accessibilityLabel={`${total} avis. ${orderedItems.map((item) => `${item.label} ${item.percentage} pour cent`).join(", ")}`} style={styles.summary}>
         <View style={styles.content}>
           <View style={styles.donutFrame}>
@@ -122,19 +134,25 @@ export const ThemeParticipationDonut = memo(function ThemeParticipationDonut({ i
                 </Mask>
               </Defs>
               <G mask={drawComplete ? undefined : `url(#${maskId})`}>
-                {segments.map((segment) => segment.length > 0 ? <Circle
-                  key={segment.theme}
-                  cx={CENTER}
-                  cy={CENTER}
-                  r={RADIUS}
-                  fill="none"
-                  stroke={segment.color}
-                  strokeWidth={10}
-                  strokeLinecap="butt"
-                  strokeDasharray={segment.fullCircle ? undefined : `${segment.length} ${CIRCUMFERENCE - segment.length}`}
-                  strokeDashoffset={segment.fullCircle ? 0 : -segment.offset}
-                  transform={`rotate(-90 ${CENTER} ${CENTER})`}
-                /> : null)}
+                {segments.map((segment, index) => {
+                  if (segment.length <= 0) return null;
+                  const highlighted = hoveredIndex === index;
+                  const dimmed = hoveredIndex !== null && !highlighted;
+                  return <AnimatedCircle
+                    key={segment.theme}
+                    cx={CENTER}
+                    cy={CENTER}
+                    r={RADIUS}
+                    fill="none"
+                    stroke={segment.color}
+                    strokeWidth={highlighted ? hoverEmphasis.interpolate({ inputRange: [0, 1], outputRange: [10, 13] }) : 10}
+                    strokeOpacity={dimmed ? 0.34 : 1}
+                    strokeLinecap="butt"
+                    strokeDasharray={segment.fullCircle ? undefined : `${segment.length} ${CIRCUMFERENCE - segment.length}`}
+                    strokeDashoffset={segment.fullCircle ? 0 : -segment.offset}
+                    transform={`rotate(-90 ${CENTER} ${CENTER})`}
+                  />;
+                })}
               </G>
             </Svg>
             <Animated.View pointerEvents="none" style={StyleSheet.flatten([styles.donutCenter, {
@@ -149,13 +167,19 @@ export const ThemeParticipationDonut = memo(function ThemeParticipationDonut({ i
             opacity: reveal,
             transform: [{ translateX: reveal.interpolate({ inputRange: [0, 1], outputRange: [5, 0] }) }]
           }])}>
-            {orderedItems.map((item) => (
-              <View key={item.theme} style={styles.legendRow}>
+            {orderedItems.map((item, index) => {
+              const dimmed = hoveredIndex !== null && hoveredIndex !== index;
+              return <Pressable
+                key={item.theme}
+                onHoverIn={() => setHoveredIndex(index)}
+                onHoverOut={() => setHoveredIndex(null)}
+                style={StyleSheet.flatten([styles.legendRow, dimmed && styles.legendRowDimmed])}
+              >
                 <View style={StyleSheet.flatten([styles.swatch, { backgroundColor: item.color }])} />
                 <Text numberOfLines={2} style={styles.label}>{item.label}</Text>
                 <Text style={styles.percentage}>{Math.round(item.percentage * counterProgress)}%</Text>
-              </View>
-            ))}
+              </Pressable>;
+            })}
           </Animated.View>
         </View>
       </View>
@@ -176,6 +200,7 @@ const styles = StyleSheet.create({
   totalLabel: { color: palette.muted, fontFamily: fontFamilyMedium, fontSize: 8, textTransform: "uppercase", letterSpacing: 0.7 },
   legend: { flex: 1, alignItems: "flex-start", gap: 8 },
   legendRow: { flexDirection: "row", alignItems: "center", gap: 6, maxWidth: "100%" },
+  legendRowDimmed: { opacity: 0.54 },
   swatch: { width: 12, height: 2, flexShrink: 0 },
   label: { color: palette.inkSecondary, fontSize: 11, lineHeight: 14, flexShrink: 1 },
   percentage: { color: palette.ink, fontFamily: fontFamilySemibold, fontSize: 11, lineHeight: 14, flexShrink: 0, fontVariant: ["tabular-nums"] }

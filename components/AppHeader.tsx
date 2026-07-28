@@ -1,11 +1,14 @@
 import { useEffect, useRef, useState } from "react";
-import { Animated, Pressable, StyleSheet, Text, useWindowDimensions, View } from "react-native";
+import { Animated, Platform, Pressable, StyleSheet, Text, useWindowDimensions, View } from "react-native";
 import { Link, usePathname, useRouter, type Href } from "expo-router";
 import { BarChart3, CircleUserRound, Home, Info, Layers3, LayoutDashboard, LogIn, LogOut, ShieldCheck, UserRound } from "lucide-react-native";
 import { useAuth } from "@/components/AuthProvider";
+import { SiteContainer } from "@/components/SiteContainer";
 import { StamioLogo } from "@/components/StamioLogo";
 import { getAdminStatus, prefetchLatestResults, prefetchThemePolls, signOutUser } from "@/lib/api";
-import { fontFamilyMedium, fontFamilySemibold, palette, radius } from "@/lib/design";
+import { STAMIO_CORE_COLORS, fontFamilyMedium, fontFamilySemibold, palette, radius } from "@/lib/design";
+
+const LOGO_VISUAL_LEFT_INSET_RATIO = (8 + (9 - 2.75) * 1.08) / 84;
 
 const centerNav = [
   { label: "Nos thèmes", href: "/themes", icon: Layers3 },
@@ -28,6 +31,37 @@ export function AppHeader() {
   const compact = width < 760;
   const [isAdmin, setIsAdmin] = useState(false);
   const [accountMenuOpen, setAccountMenuOpen] = useState(false);
+  const [hoverCapable, setHoverCapable] = useState(false);
+  const accountMenuWrapRef = useRef<View | null>(null);
+  const accountButtonRef = useRef<View | null>(null);
+  const closeTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+
+  function clearMenuCloseTimer() {
+    if (closeTimerRef.current === null) return;
+    clearTimeout(closeTimerRef.current);
+    closeTimerRef.current = null;
+  }
+
+  function containsAccountMenuTarget(target: EventTarget | null) {
+    const wrapper = accountMenuWrapRef.current as unknown as { contains?: (node: Node) => boolean } | null;
+    return target instanceof Node && Boolean(wrapper?.contains?.(target));
+  }
+
+  function openAccountMenuFromHover() {
+    if (compact || !hoverCapable) return;
+    clearMenuCloseTimer();
+    setAccountMenuOpen(true);
+  }
+
+  function scheduleAccountMenuClose() {
+    if (compact || !hoverCapable) return;
+    clearMenuCloseTimer();
+    closeTimerRef.current = setTimeout(() => {
+      closeTimerRef.current = null;
+      if (Platform.OS === "web" && containsAccountMenuTarget(document.activeElement)) return;
+      setAccountMenuOpen(false);
+    }, 120);
+  }
 
   useEffect(() => {
     let active = true;
@@ -49,12 +83,53 @@ export function AppHeader() {
     setAccountMenuOpen(false);
   }, [pathname]);
 
+  useEffect(() => {
+    if (Platform.OS !== "web") return;
+    const query = window.matchMedia("(hover: hover) and (pointer: fine)");
+    const updateHoverCapability = () => setHoverCapable(query.matches);
+    updateHoverCapability();
+    query.addEventListener?.("change", updateHoverCapability);
+    return () => query.removeEventListener?.("change", updateHoverCapability);
+  }, []);
+
+  useEffect(() => () => clearMenuCloseTimer(), []);
+
+  useEffect(() => {
+    if (!accountMenuOpen || Platform.OS !== "web") return;
+
+    function closeFromOutsidePointer(event: PointerEvent) {
+      if (!containsAccountMenuTarget(event.target)) setAccountMenuOpen(false);
+    }
+
+    function closeFromOutsideFocus(event: FocusEvent) {
+      if (!containsAccountMenuTarget(event.target)) setAccountMenuOpen(false);
+    }
+
+    function closeFromEscape(event: KeyboardEvent) {
+      if (event.key !== "Escape") return;
+      setAccountMenuOpen(false);
+      const button = accountButtonRef.current as unknown as { focus?: () => void } | null;
+      button?.focus?.();
+    }
+
+    document.addEventListener("pointerdown", closeFromOutsidePointer);
+    document.addEventListener("focusin", closeFromOutsideFocus);
+    document.addEventListener("keydown", closeFromEscape);
+    return () => {
+      document.removeEventListener("pointerdown", closeFromOutsidePointer);
+      document.removeEventListener("focusin", closeFromOutsideFocus);
+      document.removeEventListener("keydown", closeFromEscape);
+    };
+  }, [accountMenuOpen]);
+
   function go(href: string) {
+    clearMenuCloseTimer();
     setAccountMenuOpen(false);
     router.push(href as Href);
   }
 
   async function handleSignOut() {
+    clearMenuCloseTimer();
     setAccountMenuOpen(false);
     await signOutUser();
     router.replace("/" as Href);
@@ -63,7 +138,16 @@ export function AppHeader() {
   return (
     <>
       <View style={styles.header}>
-        <Pressable accessibilityLabel="Stamio" onPress={() => go("/")} style={styles.brand}>
+        <SiteContainer style={styles.headerInner}>
+        <Pressable
+          accessibilityLabel="Stamio"
+          onPress={() => go("/")}
+          style={StyleSheet.flatten([
+            styles.brand,
+            { marginLeft: -(compact ? 40 : 48) * LOGO_VISUAL_LEFT_INSET_RATIO },
+            compact && styles.brandCompact
+          ])}
+        >
           <StamioLogo height={compact ? 40 : 48} />
         </Pressable>
 
@@ -75,7 +159,7 @@ export function AppHeader() {
           </View>
         ) : null}
 
-        <View style={styles.account}>
+        <View style={StyleSheet.flatten([styles.account, compact && styles.accountCompact])}>
           {user && emailVerified ? (
             <>
               {isAdmin && !compact ? (
@@ -84,30 +168,35 @@ export function AppHeader() {
                   <Text style={styles.secondaryText}>Admin</Text>
                 </Pressable>
               ) : null}
-              <View style={styles.accountMenuWrap}>
-                <Pressable
-                  accessibilityRole="button"
-                  accessibilityState={{ expanded: accountMenuOpen }}
+              <View ref={accountMenuWrapRef} style={styles.accountMenuWrap}>
+                <AccountMenuButton
+                  buttonRef={accountButtonRef}
+                  compact={compact}
+                  expanded={accountMenuOpen}
+                  onHoverIn={openAccountMenuFromHover}
+                  onHoverOut={scheduleAccountMenuClose}
                   onPress={() => setAccountMenuOpen((open) => !open)}
-                  style={styles.accountButton}
-                >
-                  <CircleUserRound size={17} color={palette.inkSecondary} />
-                  {!compact ? <Text style={styles.accountText}>Mon compte</Text> : null}
-                </Pressable>
+                />
                 {accountMenuOpen ? (
-                  <View style={styles.accountMenu}>
-                    <Pressable onPress={() => go("/account")} style={styles.menuItem}>
-                      <LayoutDashboard size={15} color={palette.inkSecondary} />
+                  <View
+                    accessibilityRole="menu"
+                    nativeID="account-menu"
+                    onPointerEnter={openAccountMenuFromHover}
+                    onPointerLeave={scheduleAccountMenuClose}
+                    style={styles.accountMenu}
+                  >
+                    <Pressable accessibilityRole="menuitem" onPress={() => go("/account")} style={({ hovered, pressed }) => StyleSheet.flatten([styles.menuItem, hovered && styles.menuItemHovered, pressed && styles.menuItemPressed])}>
                       <Text style={styles.menuItemText}>Mon espace</Text>
+                      <LayoutDashboard size={15} color={palette.inkSecondary} />
                     </Pressable>
-                    <Pressable onPress={() => go("/account/informations")} style={styles.menuItem}>
-                      <UserRound size={15} color={palette.inkSecondary} />
+                    <Pressable accessibilityRole="menuitem" onPress={() => go("/account/informations")} style={({ hovered, pressed }) => StyleSheet.flatten([styles.menuItem, hovered && styles.menuItemHovered, pressed && styles.menuItemPressed])}>
                       <Text style={styles.menuItemText}>Mes informations</Text>
+                      <UserRound size={15} color={palette.inkSecondary} />
                     </Pressable>
                     <View style={styles.menuSeparator} />
-                    <Pressable onPress={handleSignOut} style={styles.menuItem}>
-                      <LogOut size={15} color={palette.dangerText} />
+                    <Pressable accessibilityRole="menuitem" onPress={handleSignOut} style={({ hovered, pressed }) => StyleSheet.flatten([styles.menuItem, hovered && styles.menuDangerHovered, pressed && styles.menuItemPressed])}>
                       <Text style={styles.menuDangerText}>Se déconnecter</Text>
+                      <LogOut size={15} color={palette.dangerText} />
                     </Pressable>
                   </View>
                 ) : null}
@@ -116,20 +205,19 @@ export function AppHeader() {
           ) : (
             <>
               {!compact ? (
-                <Pressable onPress={() => go("/auth/login")} style={styles.secondaryButton}>
-                  <LogIn size={16} color={palette.inkSecondary} />
+                <Pressable onPress={() => go("/auth/login")} style={({ pressed, hovered }) => StyleSheet.flatten([styles.secondaryButton, hovered && styles.actionHovered, pressed && styles.actionPressed])}>
+                  <LogIn size={16} color={palette.ink} />
                   <Text style={styles.secondaryText}>Se connecter</Text>
                 </Pressable>
               ) : null}
-              <Pressable onPress={() => go("/auth/signup")} style={styles.primaryButton}>
+              <Pressable onPress={() => go("/auth/signup")} style={({ pressed, hovered }) => StyleSheet.flatten([styles.primaryButton, hovered && styles.primaryButtonHovered, pressed && styles.actionPressed])}>
                 <Text style={styles.primaryText}>S’inscrire</Text>
               </Pressable>
             </>
           )}
         </View>
+        </SiteContainer>
       </View>
-
-      {accountMenuOpen ? <Pressable accessibilityLabel="Fermer le menu compte" onPress={() => setAccountMenuOpen(false)} style={styles.menuBackdrop} /> : null}
 
       {compact ? (
         <View style={styles.bottomNav}>
@@ -150,15 +238,84 @@ export function AppHeader() {
 }
 
 function DesktopNavLink({ item, active }: { item: (typeof centerNav)[number]; active: boolean }) {
+  const [hovered, setHovered] = useState(false);
   const line = useRef(new Animated.Value(active ? 1 : 0)).current;
-  useEffect(() => { Animated.timing(line, { toValue: active ? 1 : 0, duration: 220, useNativeDriver: true }).start(); }, [active, line]);
-  function hover(value: number) { Animated.timing(line, { toValue: value, duration: 220, useNativeDriver: true }).start(); }
+  const underlineVisible = active || hovered;
+  useEffect(() => {
+    Animated.timing(line, { toValue: underlineVisible ? 1 : 0, duration: 220, useNativeDriver: true }).start();
+  }, [line, underlineVisible]);
   return <Link href={item.href as Href} asChild>
-    <Pressable onHoverIn={() => { hover(1); warmRoute(item.href); }} onFocus={() => warmRoute(item.href)} onPressIn={() => warmRoute(item.href)} onHoverOut={() => hover(active ? 1 : 0)} style={styles.navItem}>
+    <Pressable
+      aria-current={active ? "page" : undefined}
+      accessibilityState={{ selected: active }}
+      onHoverIn={() => {
+        setHovered(true);
+        warmRoute(item.href);
+      }}
+      onFocus={() => warmRoute(item.href)}
+      onPressIn={() => warmRoute(item.href)}
+      onHoverOut={() => setHovered(false)}
+      style={styles.navItem}
+    >
       <Text style={StyleSheet.flatten([styles.navText, active && styles.navTextActive])}>{item.label}</Text>
       <Animated.View style={StyleSheet.flatten([styles.navLine, { transform: [{ scaleX: line }] }])} />
     </Pressable>
   </Link>;
+}
+
+function AccountMenuButton({
+  buttonRef,
+  compact,
+  expanded,
+  onHoverIn,
+  onHoverOut,
+  onPress
+}: {
+  buttonRef: React.MutableRefObject<View | null>;
+  compact: boolean;
+  expanded: boolean;
+  onHoverIn: () => void;
+  onHoverOut: () => void;
+  onPress: () => void;
+}) {
+  const line = useRef(new Animated.Value(0)).current;
+  function animate(toValue: number) {
+    Animated.timing(line, { toValue, duration: 220, useNativeDriver: true }).start();
+  }
+  return (
+    <Pressable
+      ref={(node) => {
+        buttonRef.current = node;
+      }}
+      accessibilityRole="button"
+      accessibilityState={{ expanded }}
+      onPress={onPress}
+      onHoverIn={() => {
+        animate(1);
+        onHoverIn();
+      }}
+      onHoverOut={() => {
+        animate(0);
+        onHoverOut();
+      }}
+      onFocus={() => animate(1)}
+      onBlur={() => animate(0)}
+      style={({ pressed }) => StyleSheet.flatten([
+        styles.accountButton,
+        !compact && styles.accountButtonDesktop,
+        pressed && styles.actionPressed
+      ])}
+    >
+      <CircleUserRound size={17} color={palette.ink} />
+      {!compact ? <Text style={styles.accountText}>Mon compte</Text> : null}
+      <Animated.View style={StyleSheet.flatten([
+        styles.navLine,
+        styles.accountLine,
+        !compact && styles.accountLineDesktop,
+        { transform: [{ scaleX: line }] }
+      ])} />
+    </Pressable>
+  );
 }
 
 function warmRoute(href: string) {
@@ -169,23 +326,21 @@ function warmRoute(href: string) {
 const styles = StyleSheet.create({
   header: {
     minHeight: 64,
-    paddingHorizontal: 24,
     backgroundColor: "rgba(8, 11, 16, 0.98)",
     borderBottomWidth: 1,
     borderBottomColor: "rgba(148, 163, 184, 0.18)",
-    flexDirection: "row",
-    alignItems: "center",
-    justifyContent: "space-between",
-    gap: 18,
     zIndex: 5
   },
+  headerInner: { minHeight: 64, flexDirection: "row", alignItems: "center", justifyContent: "space-between", gap: 18 },
   brand: { flexDirection: "row", alignItems: "center", minWidth: 178 },
+  brandCompact: { minWidth: 0 },
   centerNav: { flexDirection: "row", alignItems: "center", justifyContent: "center", gap: 6, flex: 1 },
   navItem: { paddingHorizontal: 14, paddingVertical: 11, position: "relative" },
   navLine: { position: "absolute", left: 14, right: 14, bottom: 4, height: 2, borderRadius: 1, backgroundColor: palette.primaryStrong },
   navText: { color: palette.muted, fontFamily: fontFamilyMedium, fontSize: 13 },
   navTextActive: { color: palette.ink },
   account: { minWidth: 128, flexDirection: "row", alignItems: "center", justifyContent: "flex-end", gap: 8 },
+  accountCompact: { minWidth: 0 },
   accountMenuWrap: { position: "relative", zIndex: 30 },
   accountButton: {
     minHeight: 40,
@@ -195,31 +350,32 @@ const styles = StyleSheet.create({
     alignItems: "center",
     gap: 8,
     backgroundColor: "transparent",
-    borderWidth: 1,
-    borderColor: "rgba(148, 163, 184, 0.18)"
+    borderWidth: 0,
+    position: "relative"
   },
-  accountText: { color: palette.inkSecondary, fontFamily: fontFamilyMedium },
+  accountButtonDesktop: { paddingRight: 0 },
+  accountLine: { backgroundColor: STAMIO_CORE_COLORS.editorialAmber },
+  accountLineDesktop: { right: 0 },
+  accountText: { color: palette.ink, fontFamily: fontFamilyMedium },
   accountMenu: {
     position: "absolute",
     top: 46,
     right: 0,
-    width: 190,
+    minWidth: 172,
     borderRadius: radius.sm,
     backgroundColor: "rgba(10, 16, 23, 0.98)",
-    borderWidth: 1,
-    borderColor: palette.lineStrong,
-    paddingVertical: 6,
-    zIndex: 35,
-    shadowColor: "#000000",
-    shadowOpacity: 0.22,
-    shadowRadius: 18,
-    shadowOffset: { width: 0, height: 10 }
+    borderWidth: 0,
+    paddingVertical: 5,
+    paddingHorizontal: 5,
+    zIndex: 35
   },
-  menuItem: { minHeight: 40, paddingHorizontal: 12, flexDirection: "row", alignItems: "center", gap: 9 },
-  menuItemText: { color: palette.inkSecondary, fontFamily: fontFamilyMedium, fontSize: 13 },
-  menuDangerText: { color: palette.dangerText, fontFamily: fontFamilyMedium, fontSize: 13 },
-  menuSeparator: { height: 1, backgroundColor: palette.line, marginVertical: 4 },
-  menuBackdrop: { position: "absolute", top: 64, left: 0, right: 0, bottom: 0, zIndex: 4, backgroundColor: "transparent" },
+  menuItem: { minHeight: 38, paddingHorizontal: 9, borderRadius: radius.sm, flexDirection: "row", alignItems: "center", justifyContent: "flex-end", gap: 9 },
+  menuItemHovered: { backgroundColor: palette.surfaceRaised },
+  menuDangerHovered: { backgroundColor: palette.dangerSoft },
+  menuItemPressed: { opacity: 0.72 },
+  menuItemText: { color: palette.ink, fontFamily: fontFamilyMedium, fontSize: 13, textAlign: "right", flexGrow: 1 },
+  menuDangerText: { color: palette.dangerText, fontFamily: fontFamilyMedium, fontSize: 13, textAlign: "right", flexGrow: 1 },
+  menuSeparator: { height: 1, backgroundColor: palette.line, marginVertical: 4, marginHorizontal: 9 },
   secondaryButton: {
     minHeight: 40,
     paddingHorizontal: 13,
@@ -228,10 +384,9 @@ const styles = StyleSheet.create({
     alignItems: "center",
     gap: 7,
     backgroundColor: "transparent",
-    borderWidth: 1,
-    borderColor: "rgba(148, 163, 184, 0.18)"
+    borderWidth: 0
   },
-  secondaryText: { color: palette.inkSecondary, fontFamily: fontFamilyMedium },
+  secondaryText: { color: palette.ink, fontFamily: fontFamilyMedium },
   primaryButton: {
     minHeight: 40,
     minWidth: 40,
@@ -240,9 +395,13 @@ const styles = StyleSheet.create({
     flexDirection: "row",
     alignItems: "center",
     justifyContent: "center",
-    backgroundColor: palette.primary,
+    backgroundColor: "transparent",
+    borderWidth: 0
   },
-  primaryText: { color: palette.onPrimary, fontFamily: fontFamilySemibold },
+  primaryButtonHovered: { backgroundColor: palette.primary },
+  actionHovered: { backgroundColor: palette.surfaceRaised },
+  actionPressed: { opacity: 0.78 },
+  primaryText: { color: palette.ink, fontFamily: fontFamilySemibold },
   bottomNav: {
     position: "absolute",
     left: 0,

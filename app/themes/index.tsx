@@ -6,12 +6,11 @@ import { PageShell } from "@/components/PageShell";
 import { PollTeaserCard } from "@/components/PollTeaserCard";
 import { ThemeTabs } from "@/components/ThemeTabs";
 import { VotesMetric } from "@/components/VotesMetric";
-import { getOpenPolls, getPollsByTheme } from "@/lib/api";
-import type { PollWithStats, ThemeSlug } from "@/lib/types";
+import { getOpenPolls } from "@/lib/api";
+import type { PollWithStats } from "@/lib/types";
 import { fontFamilyBold, fontFamilySemibold, palette, radius } from "@/lib/design";
 
 export default function ThemesIndex() {
-  const [activeTheme, setActiveTheme] = useState<ThemeSlug | "all">("all");
   const [polls, setPolls] = useState<PollWithStats[]>([]);
   const [isLoading, setIsLoading] = useState(true);
 
@@ -22,7 +21,7 @@ export default function ThemesIndex() {
 
     async function load() {
       try {
-        const items = activeTheme === "all" ? await getOpenPolls() : await getPollsByTheme(activeTheme);
+        const items = await getOpenPolls();
         if (active) setPolls(items);
       } catch {
         if (active) setPolls([]);
@@ -35,29 +34,31 @@ export default function ThemesIndex() {
     return () => {
       active = false;
     };
-  }, [activeTheme]));
+  }, []));
 
   const totalVotes = useMemo(() => polls.reduce((sum, poll) => sum + poll.totalVotes, 0), [polls]);
 
   return (
     <PageShell>
-      <View style={styles.hero}>
-        <View style={styles.heading}>
-          <Text style={styles.kicker}>Nos thèmes</Text>
-          <Text style={styles.title}>Choisissez un sujet, puis donnez votre avis</Text>
-          <Text style={styles.intro}>Politique, économie, société ou sport : parcourez nos différents sujets et prenez part aux débats.</Text>
+      <View style={styles.pageGrid}>
+        <View style={styles.hero}>
+          <View style={styles.heading}>
+            <Text style={styles.kicker}>Nos thèmes</Text>
+            <Text style={styles.title}>Choisissez un sujet, puis donnez votre avis</Text>
+            <Text style={styles.intro}>Politique, économie, société ou sport : parcourez nos différents sujets et prenez part aux débats.</Text>
+          </View>
+          {isLoading ? <View style={styles.metricPlaceholder} /> : <VotesMetric value={totalVotes} animationKey="all" />}
         </View>
-        {isLoading ? <View style={styles.metricPlaceholder} /> : <VotesMetric value={totalVotes} animationKey={activeTheme} />}
-      </View>
-      <ThemeTabs active={activeTheme} includeAll onSelect={setActiveTheme} />
-      <View style={styles.grid}>
-        {isLoading ? (
-          <ThemeGridSkeleton />
-        ) : polls.length > 0 ? (
-          polls.map((poll) => <PollTeaserCard key={poll.id} poll={poll} compact showBottomHoverRule={false} />)
-        ) : (
-          <EmptyState title="Aucun sondage ouvert" message="Aucune question n’est disponible pour ce filtre." />
-        )}
+        <ThemeTabs active="all" />
+        <View style={styles.grid}>
+          {isLoading ? (
+            <ThemeGridSkeleton />
+          ) : polls.length > 0 ? (
+            polls.map((poll) => <PollTeaserCard key={poll.id} poll={poll} compact showBottomHoverRule={false} />)
+          ) : (
+            <EmptyState title="Aucun sondage ouvert" message="Aucune question n’est disponible pour ce filtre." />
+          )}
+        </View>
       </View>
     </PageShell>
   );
@@ -75,6 +76,7 @@ function ThemeGridSkeleton() {
 }
 
 const styles = StyleSheet.create({
+  pageGrid: { width: "100%", maxWidth: 1120, alignSelf: "center", gap: 24 },
   hero: { flexDirection: "row", alignItems: "center", justifyContent: "space-between", flexWrap: "wrap", gap: 24 },
   heading: { gap: 8, flex: 1, minWidth: 280 },
   kicker: { color: palette.primaryStrong, fontFamily: fontFamilySemibold, textTransform: "uppercase", fontSize: 10, letterSpacing: 1.2 },

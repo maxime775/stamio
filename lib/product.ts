@@ -96,6 +96,10 @@ export function getThemeLabel(slug?: ThemeSlug | null) {
   return THEMES.find((theme) => theme.slug === slug)?.label ?? "Société";
 }
 
+export function getThemeRoute(slug: ThemeSlug | "all") {
+  return slug === "all" ? "/themes" : `/themes/${slug}`;
+}
+
 export function isThemeSlug(value: string | undefined): value is ThemeSlug {
   return value === "politique" || value === "economie" || value === "societe" || value === "sport";
 }

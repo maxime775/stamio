@@ -41,8 +41,9 @@ export function ProfessionSelect({ value, onChange, onBlur, error }: Props) {
       <Modal transparent visible={open} animationType="fade" onRequestClose={close}>
         <View style={styles.overlay}>
           <Pressable style={styles.scrim} onPress={close} />
-          <View style={styles.menu}>
-            <Text style={styles.menuTitle}>Votre profession</Text>
+          <View accessibilityRole="menu" style={styles.menu}>
+            <Text style={styles.menuTitle}>Sélectionner votre profession</Text>
+            <View style={styles.menuSeparator} />
             <ScrollView style={styles.menuScroll} showsVerticalScrollIndicator={false}>
               {CSP_PROFESSIONS.map((profession) => {
                 const active = value === profession;
@@ -51,6 +52,8 @@ export function ProfessionSelect({ value, onChange, onBlur, error }: Props) {
                     key={profession}
                     onHoverIn={() => setHoveredOption(profession)}
                     onHoverOut={() => setHoveredOption((current) => current === profession ? null : current)}
+                    accessibilityRole="menuitem"
+                    accessibilityState={{ selected: active }}
                     onPress={() => select(profession)}
                     style={StyleSheet.flatten([styles.option, hoveredOption === profession && !active && styles.optionHovered, active && styles.optionActive])}
                   >
@@ -79,8 +82,9 @@ const styles = StyleSheet.create({
   error: { color: palette.fieldError, fontSize: 11, lineHeight: 15 },
   overlay: { flex: 1, justifyContent: "center", alignItems: "center", padding: 20 },
   scrim: { ...StyleSheet.absoluteFillObject, backgroundColor: "rgba(2, 6, 23, 0.76)" },
-  menu: { width: "100%", maxWidth: 520, maxHeight: "82%", borderRadius: radius.md, backgroundColor: palette.surface, borderWidth: 1, borderColor: palette.lineStrong, padding: 14, gap: 8 },
-  menuTitle: { color: palette.ink, fontFamily: fontFamilySemibold, fontSize: 17, paddingHorizontal: 4 },
+  menu: { width: "100%", maxWidth: 410, maxHeight: "82%", borderRadius: radius.md, backgroundColor: palette.surface, borderWidth: 1, borderColor: palette.lineStrong, padding: 14 },
+  menuTitle: { color: palette.ink, fontFamily: fontFamilySemibold, fontSize: 17, lineHeight: 23, paddingHorizontal: 4, paddingVertical: 8, textAlign: "center" },
+  menuSeparator: { height: 1, backgroundColor: palette.line, marginHorizontal: 4, marginVertical: 8 },
   menuScroll: { maxHeight: 520 },
   option: { minHeight: 48, borderRadius: radius.sm, paddingHorizontal: 12, paddingVertical: 9, flexDirection: "row", alignItems: "center", gap: 10 },
   optionHovered: { backgroundColor: palette.surfaceRaised },
