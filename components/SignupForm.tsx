@@ -8,6 +8,7 @@ import { RegionSelect } from "@/components/RegionSelect";
 import { ProfessionSelect } from "@/components/ProfessionSelect";
 import { REGIONS_FR } from "@/lib/product";
 import { checkSignupEmail, checkUsernameAvailability, resendSignupConfirmation, signUpUser } from "@/lib/api";
+import { markPendingSignup } from "@/lib/auth/pendingSignup";
 import { getVisibleSignupError, isValidSignupUsername, normalizeSignupEmail, normalizeSignupUsername, touchAllSignupFields, validateSignup, type SignupField, type SignupTouched, type SignupValues } from "@/lib/signupValidation";
 import type { Sex } from "@/lib/types";
 import { authField, fontFamilyMedium, fontFamilySemibold, palette, radius } from "@/lib/design";
@@ -161,6 +162,7 @@ export function SignupForm() {
       return;
     }
 
+    markPendingSignup();
     router.replace({ pathname: "/auth/verify-email", params: { email: normalizedEmail } } as Href);
   }
 

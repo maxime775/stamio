@@ -1,4 +1,5 @@
 import { useEffect, useRef, useState } from "react";
+import type { ReactNode } from "react";
 import { Animated, Platform, Pressable, StyleSheet, Text, useWindowDimensions, View } from "react-native";
 import { Link, usePathname, useRouter, type Href } from "expo-router";
 import { BarChart3, CircleUserRound, Home, Info, Layers3, LayoutDashboard, LogIn, LogOut, ShieldCheck, UserRound } from "lucide-react-native";
@@ -21,6 +22,40 @@ const mobileNav = [
   ...centerNav,
   { label: "Compte", href: "/account", icon: CircleUserRound }
 ];
+
+export function HeaderTextAction({
+  label,
+  accessibilityLabel,
+  accessibilityHint,
+  icon,
+  iconPosition = "start",
+  onPress
+}: {
+  label: string;
+  accessibilityLabel?: string;
+  accessibilityHint?: string;
+  icon?: ReactNode;
+  iconPosition?: "start" | "end";
+  onPress: () => void;
+}) {
+  return (
+    <Pressable
+      accessibilityRole="button"
+      accessibilityLabel={accessibilityLabel ?? label}
+      accessibilityHint={accessibilityHint}
+      onPress={onPress}
+      style={({ pressed, hovered }) => StyleSheet.flatten([
+        styles.secondaryButton,
+        hovered && styles.actionHovered,
+        pressed && styles.actionPressed
+      ])}
+    >
+      {iconPosition === "start" ? icon : null}
+      <Text style={styles.secondaryText}>{label}</Text>
+      {iconPosition === "end" ? icon : null}
+    </Pressable>
+  );
+}
 
 export function AppHeader() {
   const pathname = usePathname();
@@ -205,10 +240,11 @@ export function AppHeader() {
           ) : (
             <>
               {!compact ? (
-                <Pressable onPress={() => go("/auth/login")} style={({ pressed, hovered }) => StyleSheet.flatten([styles.secondaryButton, hovered && styles.actionHovered, pressed && styles.actionPressed])}>
-                  <LogIn size={16} color={palette.ink} />
-                  <Text style={styles.secondaryText}>Se connecter</Text>
-                </Pressable>
+                <HeaderTextAction
+                  label="Se connecter"
+                  icon={<LogIn size={16} color={palette.ink} />}
+                  onPress={() => go("/auth/login")}
+                />
               ) : null}
               <Pressable onPress={() => go("/auth/signup")} style={({ pressed, hovered }) => StyleSheet.flatten([styles.primaryButton, hovered && styles.primaryButtonHovered, pressed && styles.actionPressed])}>
                 <Text style={styles.primaryText}>S’inscrire</Text>

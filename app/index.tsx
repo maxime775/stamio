@@ -1,13 +1,13 @@
 import { useEffect, useMemo, useState } from "react";
-import { Animated, Easing, Pressable, StyleSheet, Text, useWindowDimensions, View } from "react-native";
+import { Animated, StyleSheet, Text, useWindowDimensions, View } from "react-native";
 import { useRouter, type Href } from "expo-router";
-import { ArrowRight } from "lucide-react-native";
 import { PageShell } from "@/components/PageShell";
+import { HeroActionButton } from "@/components/HeroActionButton";
 import { TrendingPollsCarousel } from "@/components/TrendingPollsCarousel";
 import { ApproachSection } from "@/components/ApproachSection";
 import { FeaturedTopicsTicker } from "@/components/FeaturedTopicsTicker";
 import { getCachedFeaturedPolls, getCachedOpenPollStats, getFeaturedPolls, getOpenPollStats, prefetchLatestResults, prefetchThemePolls } from "@/lib/api";
-import { fontFamilyBold, fontFamilyMedium, fontFamilySemibold, palette, radius, shadows } from "@/lib/design";
+import { fontFamilyBold, fontFamilyMedium, fontFamilySemibold, palette } from "@/lib/design";
 import type { OpenPollStats, PollWithStats } from "@/lib/types";
 import { useReducedMotion } from "@/lib/useReducedMotion";
 
@@ -22,22 +22,9 @@ export default function Home() {
   const [openPollStats, setOpenPollStats] = useState<OpenPollStats | null>(cachedOpenPollStats);
   const [typedTitle, setTypedTitle] = useState("");
   const subtitleReveal = useMemo(() => new Animated.Value(0), []);
-  const primaryHover = useMemo(() => new Animated.Value(0), []);
-  const secondaryHover = useMemo(() => new Animated.Value(0), []);
-  const [secondaryHovered, setSecondaryHovered] = useState(false);
   const reducedMotion = useReducedMotion();
   const { width } = useWindowDimensions();
   const compact = width < 720;
-
-  function animateHover(value: Animated.Value, toValue: number) {
-    if (reducedMotion) return;
-    Animated.timing(value, {
-      toValue,
-      duration: 190,
-      easing: Easing.out(Easing.cubic),
-      useNativeDriver: true
-    }).start();
-  }
 
   useEffect(() => {
     let active = true;
@@ -107,51 +94,22 @@ export default function Home() {
           </Animated.Text>
           <Text style={styles.privacyNote}>Les participations sont anonymisées et les résultats sont présentés sous forme agrégée pour suivre les tendances sans exposer les réponses individuelles.</Text>
           <View style={styles.actions}>
-            <Animated.View style={StyleSheet.flatten([styles.actionHoverFrame, {
-              transform: [{ translateY: primaryHover.interpolate({ inputRange: [0, 1], outputRange: [0, -2] }) }]
-            }])}>
-              <Pressable
-                onPress={() => router.push("/themes" as Href)}
-                onPressIn={() => prefetchThemePolls("all")}
-                onFocus={() => prefetchThemePolls("all")}
-                onHoverIn={() => {
-                  animateHover(primaryHover, 1);
-                  prefetchThemePolls("all");
-                }}
-                onHoverOut={() => animateHover(primaryHover, 0)}
-                style={({ pressed }) => StyleSheet.flatten([styles.primary, pressed && styles.primaryPressed])}
-              >
-                <Text style={styles.primaryText}>Découvrir les questions</Text>
-                <Animated.View style={{ transform: [{ translateX: primaryHover.interpolate({ inputRange: [0, 1], outputRange: [0, 3] }) }] }}>
-                  <ArrowRight size={18} color={palette.onPrimary} />
-                </Animated.View>
-              </Pressable>
-            </Animated.View>
-            <Animated.View style={StyleSheet.flatten([styles.actionHoverFrame, {
-              transform: [{ translateY: secondaryHover.interpolate({ inputRange: [0, 1], outputRange: [0, -2] }) }]
-            }])}>
-              <Pressable
-                onPress={() => router.push("/results" as Href)}
-                onPressIn={prefetchLatestResults}
-                onFocus={() => {
-                  setSecondaryHovered(true);
-                  prefetchLatestResults();
-                }}
-                onBlur={() => setSecondaryHovered(false)}
-                onHoverIn={() => {
-                  setSecondaryHovered(true);
-                  animateHover(secondaryHover, 1);
-                  prefetchLatestResults();
-                }}
-                onHoverOut={() => {
-                  setSecondaryHovered(false);
-                  animateHover(secondaryHover, 0);
-                }}
-                style={({ pressed }) => StyleSheet.flatten([styles.secondary, pressed && styles.secondaryPressed])}
-              >
-                <Text style={StyleSheet.flatten([styles.secondaryText, secondaryHovered && styles.secondaryTextHovered])}>Voir les derniers résultats</Text>
-              </Pressable>
-            </Animated.View>
+            <HeroActionButton
+              label="Découvrir les questions"
+              variant="primary"
+              onPress={() => router.push("/themes" as Href)}
+              onPressIn={() => prefetchThemePolls("all")}
+              onFocus={() => prefetchThemePolls("all")}
+              onHoverIn={() => prefetchThemePolls("all")}
+            />
+            <HeroActionButton
+              label="Voir les derniers résultats"
+              variant="secondary"
+              onPress={() => router.push("/results" as Href)}
+              onPressIn={prefetchLatestResults}
+              onFocus={prefetchLatestResults}
+              onHoverIn={prefetchLatestResults}
+            />
           </View>
         </View>
         <FeaturedTopicsTicker stats={openPollStats} />
@@ -184,13 +142,5 @@ const styles = StyleSheet.create({
   titleCompact: { fontSize: 36, lineHeight: 43, letterSpacing: 0 },
   subtitle: { color: palette.inkSecondary, fontSize: 17, lineHeight: 27, maxWidth: 680 },
   privacyNote: { color: palette.muted, fontFamily: fontFamilyMedium, fontSize: 13, lineHeight: 19, maxWidth: 680 },
-  actions: { flexDirection: "row", gap: 12, flexWrap: "wrap", marginTop: 8 },
-  actionHoverFrame: { borderRadius: radius.sm },
-  primary: { minHeight: 48, borderRadius: radius.sm, backgroundColor: palette.primary, paddingHorizontal: 18, flexDirection: "row", alignItems: "center", gap: 10, ...shadows.panel },
-  primaryPressed: { backgroundColor: palette.primaryPressed },
-  primaryText: { color: palette.onPrimary, fontFamily: fontFamilySemibold, fontSize: 14 },
-  secondary: { minHeight: 48, borderRadius: radius.sm, backgroundColor: "transparent", paddingHorizontal: 18, justifyContent: "center", borderWidth: 1, borderColor: palette.lineStrong },
-  secondaryPressed: { backgroundColor: "rgba(166, 176, 192, 0.08)" },
-  secondaryText: { color: palette.inkSecondary, fontFamily: fontFamilyMedium, fontSize: 14 },
-  secondaryTextHovered: { color: palette.ink }
+  actions: { flexDirection: "row", gap: 12, flexWrap: "wrap", marginTop: 8 }
 });

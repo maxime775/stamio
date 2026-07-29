@@ -215,12 +215,14 @@ const styles = StyleSheet.create({
   fieldError: { color: palette.fieldError, fontSize: 11, lineHeight: 15 },
   error: {
     color: palette.dangerText,
-    backgroundColor: palette.dangerSoft,
-    borderRadius: radius.sm,
-    padding: 11,
-    fontFamily: fontFamilyMedium,
+    backgroundColor: "transparent",
+    borderWidth: 0,
+    paddingHorizontal: 0,
+    paddingVertical: 0,
+    fontFamily: fontFamilySemibold,
     fontSize: 13,
-    lineHeight: 19
+    lineHeight: 19,
+    marginVertical: 2
   },
   primary: {
     minHeight: 44,

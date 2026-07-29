@@ -1,9 +1,13 @@
-import { useEffect, useState } from "react";
-import { ActivityIndicator, Pressable, StyleSheet, Text, useWindowDimensions, View } from "react-native";
+import { useCallback, useEffect, useRef, useState } from "react";
+import { Platform, StyleSheet, Text, useWindowDimensions, View } from "react-native";
 import { useLocalSearchParams, useRouter, type Href } from "expo-router";
+import { HeroActionButton } from "@/components/HeroActionButton";
 import { PageShell } from "@/components/PageShell";
 import { supabase } from "@/lib/supabase";
-import { fontFamilyBold, fontFamilyMedium, fontFamilySemibold, palette, radius } from "@/lib/design";
+import { fontFamilyBold, fontFamilyMedium, fontFamilySemibold, palette } from "@/lib/design";
+
+const CONFIRMATION_PENDING_MESSAGE = "La confirmation de votre adresse n’est pas encore détectée. Ouvrez le lien reçu par email, puis réessayez dans quelques instants.";
+const RELEVANT_AUTH_EVENTS = new Set(["INITIAL_SESSION", "SIGNED_IN", "TOKEN_REFRESHED", "USER_UPDATED"]);
 
 export default function VerifyEmailPage() {
   const router = useRouter();
@@ -11,8 +15,14 @@ export default function VerifyEmailPage() {
   const compact = width < 600;
   const { email } = useLocalSearchParams<{ email?: string }>();
   const [message, setMessage] = useState<string | null>(null);
-  const [loading, setLoading] = useState(false);
+  const [messagePositive, setMessagePositive] = useState(false);
+  const [resendLoading, setResendLoading] = useState(false);
+  const [checkingLoading, setCheckingLoading] = useState(false);
   const [cooldown, setCooldown] = useState(0);
+  const checkingRef = useRef(false);
+  const announceAfterCheckRef = useRef(false);
+  const navigateAfterCheckRef = useRef(false);
+  const navigatedRef = useRef(false);
 
   useEffect(() => {
     if (cooldown <= 0) return;
@@ -20,17 +30,98 @@ export default function VerifyEmailPage() {
     return () => clearTimeout(timer);
   }, [cooldown]);
 
+  const checkConfirmation = useCallback(async ({ navigate, announce }: { navigate: boolean; announce: boolean }) => {
+    if (navigate) navigateAfterCheckRef.current = true;
+    if (announce) {
+      announceAfterCheckRef.current = true;
+      setCheckingLoading(true);
+    }
+    if (checkingRef.current) return;
+    checkingRef.current = true;
+
+    try {
+      const { data: sessionData, error: sessionError } = await supabase.auth.getSession();
+      const sessionUser = sessionData.session?.user;
+      if (sessionError || !sessionUser) {
+        if (announceAfterCheckRef.current) {
+          setMessagePositive(false);
+          setMessage(CONFIRMATION_PENDING_MESSAGE);
+        }
+        return;
+      }
+
+      const { data: userData, error: userError } = await supabase.auth.getUser();
+      const confirmedUser = userData.user;
+      const confirmed = !userError
+        && confirmedUser?.id === sessionUser.id
+        && Boolean(confirmedUser.email_confirmed_at);
+
+      if (!confirmed) {
+        if (announceAfterCheckRef.current) {
+          setMessagePositive(false);
+          setMessage(CONFIRMATION_PENDING_MESSAGE);
+        }
+        return;
+      }
+
+      setMessagePositive(true);
+      setMessage("Votre adresse email est confirmée. Vous pouvez poursuivre la création de votre compte.");
+      if (navigateAfterCheckRef.current && !navigatedRef.current) {
+        navigatedRef.current = true;
+        router.replace("/auth/passkey-enrollment?flow=signup" as Href);
+      }
+    } catch {
+      if (announceAfterCheckRef.current) {
+        setMessagePositive(false);
+        setMessage(CONFIRMATION_PENDING_MESSAGE);
+      }
+    } finally {
+      checkingRef.current = false;
+      if (announceAfterCheckRef.current) setCheckingLoading(false);
+      announceAfterCheckRef.current = false;
+      navigateAfterCheckRef.current = false;
+    }
+  }, [router]);
+
+  useEffect(() => {
+    if (Platform.OS !== "web" || typeof document === "undefined") return;
+    let active = true;
+    let timer: ReturnType<typeof setTimeout> | null = null;
+
+    function recheckWhenVisible() {
+      if (!active || document.visibilityState !== "visible") return;
+      if (timer) clearTimeout(timer);
+      timer = setTimeout(() => {
+        if (active) void checkConfirmation({ navigate: false, announce: false });
+      }, 0);
+    }
+
+    document.addEventListener("visibilitychange", recheckWhenVisible);
+    const { data } = supabase.auth.onAuthStateChange((event) => {
+      if (RELEVANT_AUTH_EVENTS.has(event)) recheckWhenVisible();
+    });
+
+    return () => {
+      active = false;
+      if (timer) clearTimeout(timer);
+      document.removeEventListener("visibilitychange", recheckWhenVisible);
+      data.subscription.unsubscribe();
+    };
+  }, [checkConfirmation]);
+
   async function resend() {
-    if (loading || cooldown > 0) return;
+    if (resendLoading || checkingLoading || cooldown > 0) return;
     if (!email) {
+      setMessagePositive(false);
       setMessage("Adresse email indisponible. Relancez l’inscription si nécessaire.");
       return;
     }
-    setLoading(true);
+    setResendLoading(true);
     const redirectTo = typeof window !== "undefined" ? `${window.location.origin}/auth/callback` : undefined;
     const { error } = await supabase.auth.resend({ type: "signup", email, options: { emailRedirectTo: redirectTo } });
-    setLoading(false);
+    setResendLoading(false);
     if (!error) setCooldown(60);
+    setMessagePositive(!error);
     setMessage(error ? "Impossible de renvoyer l’email pour le moment." : "Si cette inscription est valide, un nouvel email vient d’être envoyé.");
   }
 
@@ -38,17 +129,25 @@ export default function VerifyEmailPage() {
     <PageShell compact>
       <View style={styles.content}>
         <Text style={styles.eyebrow}>INSCRIPTION</Text>
-        <Text style={[styles.title, compact && styles.titleCompact]}>Confirmez votre adresse email</Text>
+        <Text style={StyleSheet.flatten([styles.title, compact && styles.titleCompact])}>Confirmez votre adresse email</Text>
         <Text style={styles.text}>Nous vous avons envoyé un lien de confirmation. Cliquez sur ce lien pour poursuivre la création de votre compte.</Text>
         <Text style={styles.secondaryCopy}>Pensez à vérifier votre dossier de courriers indésirables si vous ne trouvez pas notre message.</Text>
-        {message ? <Text style={styles.message}>{message}</Text> : null}
+        {message ? <Text accessibilityLiveRegion="polite" style={StyleSheet.flatten([styles.message, messagePositive && styles.messagePositive])}>{message}</Text> : null}
         <View style={styles.actions}>
-          <Pressable accessibilityRole="button" onPress={resend} disabled={loading || cooldown > 0} style={[styles.primary, compact && styles.actionCompact]}>
-            {loading ? <ActivityIndicator color={palette.onPrimary} /> : <Text style={styles.primaryText}>{cooldown > 0 ? `Renvoyer dans ${cooldown} s` : "Renvoyer l’email"}</Text>}
-          </Pressable>
-          <Pressable onPress={() => router.push("/auth/login" as Href)} style={[styles.secondary, compact && styles.actionCompact]}>
-            <Text style={styles.secondaryText}>J’ai vérifié mon email</Text>
-          </Pressable>
+          <HeroActionButton
+            label={cooldown > 0 ? `Renvoyer dans ${cooldown} s` : "Renvoyer l’email"}
+            variant="primary"
+            onPress={resend}
+            loading={resendLoading}
+            disabled={checkingLoading || cooldown > 0}
+          />
+          <HeroActionButton
+            label="J’ai vérifié mon email"
+            variant="secondary"
+            onPress={() => void checkConfirmation({ navigate: true, announce: true })}
+            loading={checkingLoading}
+            disabled={resendLoading}
+          />
         </View>
       </View>
     </PageShell>
@@ -56,17 +155,13 @@ export default function VerifyEmailPage() {
 }
 
 const styles = StyleSheet.create({
-  content: { width: "100%", maxWidth: 720, alignSelf: "center", gap: 18 },
-  eyebrow: { color: palette.primaryStrong, fontFamily: fontFamilySemibold, fontSize: 10, letterSpacing: 1.2 },
-  title: { color: palette.ink, fontFamily: fontFamilyBold, fontSize: 32, lineHeight: 39, maxWidth: 620 },
+  content: { width: "100%", maxWidth: 760, alignSelf: "center", alignItems: "center", gap: 18 },
+  eyebrow: { color: palette.primaryStrong, fontFamily: fontFamilySemibold, fontSize: 10, letterSpacing: 1.2, textAlign: "center" },
+  title: { color: palette.ink, fontFamily: fontFamilyBold, fontSize: 32, lineHeight: 39, maxWidth: 660, textAlign: "center" },
   titleCompact: { fontSize: 29, lineHeight: 35 },
-  text: { width: "100%", flexShrink: 1, color: palette.inkSecondary, fontSize: 15, lineHeight: 24, maxWidth: 660 },
-  secondaryCopy: { width: "100%", flexShrink: 1, color: palette.muted, fontSize: 14, lineHeight: 22, maxWidth: 660 },
-  message: { color: palette.positiveText, fontFamily: fontFamilyMedium, lineHeight: 22 },
-  actions: { flexDirection: "row", flexWrap: "wrap", alignItems: "center", gap: 12, marginTop: 4 },
-  primary: { minHeight: 44, borderRadius: radius.sm, backgroundColor: palette.primary, paddingHorizontal: 18, alignItems: "center", justifyContent: "center" },
-  primaryText: { color: palette.onPrimary, fontFamily: fontFamilySemibold },
-  secondary: { minHeight: 44, borderRadius: radius.sm, backgroundColor: "transparent", borderWidth: 1, borderColor: palette.lineStrong, paddingHorizontal: 18, alignItems: "center", justifyContent: "center" },
-  actionCompact: { width: "100%" },
-  secondaryText: { color: palette.inkSecondary, fontFamily: fontFamilyMedium }
+  text: { width: "100%", flexShrink: 1, color: palette.inkSecondary, fontSize: 15, lineHeight: 24, maxWidth: 660, textAlign: "center" },
+  secondaryCopy: { width: "100%", flexShrink: 1, color: palette.muted, fontSize: 14, lineHeight: 22, maxWidth: 660, textAlign: "center" },
+  message: { color: palette.inkSecondary, fontFamily: fontFamilyMedium, lineHeight: 22, maxWidth: 660, textAlign: "center" },
+  messagePositive: { color: palette.positiveText },
+  actions: { width: "100%", flexDirection: "row", flexWrap: "wrap", alignItems: "center", justifyContent: "center", gap: 12, marginTop: 4 }
 });

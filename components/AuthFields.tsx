@@ -89,7 +89,7 @@ export function AuthErrorSlot({ message, nativeID }: { message?: string; nativeI
 }
 
 const styles = StyleSheet.create({
-  field: { gap: 6, flex: 1, minWidth: 0 },
+  field: { gap: 6, flexGrow: 0, flexShrink: 0, flexBasis: "auto", minWidth: 0 },
   label: { color: palette.inkSecondary, fontFamily: fontFamilyMedium, fontSize: 13 },
   input: {
     minHeight: 48,
@@ -104,8 +104,8 @@ const styles = StyleSheet.create({
   },
   controlFocused: { borderColor: authField.focusBorderColor, backgroundColor: authField.backgroundFocused },
   controlInvalid: { borderColor: authField.invalidBorderColor, backgroundColor: authField.backgroundInvalid },
-  errorSlot: { justifyContent: "center" },
-  fieldError: { color: palette.fieldError, fontSize: 11, lineHeight: 15 },
+  errorSlot: { width: "100%", minWidth: 0, justifyContent: "center" },
+  fieldError: { width: "100%", flexShrink: 1, color: palette.fieldError, fontSize: 11, lineHeight: 15 },
   segmented: {
     minHeight: 48,
     borderRadius: authField.borderRadius,

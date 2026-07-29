@@ -23,6 +23,7 @@ import type {
   UserPollAnswer,
   VoteStatus
 } from "@/lib/types";
+import { clearPendingSignup } from "@/lib/auth/pendingSignup";
 
 type SubmitPayload = {
   poll_id: string;
@@ -565,7 +566,9 @@ export async function updateCurrentUserPassword(password: string) {
 }
 
 export async function signOutUser() {
-  return supabase.auth.signOut();
+  const result = await supabase.auth.signOut();
+  if (!result.error) clearPendingSignup();
+  return result;
 }
 
 async function fetchPollCollection(options: {

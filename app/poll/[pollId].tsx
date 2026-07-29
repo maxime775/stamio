@@ -1,7 +1,7 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import { ActivityIndicator, Animated, Easing, Linking, Platform, Pressable, ScrollView, StyleSheet, Text, useWindowDimensions, View } from "react-native";
 import { LinearGradient } from "expo-linear-gradient";
-import { Check, ExternalLink, MessagesSquare } from "lucide-react-native";
+import { Check, ChevronDown, ExternalLink, MessagesSquare } from "lucide-react-native";
 import { useLocalSearchParams, useRouter, type Href } from "expo-router";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { PollCard } from "@/components/PollCard";
@@ -11,6 +11,7 @@ import { ResultsHistoryChart } from "@/components/ResultsHistoryChart";
 import { PollDiscussion } from "@/components/PollDiscussion";
 import { MarkdownContent } from "@/components/MarkdownContent";
 import { AppFooter } from "@/components/AppFooter";
+import { HeaderTextAction } from "@/components/AppHeader";
 import { VotePanel } from "@/components/VotePanel";
 import { SkeletonPoll } from "@/components/SkeletonPoll";
 import { siteContainerStyle } from "@/components/SiteContainer";
@@ -36,8 +37,9 @@ export default function PollScreen() {
   const [panelVisible, setPanelVisible] = useState(false);
   const [voteState, setVoteState] = useState<VoteStatus | null>(null);
   const [voteColumnHeight, setVoteColumnHeight] = useState(0);
-  const [discussionCtaHovered, setDiscussionCtaHovered] = useState(false);
   const scrollRef = useRef<ScrollView>(null);
+  const overviewAnchorY = useRef(0);
+  const contextOffsetY = useRef(0);
   const discussionAnchorY = useRef(0);
   const fade = useMemo(() => new Animated.Value(0), []);
 
@@ -118,7 +120,8 @@ export default function PollScreen() {
   const selectedChoice = poll?.choices.find((choice) => choice.id === selectedChoiceId) ?? null;
   const isPollOpen = Boolean(poll && poll.status === "open" && (!poll.closes_at || new Date(poll.closes_at).getTime() > Date.now()));
   const voteAccepted = voteState?.status === "accepted";
-  const alreadyParticipated = Boolean(serverAnswerChoiceId && !voteAccepted);
+  const voteDuplicate = voteState?.status === "duplicate";
+  const alreadyParticipated = Boolean((serverAnswerChoiceId || voteDuplicate) && !voteAccepted);
   const participationStatusLoading = authLoading || serverAnswerLoading;
   const answerSelectionLocked = alreadyParticipated || voteAccepted || participationStatusLoading;
   const voteButtonDisabled = !selectedChoiceId || voteAccepted || alreadyParticipated || participationStatusLoading;
@@ -160,12 +163,16 @@ export default function PollScreen() {
         setServerAnswerChoiceId(answer?.choice_id ?? null);
         if (answer?.choice_id) setSelectedChoiceId(answer.choice_id);
       }
-      setPanelVisible(false);
     }
   }
 
   function scrollToDiscussion() {
     scrollRef.current?.scrollTo({ y: Math.max(0, discussionAnchorY.current - 18), animated: true });
+  }
+
+  function scrollToContext() {
+    const contextY = overviewAnchorY.current + contextOffsetY.current;
+    scrollRef.current?.scrollTo({ y: Math.max(0, contextY - 18), animated: true });
   }
 
   return (
@@ -193,8 +200,15 @@ export default function PollScreen() {
                   </View>
                 </View>
                 <Text style={StyleSheet.flatten([styles.title, compact && styles.titleCompact])}>{poll.question}</Text>
-                <View style={StyleSheet.flatten([styles.overview, compact && styles.overviewCompact])}>
-                  <View style={styles.contextBlock}>
+                <View
+                  onLayout={(event) => { overviewAnchorY.current = event.nativeEvent.layout.y; }}
+                  style={StyleSheet.flatten([styles.overview, compact && styles.overviewCompact])}
+                >
+                  <View
+                    nativeID="poll-context"
+                    onLayout={(event) => { contextOffsetY.current = event.nativeEvent.layout.y; }}
+                    style={styles.contextBlock}
+                  >
                     <Text style={styles.contextKicker}>Enjeux</Text>
                     <MarkdownContent value={poll.description ?? getPollDescription(poll.id)} compact />
                     {poll.resources && poll.resources.length > 0 ? <ResourceSection resources={poll.resources} /> : null}
@@ -246,18 +260,16 @@ export default function PollScreen() {
                   <Text style={styles.discussionLabelText}>Le débat commence ici</Text>
                   <Text style={styles.discussionIntro}>Comparez les arguments, nuancez votre position et complétez la lecture des résultats.</Text>
                 </View>
-                <Pressable
-                  accessibilityRole="button"
+                <HeaderTextAction
+                  label="LIRE LE DÉBAT"
+                  accessibilityLabel="Lire le débat"
                   accessibilityHint="Fait défiler la page jusqu’aux commentaires"
-                  onHoverIn={() => setDiscussionCtaHovered(true)}
-                  onHoverOut={() => setDiscussionCtaHovered(false)}
                   onPress={scrollToDiscussion}
-                  style={({ pressed }) => StyleSheet.flatten([styles.discussionAction, discussionCtaHovered && styles.discussionActionHovered, pressed && styles.discussionActionPressed])}
-                >
-                  <Text style={styles.discussionActionText}>Lire le débat ↓</Text>
-                </Pressable>
+                  icon={<ChevronDown size={16} color={palette.ink} />}
+                  iconPosition="end"
+                />
               </View>
-              <View onLayout={(event) => { discussionAnchorY.current = event.nativeEvent.layout.y; }} style={styles.discussionColumn}>
+              <View nativeID="poll-discussion" onLayout={(event) => { discussionAnchorY.current = event.nativeEvent.layout.y; }} style={styles.discussionColumn}>
                 <PollDiscussion pollId={poll.id} />
               </View>
             </Animated.View>
@@ -279,6 +291,8 @@ export default function PollScreen() {
             platform={Platform.OS === "web" ? "web" : "native"}
             onClose={() => setPanelVisible(false)}
             onFinished={handleVoteFinished}
+            onExploreContext={scrollToContext}
+            onJoinDiscussion={scrollToDiscussion}
           />
         ) : null}
       </SafeAreaView>
@@ -532,10 +546,6 @@ const styles = StyleSheet.create({
   discussionEyebrow: { color: palette.primaryStrong, fontFamily: fontFamilySemibold, fontSize: 9, textTransform: "uppercase", letterSpacing: 1.1 },
   discussionLabelText: { color: palette.ink, fontFamily: fontFamilySemibold, fontSize: 20, lineHeight: 25 },
   discussionIntro: { color: palette.muted, fontSize: 12, lineHeight: 18 },
-  discussionAction: { minHeight: 34, paddingHorizontal: 10, borderRadius: radius.sm, alignItems: "center", justifyContent: "center", borderWidth: 1, borderColor: "transparent" },
-  discussionActionHovered: { backgroundColor: palette.primarySoft, borderColor: palette.lineStrong },
-  discussionActionPressed: { opacity: 0.72 },
-  discussionActionText: { color: palette.inkSecondary, fontFamily: fontFamilySemibold, fontSize: 11, textTransform: "uppercase", letterSpacing: 0.6 },
   discussionColumn: { width: "100%" },
   voteButton: {
     alignSelf: "center",

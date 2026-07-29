@@ -1,9 +1,10 @@
 import { useEffect, useRef, useState } from "react";
-import { ActivityIndicator, Pressable, StyleSheet, Text, useWindowDimensions, View } from "react-native";
+import { ActivityIndicator, StyleSheet, Text, useWindowDimensions, View } from "react-native";
 import { useRouter, type Href } from "expo-router";
+import { HeroActionButton } from "@/components/HeroActionButton";
 import { PageShell } from "@/components/PageShell";
 import { supabase } from "@/lib/supabase";
-import { fontFamilyBold, fontFamilyMedium, fontFamilySemibold, palette, radius } from "@/lib/design";
+import { fontFamilyBold, fontFamilyMedium, fontFamilySemibold, palette } from "@/lib/design";
 
 const GENERIC_ERROR = "Ce lien de confirmation est invalide ou a expiré. Demandez un nouvel email pour poursuivre votre inscription.";
 
@@ -46,7 +47,7 @@ export default function AuthCallbackPage() {
     try {
       const { data, error: verifyError } = await supabase.auth.verifyOtp({ token_hash: token, type: "email" });
       if (verifyError || !data.session || !data.user?.email_confirmed_at) throw new Error("confirmation_failed");
-      router.replace("/auth/passkey-enrollment" as Href);
+      router.replace("/auth/passkey-enrollment?flow=signup" as Href);
     } catch {
       consumed.current = false;
       setError(GENERIC_ERROR);
@@ -64,15 +65,12 @@ export default function AuthCallbackPage() {
         {!ready ? <ActivityIndicator color={palette.primaryStrong} /> : null}
         {error ? <Text accessibilityLiveRegion="polite" style={styles.error}>{error}</Text> : null}
         {ready && !error ? (
-          <Pressable
-            accessibilityRole="button"
-            accessibilityState={{ disabled: loading }}
-            disabled={loading}
+          <HeroActionButton
+            label="Confirmer mon adresse email"
+            variant="primary"
             onPress={confirmEmail}
-            style={({ pressed }) => StyleSheet.flatten([styles.primary, compact && styles.primaryCompact, pressed && !loading && styles.pressed, loading && styles.disabled])}
-          >
-            {loading ? <ActivityIndicator color={palette.onPrimary} /> : <Text style={styles.primaryText}>Confirmer mon adresse email</Text>}
-          </Pressable>
+            loading={loading}
+          />
         ) : null}
       </View>
     </PageShell>
@@ -80,15 +78,10 @@ export default function AuthCallbackPage() {
 }
 
 const styles = StyleSheet.create({
-  content: { width: "100%", maxWidth: 720, alignSelf: "center", gap: 18 },
-  eyebrow: { color: palette.primaryStrong, fontFamily: fontFamilySemibold, fontSize: 10, letterSpacing: 1.2 },
-  title: { color: palette.ink, fontFamily: fontFamilyBold, fontSize: 32, lineHeight: 39, maxWidth: 620 },
+  content: { width: "100%", maxWidth: 760, alignSelf: "center", alignItems: "center", gap: 18 },
+  eyebrow: { color: palette.primaryStrong, fontFamily: fontFamilySemibold, fontSize: 10, letterSpacing: 1.2, textAlign: "center" },
+  title: { color: palette.ink, fontFamily: fontFamilyBold, fontSize: 32, lineHeight: 39, maxWidth: 660, textAlign: "center" },
   titleCompact: { fontSize: 29, lineHeight: 35 },
-  text: { width: "100%", flexShrink: 1, color: palette.inkSecondary, fontFamily: fontFamilyMedium, lineHeight: 23, maxWidth: 620 },
-  error: { color: palette.dangerText, fontFamily: fontFamilyMedium, lineHeight: 22, maxWidth: 620 },
-  primary: { minHeight: 44, alignSelf: "flex-start", borderRadius: radius.sm, backgroundColor: palette.primary, alignItems: "center", justifyContent: "center", paddingHorizontal: 18 },
-  primaryCompact: { width: "100%", alignSelf: "stretch" },
-  pressed: { backgroundColor: palette.primaryPressed },
-  disabled: { opacity: 0.7 },
-  primaryText: { color: palette.onPrimary, fontFamily: fontFamilySemibold }
+  text: { width: "100%", flexShrink: 1, color: palette.inkSecondary, fontFamily: fontFamilyMedium, lineHeight: 23, maxWidth: 620, textAlign: "center" },
+  error: { color: palette.dangerText, fontFamily: fontFamilyMedium, lineHeight: 22, maxWidth: 620, textAlign: "center" }
 });
