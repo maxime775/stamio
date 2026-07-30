@@ -1,12 +1,13 @@
 import { useEffect, useRef, useState } from "react";
 import type { ReactNode } from "react";
-import { Animated, Platform, Pressable, StyleSheet, Text, useWindowDimensions, View } from "react-native";
+import { Animated, Platform, Pressable, StyleSheet, Text, useWindowDimensions, View, type PointerEvent as ReactNativePointerEvent } from "react-native";
 import { Link, usePathname, useRouter, type Href } from "expo-router";
 import { BarChart3, CircleUserRound, Home, Info, Layers3, LayoutDashboard, LogIn, LogOut, ShieldCheck, UserRound } from "lucide-react-native";
 import { useAuth } from "@/components/AuthProvider";
 import { SiteContainer } from "@/components/SiteContainer";
 import { StamioLogo } from "@/components/StamioLogo";
 import { getAdminStatus, prefetchLatestResults, prefetchThemePolls, signOutUser } from "@/lib/api";
+import { ACCOUNT_MENU_CLOSE_DELAY_MS, cancelAccountMenuClose, scheduleAccountMenuClose as scheduleAccountMenuCloseTimer } from "@/lib/accountMenuHover";
 import { STAMIO_CORE_COLORS, fontFamilyMedium, fontFamilySemibold, palette, radius } from "@/lib/design";
 
 const LOGO_VISUAL_LEFT_INSET_RATIO = (8 + (9 - 2.75) * 1.08) / 84;
@@ -72,9 +73,7 @@ export function AppHeader() {
   const closeTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   function clearMenuCloseTimer() {
-    if (closeTimerRef.current === null) return;
-    clearTimeout(closeTimerRef.current);
-    closeTimerRef.current = null;
+    cancelAccountMenuClose(closeTimerRef);
   }
 
   function containsAccountMenuTarget(target: EventTarget | null) {
@@ -88,14 +87,29 @@ export function AppHeader() {
     setAccountMenuOpen(true);
   }
 
+  function handleAccountMenuPointerEnter(event: ReactNativePointerEvent) {
+    if (event.nativeEvent.pointerType === "touch") return;
+    openAccountMenuFromHover();
+  }
+
   function scheduleAccountMenuClose() {
     if (compact || !hoverCapable) return;
+    scheduleAccountMenuCloseTimer({
+      timerRef: closeTimerRef,
+      delay: ACCOUNT_MENU_CLOSE_DELAY_MS,
+      shouldRemainOpen: () => Platform.OS === "web" && containsAccountMenuTarget(document.activeElement),
+      onClose: () => setAccountMenuOpen(false)
+    });
+  }
+
+  function handleAccountMenuPointerLeave(event: ReactNativePointerEvent) {
+    if (event.nativeEvent.pointerType === "touch") return;
+    scheduleAccountMenuClose();
+  }
+
+  function toggleAccountMenu() {
     clearMenuCloseTimer();
-    closeTimerRef.current = setTimeout(() => {
-      closeTimerRef.current = null;
-      if (Platform.OS === "web" && containsAccountMenuTarget(document.activeElement)) return;
-      setAccountMenuOpen(false);
-    }, 120);
+    setAccountMenuOpen((open) => !open);
   }
 
   useEffect(() => {
@@ -115,6 +129,7 @@ export function AppHeader() {
   }, [emailVerified, userId]);
 
   useEffect(() => {
+    clearMenuCloseTimer();
     setAccountMenuOpen(false);
   }, [pathname]);
 
@@ -133,15 +148,26 @@ export function AppHeader() {
     if (!accountMenuOpen || Platform.OS !== "web") return;
 
     function closeFromOutsidePointer(event: PointerEvent) {
-      if (!containsAccountMenuTarget(event.target)) setAccountMenuOpen(false);
+      if (containsAccountMenuTarget(event.target)) {
+        clearMenuCloseTimer();
+        return;
+      }
+      clearMenuCloseTimer();
+      setAccountMenuOpen(false);
     }
 
     function closeFromOutsideFocus(event: FocusEvent) {
-      if (!containsAccountMenuTarget(event.target)) setAccountMenuOpen(false);
+      if (containsAccountMenuTarget(event.target)) {
+        clearMenuCloseTimer();
+        return;
+      }
+      clearMenuCloseTimer();
+      setAccountMenuOpen(false);
     }
 
     function closeFromEscape(event: KeyboardEvent) {
       if (event.key !== "Escape") return;
+      clearMenuCloseTimer();
       setAccountMenuOpen(false);
       const button = accountButtonRef.current as unknown as { focus?: () => void } | null;
       button?.focus?.();
@@ -203,21 +229,23 @@ export function AppHeader() {
                   <Text style={styles.secondaryText}>Admin</Text>
                 </Pressable>
               ) : null}
-              <View ref={accountMenuWrapRef} style={styles.accountMenuWrap}>
+              <View
+                ref={accountMenuWrapRef}
+                onPointerEnter={handleAccountMenuPointerEnter}
+                onPointerLeave={handleAccountMenuPointerLeave}
+                style={styles.accountMenuWrap}
+              >
                 <AccountMenuButton
                   buttonRef={accountButtonRef}
                   compact={compact}
                   expanded={accountMenuOpen}
-                  onHoverIn={openAccountMenuFromHover}
-                  onHoverOut={scheduleAccountMenuClose}
-                  onPress={() => setAccountMenuOpen((open) => !open)}
+                  onPress={toggleAccountMenu}
                 />
+                {accountMenuOpen && !compact ? <View pointerEvents="box-only" style={styles.accountMenuBridge} /> : null}
                 {accountMenuOpen ? (
                   <View
                     accessibilityRole="menu"
                     nativeID="account-menu"
-                    onPointerEnter={openAccountMenuFromHover}
-                    onPointerLeave={scheduleAccountMenuClose}
                     style={styles.accountMenu}
                   >
                     <Pressable accessibilityRole="menuitem" onPress={() => go("/account")} style={({ hovered, pressed }) => StyleSheet.flatten([styles.menuItem, hovered && styles.menuItemHovered, pressed && styles.menuItemPressed])}>
@@ -303,15 +331,11 @@ function AccountMenuButton({
   buttonRef,
   compact,
   expanded,
-  onHoverIn,
-  onHoverOut,
   onPress
 }: {
   buttonRef: React.MutableRefObject<View | null>;
   compact: boolean;
   expanded: boolean;
-  onHoverIn: () => void;
-  onHoverOut: () => void;
   onPress: () => void;
 }) {
   const line = useRef(new Animated.Value(0)).current;
@@ -326,14 +350,8 @@ function AccountMenuButton({
       accessibilityRole="button"
       accessibilityState={{ expanded }}
       onPress={onPress}
-      onHoverIn={() => {
-        animate(1);
-        onHoverIn();
-      }}
-      onHoverOut={() => {
-        animate(0);
-        onHoverOut();
-      }}
+      onHoverIn={() => animate(1)}
+      onHoverOut={() => animate(0)}
       onFocus={() => animate(1)}
       onBlur={() => animate(0)}
       style={({ pressed }) => StyleSheet.flatten([
@@ -378,6 +396,7 @@ const styles = StyleSheet.create({
   account: { minWidth: 128, flexDirection: "row", alignItems: "center", justifyContent: "flex-end", gap: 8 },
   accountCompact: { minWidth: 0 },
   accountMenuWrap: { position: "relative", zIndex: 30 },
+  accountMenuBridge: { position: "absolute", top: 40, left: 0, right: 0, height: 6, zIndex: 34 },
   accountButton: {
     minHeight: 40,
     borderRadius: radius.sm,
