@@ -34,3 +34,6 @@ verify_jwt = false
 
 [functions.get-results-history]
 verify_jwt = false
+
+[functions.check-signup-email]
+verify_jwt = false
