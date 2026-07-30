@@ -3,6 +3,7 @@ import { ActivityIndicator, Platform, Pressable, StyleSheet, Text, useWindowDime
 import { useRouter, type Href } from "expo-router";
 import { AuthSexSegmented, AuthTextField } from "@/components/AuthFields";
 import { AuthForm } from "@/components/AuthForm";
+import { HeroActionButton } from "@/components/HeroActionButton";
 import { PasswordStrengthRules } from "@/components/PasswordStrengthRules";
 import { RegionSelect } from "@/components/RegionSelect";
 import { ProfessionSelect } from "@/components/ProfessionSelect";
@@ -255,9 +256,18 @@ export function SignupForm() {
       <Text style={styles.privacyText}>
         En continuant, vous acceptez nos <Text accessibilityRole="link" onPress={() => router.push("/conditions-utilisation" as Href)} style={styles.privacyLink}>conditions d’utilisation</Text> et notre <Text accessibilityRole="link" onPress={() => router.push("/confidentialite" as Href)} style={styles.privacyLink}>politique de confidentialité</Text> applicable au traitement de vos données personnelles.
       </Text>
-      <Pressable accessibilityRole="button" disabled={loading} onPress={handleSubmit} style={({ pressed }) => ({ ...styles.primary, ...(pressed ? styles.primaryPressed : {}) })}>
-        {loading ? <ActivityIndicator color={palette.onPrimary} /> : <Text style={styles.primaryText}>S'inscrire</Text>}
-      </Pressable>
+      <HeroActionButton
+        compact
+        disabled={loading}
+        disabledOpacity={1}
+        elevated={false}
+        fullWidth
+        label="S'inscrire"
+        loading={loading}
+        onPress={handleSubmit}
+        showArrow={false}
+        variant="primary"
+      />
       <View style={styles.separator} />
       <View style={styles.loginPrompt}>
         <Text style={styles.loginPromptText}>Vous avez déjà un compte ?</Text>
@@ -310,8 +320,6 @@ const styles = StyleSheet.create({
   globalError: { color: palette.dangerText, backgroundColor: palette.dangerSoft, borderRadius: radius.sm, padding: 12 },
   privacyText: { color: palette.muted, fontSize: 11, lineHeight: 17, marginTop: -2 },
   privacyLink: { color: palette.primaryStrong, fontFamily: fontFamilySemibold },
-  primary: { minHeight: 44, borderRadius: radius.sm, backgroundColor: palette.primary, alignItems: "center", justifyContent: "center" },
-  primaryPressed: { transform: [{ translateY: 1 }], backgroundColor: palette.primaryPressed },
   primaryText: { color: palette.onPrimary, fontFamily: fontFamilySemibold, fontSize: 15 },
   separator: { height: 1, width: "100%", backgroundColor: authField.separatorColor, marginTop: 6, marginBottom: 2 },
   loginPrompt: { flexDirection: "row", justifyContent: "center", alignItems: "center", gap: 5, flexWrap: "wrap", paddingTop: 2 },

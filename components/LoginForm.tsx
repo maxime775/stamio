@@ -1,8 +1,9 @@
 import { useRef, useState, type ComponentProps, type ReactNode } from "react";
-import { ActivityIndicator, Platform, Pressable, StyleSheet, Text, TextInput, View } from "react-native";
+import { Platform, Pressable, StyleSheet, Text, TextInput, View } from "react-native";
 import { useRouter, type Href } from "expo-router";
 import { Eye, EyeOff } from "lucide-react-native";
 import { AuthForm } from "@/components/AuthForm";
+import { HeroActionButton } from "@/components/HeroActionButton";
 import { getCurrentUserProfile, signInUser } from "@/lib/api";
 import { getPasskeyErrorMessage, signInWithPasskey } from "@/lib/auth/passkeys";
 import { getVisibleLoginError, normalizeAuthEmail, validateLogin, type LoginField } from "@/lib/authValidation";
@@ -78,9 +79,19 @@ export function LoginForm() {
 
   return (
     <AuthForm title="Se connecter" subtitle="Utilisez Face ID, votre empreinte, Windows Hello ou le code de votre appareil." maxWidth={390} compact>
-      <Pressable accessibilityRole="button" disabled={passkeyLoading} onPress={handlePasskeySignIn} style={({ pressed }) => StyleSheet.flatten([styles.primary, pressed && !passkeyLoading && styles.primaryPressed, passkeyLoading && styles.primaryDisabled])}>
-        {passkeyLoading ? <ActivityIndicator color={palette.onPrimary} /> : <Text style={styles.primaryText}>Se connecter avec une clé d’accès</Text>}
-      </Pressable>
+      <HeroActionButton
+        compact
+        disabled={passkeyLoading}
+        disabledOpacity={0.72}
+        elevated={false}
+        fullWidth
+        label="Se connecter avec une clé d’accès"
+        loading={passkeyLoading}
+        onPress={handlePasskeySignIn}
+        showArrow={false}
+        style={styles.primaryAction}
+        variant="primary"
+      />
       <View accessibilityRole="none" style={styles.alternative}>
         <View aria-hidden style={styles.alternativeLine} />
         <Text style={styles.alternativeText}>ou</Text>
@@ -131,9 +142,19 @@ export function LoginForm() {
         <Text style={styles.forgotText}>Mot de passe oublié ?</Text>
       </Pressable>
       {globalError ? <Text accessibilityLiveRegion="polite" style={styles.error}>{globalError}</Text> : null}
-      <Pressable accessibilityRole="button" disabled={loading} onPress={handleSubmit} style={({ pressed }) => StyleSheet.flatten([styles.primary, pressed && !loading && styles.primaryPressed, loading && styles.primaryDisabled])}>
-        {loading ? <ActivityIndicator color={palette.onPrimary} /> : <Text style={styles.primaryText}>Se connecter</Text>}
-      </Pressable>
+      <HeroActionButton
+        compact
+        disabled={loading}
+        disabledOpacity={0.72}
+        elevated={false}
+        fullWidth
+        label="Se connecter"
+        loading={loading}
+        onPress={handleSubmit}
+        showArrow={false}
+        style={styles.primaryAction}
+        variant="primary"
+      />
       <View style={styles.separator} />
       <View style={styles.signupPrompt}>
         <Text style={styles.signupPromptText}>Pas encore de compte ?</Text>
@@ -224,17 +245,7 @@ const styles = StyleSheet.create({
     lineHeight: 19,
     marginVertical: 2
   },
-  primary: {
-    minHeight: 44,
-    borderRadius: radius.sm,
-    backgroundColor: palette.primary,
-    alignItems: "center",
-    justifyContent: "center",
-    marginTop: 2
-  },
-  primaryPressed: { transform: [{ translateY: 1 }], backgroundColor: palette.primaryPressed },
-  primaryDisabled: { opacity: 0.72 },
-  primaryText: { color: palette.onPrimary, fontFamily: fontFamilySemibold, fontSize: 15 },
+  primaryAction: { marginTop: 2 },
   eyeButton: { width: 40, minHeight: 44, alignItems: "center", justifyContent: "center", borderRadius: radius.xs, borderWidth: 0, backgroundColor: "transparent" },
   eyeButtonPressed: { backgroundColor: "rgba(148, 163, 184, 0.1)" },
   forgotLink: { alignSelf: "flex-end", paddingVertical: 2, paddingHorizontal: 2, marginTop: -4 },

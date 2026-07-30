@@ -1,5 +1,5 @@
 import { useMemo, useState } from "react";
-import { ActivityIndicator, Animated, Easing, Platform, Pressable, StyleSheet, Text, type ViewStyle } from "react-native";
+import { ActivityIndicator, Animated, Easing, Platform, Pressable, StyleSheet, Text, type StyleProp, type ViewStyle } from "react-native";
 import { ArrowRight } from "lucide-react-native";
 import { useReducedMotion } from "@/lib/useReducedMotion";
 import { fontFamilyMedium, fontFamilySemibold, palette, radius, shadows } from "@/lib/design";
@@ -13,6 +13,12 @@ type Props = {
   onHoverIn?: () => void;
   loading?: boolean;
   disabled?: boolean;
+  disabledOpacity?: number;
+  compact?: boolean;
+  elevated?: boolean;
+  fullWidth?: boolean;
+  showArrow?: boolean;
+  style?: StyleProp<ViewStyle>;
 };
 
 export function HeroActionButton({
@@ -23,7 +29,13 @@ export function HeroActionButton({
   onFocus,
   onHoverIn,
   loading = false,
-  disabled = false
+  disabled = false,
+  disabledOpacity = 0.68,
+  compact = false,
+  elevated = true,
+  fullWidth = false,
+  showArrow = true,
+  style
 }: Props) {
   const hover = useMemo(() => new Animated.Value(0), []);
   const [hovered, setHovered] = useState(false);
@@ -47,8 +59,10 @@ export function HeroActionButton({
     <Animated.View
       style={StyleSheet.flatten([
         styles.hoverFrame,
+        fullWidth && styles.fullWidth,
+        style,
         focused && focusRingStyle,
-        unavailable && styles.disabled,
+        unavailable && { opacity: disabledOpacity },
         {
           transform: [{
             translateY: hover.interpolate({ inputRange: [0, 1], outputRange: [0, -2] })
@@ -75,6 +89,8 @@ export function HeroActionButton({
         onHoverOut={() => animateHover(0)}
         style={({ pressed }) => StyleSheet.flatten([
           variant === "primary" ? styles.primary : styles.secondary,
+          compact && styles.compactButton,
+          variant === "primary" && elevated && shadows.panel,
           Platform.OS === "web" && (unavailable ? webDisabledInteractionStyle : webInteractionStyle),
           pressed && variant === "primary" && styles.primaryPressed,
           pressed && variant === "secondary" && styles.secondaryPressed
@@ -83,13 +99,14 @@ export function HeroActionButton({
         <Text
           style={StyleSheet.flatten([
             variant === "primary" ? styles.primaryText : styles.secondaryText,
+            compact && styles.compactText,
             variant === "secondary" && active && styles.secondaryTextHovered,
             loading && styles.loadingContent
           ])}
         >
           {label}
         </Text>
-        {variant === "primary" ? (
+        {variant === "primary" && showArrow ? (
           <Animated.View
             style={StyleSheet.flatten([
               loading && styles.loadingContent,
@@ -116,7 +133,7 @@ export function HeroActionButton({
 
 const styles = StyleSheet.create({
   hoverFrame: { borderRadius: radius.sm },
-  disabled: { opacity: 0.68 },
+  fullWidth: { width: "100%" },
   primary: {
     minHeight: 48,
     borderRadius: radius.sm,
@@ -125,11 +142,12 @@ const styles = StyleSheet.create({
     flexDirection: "row",
     alignItems: "center",
     justifyContent: "center",
-    gap: 10,
-    ...shadows.panel
+    gap: 10
   },
   primaryPressed: { backgroundColor: palette.primaryPressed },
   primaryText: { color: palette.onPrimary, fontFamily: fontFamilySemibold, fontSize: 14 },
+  compactButton: { minHeight: 44, paddingHorizontal: 0 },
+  compactText: { fontSize: 15 },
   secondary: {
     minHeight: 48,
     borderRadius: radius.sm,
