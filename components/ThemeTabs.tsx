@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useState } from "react";
 import { Animated, Easing, Pressable, ScrollView, StyleSheet, Text, View } from "react-native";
-import { useRouter, type Href } from "expo-router";
+import { Link, type Href } from "expo-router";
 import { getThemeRoute, THEMES } from "@/lib/product";
 import { prefetchThemePolls } from "@/lib/api";
 import type { ThemeSlug } from "@/lib/types";
@@ -13,16 +13,7 @@ type Props = {
 };
 
 export function ThemeTabs({ active = "all", includeAll = true, onSelect }: Props) {
-  const router = useRouter();
   const items = includeAll ? [{ slug: "all" as const, label: "Tous" }, ...THEMES] : THEMES;
-
-  function handleSelect(slug: ThemeSlug | "all") {
-    if (onSelect) {
-      onSelect(slug);
-      return;
-    }
-    router.push(getThemeRoute(slug) as Href);
-  }
 
   return (
     <View style={styles.wrap}>
@@ -35,7 +26,8 @@ export function ThemeTabs({ active = "all", includeAll = true, onSelect }: Props
               label={item.label}
               slug={item.slug}
               selected={selected}
-              onSelect={handleSelect}
+              href={onSelect ? undefined : getThemeRoute(item.slug) as Href}
+              onSelect={onSelect}
             />
           );
         })}
@@ -44,7 +36,7 @@ export function ThemeTabs({ active = "all", includeAll = true, onSelect }: Props
   );
 }
 
-function ThemeTabItem({ label, slug, selected, onSelect }: { label: string; slug: ThemeSlug | "all"; selected: boolean; onSelect: (slug: ThemeSlug | "all") => void }) {
+function ThemeTabItem({ label, slug, selected, href, onSelect }: { label: string; slug: ThemeSlug | "all"; selected: boolean; href?: Href; onSelect?: (slug: ThemeSlug | "all") => void }) {
   const [hovered, setHovered] = useState(false);
   const line = useMemo(() => new Animated.Value(selected ? 1 : 0), []);
   const accent = slug === "all" ? ALL_THEMES_TAB_COLOR : getThemeVisual(slug).accent;
@@ -68,11 +60,11 @@ function ThemeTabItem({ label, slug, selected, onSelect }: { label: string; slug
     setHovered(false);
   }
 
-  return (
+  const tab = (
     <Pressable
       accessibilityRole="tab"
       accessibilityState={{ selected }}
-      onPress={() => onSelect(slug)}
+      onPress={onSelect ? () => onSelect(slug) : undefined}
       onPressIn={() => prefetchThemePolls(slug)}
       onFocus={() => prefetchThemePolls(slug)}
       onHoverIn={handleHoverIn}
@@ -83,6 +75,7 @@ function ThemeTabItem({ label, slug, selected, onSelect }: { label: string; slug
       <Animated.View style={StyleSheet.flatten([styles.tabLine, { backgroundColor: accent, transform: [{ scaleX: line }] }])} />
     </Pressable>
   );
+  return href ? <Link href={href} asChild>{tab}</Link> : tab;
 }
 
 const styles = StyleSheet.create({

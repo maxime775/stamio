@@ -1,0 +1,7 @@
+User-agent: *
+Allow: /
+Disallow: /auth/
+Disallow: /account
+Disallow: /admin
+
+Sitemap: https://stamio.fr/sitemap.xml

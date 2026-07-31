@@ -1,5 +1,5 @@
 import { Pressable, StyleSheet, Text, View } from "react-native";
-import { useRouter, type Href } from "expo-router";
+import { Link, useRouter, type Href } from "expo-router";
 import { StamioLogo } from "@/components/StamioLogo";
 import { fontFamily, fontFamilyMedium, palette } from "@/lib/design";
 
@@ -28,16 +28,24 @@ export function AppFooter() {
         <Text style={styles.tagline}>Des opinions vérifiées. Des débats ouverts. Une lecture plus claire de ce que nous pensons.</Text>
       </View>
       <View style={styles.links}>
-        {links.map(([label, href]) => (
+        {links.map(([label, href]) => href === "/account" ? (
           <Pressable key={href} onPress={() => router.push(href as Href)} style={styles.linkHit}>
             <Text style={styles.link}>{label}</Text>
           </Pressable>
+        ) : (
+          <Link key={href} href={href as Href} asChild>
+            <Pressable style={styles.linkHit}>
+              <Text style={styles.link}>{label}</Text>
+            </Pressable>
+          </Link>
         ))}
       </View>
       <View style={styles.legal}>
-        {legalLinks.map(([label, href]) => <Pressable key={href} onPress={() => router.push(href as Href)} style={styles.legalHit}>
-          <Text style={styles.legalLink}>{label}</Text>
-        </Pressable>)}
+        {legalLinks.map(([label, href]) => <Link key={href} href={href as Href} asChild>
+          <Pressable style={styles.legalHit}>
+            <Text style={styles.legalLink}>{label}</Text>
+          </Pressable>
+        </Link>)}
       </View>
       <Text style={styles.copyright}>© 2026 Stamio. Tous droits réservés.</Text>
     </View>

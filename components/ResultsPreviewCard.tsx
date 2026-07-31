@@ -1,6 +1,6 @@
 import { memo, useCallback, useMemo, useState } from "react";
 import { Animated, Easing, Pressable, StyleSheet, Text, View } from "react-native";
-import { useRouter, type Href } from "expo-router";
+import { Link, type Href } from "expo-router";
 import { ArrowRight } from "lucide-react-native";
 import { ResultsDonutSummary } from "@/components/ResultsDonutSummary";
 import { getThemeLabel } from "@/lib/product";
@@ -14,14 +14,12 @@ type Props = {
 };
 
 export const ResultsPreviewCard = memo(function ResultsPreviewCard({ poll }: Props) {
-  const router = useRouter();
   const [tooltipVisible, setTooltipVisible] = useState(false);
   const [ctaHovered, setCtaHovered] = useState(false);
   const ctaHover = useMemo(() => new Animated.Value(0), []);
   const date = poll.created_at ? new Date(poll.created_at).toLocaleDateString("fr-FR") : "Date non disponible";
   const visual = getThemeVisual(poll.theme);
   const warmPoll = useCallback(() => prefetchPollDetail(poll.id), [poll.id]);
-  const openPoll = useCallback(() => router.push(`/poll/${poll.id}` as Href), [poll.id, router]);
   const hasResults = Boolean(poll.results && poll.results.length > 0);
   const tooltipRows = useMemo(() => {
     const results = poll.results ?? [];
@@ -85,25 +83,26 @@ export const ResultsPreviewCard = memo(function ResultsPreviewCard({ poll }: Pro
           <Text style={styles.analysisText}>Lorem ipsum dolor sit amet, consectetur adipiscing elit. Integer posuere nuance les enseignements du vote et met en perspective les principaux points de débat.</Text>
         </View>
       </View>
-      <Pressable
-        onPress={openPoll}
-        onPressIn={warmPoll}
-        onFocus={warmPoll}
-        onHoverIn={() => {
-          warmPoll();
-          setCtaHovered(true);
-          animateCta(1);
-        }}
-        onHoverOut={() => {
-          setCtaHovered(false);
-          animateCta(0);
-        }}
-        style={({ pressed }) => StyleSheet.flatten([styles.link, ctaHovered && styles.linkHovered, pressed && styles.linkPressed])}
-      >
-        <Animated.View pointerEvents="none" style={StyleSheet.flatten([styles.linkFill, { opacity: ctaFillOpacity }])} />
-        <Text style={styles.linkText}>Voir le détail</Text>
-        <Animated.View style={{ transform: [{ translateX: arrowTranslateX }] }}><ArrowRight size={15} color={palette.primaryStrong} /></Animated.View>
-      </Pressable>
+      <Link href={`/poll/${poll.id}` as Href} asChild>
+        <Pressable
+          onPressIn={warmPoll}
+          onFocus={warmPoll}
+          onHoverIn={() => {
+            warmPoll();
+            setCtaHovered(true);
+            animateCta(1);
+          }}
+          onHoverOut={() => {
+            setCtaHovered(false);
+            animateCta(0);
+          }}
+          style={({ pressed }) => StyleSheet.flatten([styles.link, ctaHovered && styles.linkHovered, pressed && styles.linkPressed])}
+        >
+          <Animated.View pointerEvents="none" style={StyleSheet.flatten([styles.linkFill, { opacity: ctaFillOpacity }])} />
+          <Text style={styles.linkText}>Voir le détail</Text>
+          <Animated.View style={{ transform: [{ translateX: arrowTranslateX }] }}><ArrowRight size={15} color={palette.primaryStrong} /></Animated.View>
+        </Pressable>
+      </Link>
     </View>
   );
 });

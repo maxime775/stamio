@@ -1,6 +1,5 @@
 import { useEffect, useMemo, useState } from "react";
 import { Animated, StyleSheet, Text, useWindowDimensions, View } from "react-native";
-import { useRouter, type Href } from "expo-router";
 import { PageShell } from "@/components/PageShell";
 import { HeroActionButton } from "@/components/HeroActionButton";
 import { TrendingPollsCarousel } from "@/components/TrendingPollsCarousel";
@@ -14,7 +13,6 @@ import { useReducedMotion } from "@/lib/useReducedMotion";
 const HERO_TITLE = "Exprimez votre position. Faites-la évoluer.";
 
 export default function Home() {
-  const router = useRouter();
   const cachedFeaturedPolls = useMemo(() => getCachedFeaturedPolls(), []);
   const cachedOpenPollStats = useMemo(() => getCachedOpenPollStats(), []);
   const [polls, setPolls] = useState<PollWithStats[]>(cachedFeaturedPolls ?? []);
@@ -97,7 +95,7 @@ export default function Home() {
             <HeroActionButton
               label="Découvrir les questions"
               variant="primary"
-              onPress={() => router.push("/themes" as Href)}
+              href="/themes"
               onPressIn={() => prefetchThemePolls("all")}
               onFocus={() => prefetchThemePolls("all")}
               onHoverIn={() => prefetchThemePolls("all")}
@@ -105,7 +103,7 @@ export default function Home() {
             <HeroActionButton
               label="Voir les derniers résultats"
               variant="secondary"
-              onPress={() => router.push("/results" as Href)}
+              href="/results"
               onPressIn={prefetchLatestResults}
               onFocus={prefetchLatestResults}
               onHoverIn={prefetchLatestResults}

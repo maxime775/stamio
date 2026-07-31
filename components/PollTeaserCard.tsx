@@ -1,6 +1,6 @@
 import { memo, useCallback, useMemo, useRef, useState } from "react";
 import { Animated, Easing, Pressable, StyleSheet, Text, View } from "react-native";
-import { useRouter, type Href } from "expo-router";
+import { Link, useRouter, type Href } from "expo-router";
 import { ArrowRight, TrendingUp } from "lucide-react-native";
 import { getThemeLabel } from "@/lib/product";
 import { getThemeTagStyle, getThemeVisual, fontFamilyBold, fontFamilyMedium, fontFamilySemibold, palette, radius } from "@/lib/design";
@@ -135,19 +135,21 @@ export const PollTeaserCard = memo(function PollTeaserCard({ poll, compact = fal
           <Text style={styles.votes}>Clôture dans</Text>
           <PollTimer poll={poll} style={styles.timer} />
         </View>
-        <Pressable
-          accessibilityRole="link"
-          onPress={(event) => { event.stopPropagation(); openPoll(); }}
-          onPressIn={warmPoll}
-          onFocus={warmPoll}
-          onHoverIn={handleCtaHoverIn}
-          onHoverOut={handleCtaHoverOut}
-          style={({ pressed }) => StyleSheet.flatten([styles.cta, ctaHovered && styles.ctaHovered, pressed && styles.ctaPressed])}
-        >
-          <Animated.View pointerEvents="none" style={StyleSheet.flatten([styles.ctaFill, { opacity: ctaFillOpacity }])} />
-          <Text style={styles.ctaText}>J’ai un avis</Text>
-          <Animated.View style={{ transform: [{ translateX: arrowTranslateX }] }}><ArrowRight size={15} color={palette.primaryStrong} /></Animated.View>
-        </Pressable>
+        <Link href={`/poll/${poll.id}` as Href} asChild>
+          <Pressable
+            accessibilityRole="link"
+            onPress={(event) => event.stopPropagation()}
+            onPressIn={warmPoll}
+            onFocus={warmPoll}
+            onHoverIn={handleCtaHoverIn}
+            onHoverOut={handleCtaHoverOut}
+            style={({ pressed }) => StyleSheet.flatten([styles.cta, ctaHovered && styles.ctaHovered, pressed && styles.ctaPressed])}
+          >
+            <Animated.View pointerEvents="none" style={StyleSheet.flatten([styles.ctaFill, { opacity: ctaFillOpacity }])} />
+            <Text style={styles.ctaText}>J’ai un avis</Text>
+            <Animated.View style={{ transform: [{ translateX: arrowTranslateX }] }}><ArrowRight size={15} color={palette.primaryStrong} /></Animated.View>
+          </Pressable>
+        </Link>
       </View>
       </Animated.View>
     </Pressable>

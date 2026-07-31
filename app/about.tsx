@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useRef, useState, type ReactNode } from "react";
 import { Animated, Easing, Platform, Pressable, StyleSheet, Text, useWindowDimensions, View } from "react-native";
-import { useRouter, type Href } from "expo-router";
+import { Link } from "expo-router";
 import { PageShell } from "@/components/PageShell";
 import { STAMIO_CORE_COLORS, fontFamilyBold, fontFamilyMedium, fontFamilySemibold, palette, radius } from "@/lib/design";
 import { useReducedMotion } from "@/lib/useReducedMotion";
@@ -49,7 +49,6 @@ const FUTURE_POINTS = [
 ] as const;
 
 export default function AboutPage() {
-  const router = useRouter();
   const { width } = useWindowDimensions();
   const compact = width < 760;
   const reducedMotion = useReducedMotion();
@@ -172,33 +171,34 @@ export default function AboutPage() {
               Notre conviction : une opinion gagne en valeur lorsqu’elle peut être exprimée dans un cadre clair, confrontée à d’autres points de vue et lue avec nuance.
             </Text>
             <RevealBlock delay={ABOUT_ANIMATION.ctaDelay} distance={18}>
-              <Pressable
-                accessibilityRole="link"
-                onHoverIn={() => animateCta(1)}
-                onHoverOut={() => animateCta(0)}
-                onFocus={() => animateCta(1)}
-                onBlur={() => animateCta(0)}
-                onPressIn={() => animateCta(1)}
-                onPressOut={() => animateCta(0)}
-                onPress={() => router.push("/themes" as Href)}
-                style={({ pressed }) => StyleSheet.flatten([styles.cta, pressed && styles.ctaPressed])}
-              >
-                <Animated.View
-                  pointerEvents="none"
-                  style={StyleSheet.flatten([
-                    styles.ctaFill,
-                    {
-                      transform: [{
-                        translateY: ctaProgress.interpolate({
-                          inputRange: [0, 1],
-                          outputRange: [54, 0]
-                        })
-                      }]
-                    }
-                  ])}
-                />
-                <Text style={StyleSheet.flatten([styles.ctaText, ctaActive && styles.ctaTextActive])}>Découvrir les questions</Text>
-              </Pressable>
+              <Link href="/themes" asChild>
+                <Pressable
+                  accessibilityRole="link"
+                  onHoverIn={() => animateCta(1)}
+                  onHoverOut={() => animateCta(0)}
+                  onFocus={() => animateCta(1)}
+                  onBlur={() => animateCta(0)}
+                  onPressIn={() => animateCta(1)}
+                  onPressOut={() => animateCta(0)}
+                  style={({ pressed }) => StyleSheet.flatten([styles.cta, pressed && styles.ctaPressed])}
+                >
+                  <Animated.View
+                    pointerEvents="none"
+                    style={StyleSheet.flatten([
+                      styles.ctaFill,
+                      {
+                        transform: [{
+                          translateY: ctaProgress.interpolate({
+                            inputRange: [0, 1],
+                            outputRange: [54, 0]
+                          })
+                        }]
+                      }
+                    ])}
+                  />
+                  <Text style={StyleSheet.flatten([styles.ctaText, ctaActive && styles.ctaTextActive])}>Découvrir les questions</Text>
+                </Pressable>
+              </Link>
             </RevealBlock>
           </View>
         </RevealBlock>

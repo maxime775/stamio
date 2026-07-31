@@ -200,17 +200,18 @@ export function AppHeader() {
     <>
       <View style={styles.header}>
         <SiteContainer style={styles.headerInner}>
-        <Pressable
-          accessibilityLabel="Stamio"
-          onPress={() => go("/")}
-          style={StyleSheet.flatten([
-            styles.brand,
-            { marginLeft: -(compact ? 40 : 48) * LOGO_VISUAL_LEFT_INSET_RATIO },
-            compact && styles.brandCompact
-          ])}
-        >
-          <StamioLogo height={compact ? 40 : 48} />
-        </Pressable>
+        <Link href="/" asChild>
+          <Pressable
+            accessibilityLabel="Stamio"
+            style={StyleSheet.flatten([
+              styles.brand,
+              { marginLeft: -(compact ? 40 : 48) * LOGO_VISUAL_LEFT_INSET_RATIO },
+              compact && styles.brandCompact
+            ])}
+          >
+            <StamioLogo height={compact ? 40 : 48} />
+          </Pressable>
+        </Link>
 
         {!compact ? (
           <View style={styles.centerNav}>
@@ -288,12 +289,20 @@ export function AppHeader() {
           {mobileNav.map((item) => {
             const Icon = item.icon;
             const active = item.href === "/" ? pathname === "/" : pathname.startsWith(item.href);
-            return (
-              <Pressable key={item.href} onPress={() => go(item.href)} onPressIn={() => warmRoute(item.href)} onFocus={() => warmRoute(item.href)} style={styles.bottomItem}>
+            if (item.href === "/account") {
+              return (
+                <Pressable key={item.href} onPress={() => go(item.href)} onPressIn={() => warmRoute(item.href)} onFocus={() => warmRoute(item.href)} style={styles.bottomItem}>
+                  <Icon size={18} color={active ? palette.primaryStrong : palette.muted} />
+                  <Text style={StyleSheet.flatten([styles.bottomLabel, active && styles.bottomLabelActive])}>{item.label}</Text>
+                </Pressable>
+              );
+            }
+            return <Link key={item.href} href={item.href as Href} asChild>
+              <Pressable onPressIn={() => warmRoute(item.href)} onFocus={() => warmRoute(item.href)} style={styles.bottomItem}>
                 <Icon size={18} color={active ? palette.primaryStrong : palette.muted} />
                 <Text style={StyleSheet.flatten([styles.bottomLabel, active && styles.bottomLabelActive])}>{item.label}</Text>
               </Pressable>
-            );
+            </Link>;
           })}
         </View>
       ) : null}

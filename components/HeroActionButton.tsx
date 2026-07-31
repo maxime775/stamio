@@ -1,5 +1,6 @@
 import { useMemo, useState } from "react";
 import { ActivityIndicator, Animated, Easing, Platform, Pressable, StyleSheet, Text, type StyleProp, type ViewStyle } from "react-native";
+import { Link, type Href } from "expo-router";
 import { ArrowRight } from "lucide-react-native";
 import { useReducedMotion } from "@/lib/useReducedMotion";
 import { fontFamilyMedium, fontFamilySemibold, palette, radius, shadows } from "@/lib/design";
@@ -7,7 +8,8 @@ import { fontFamilyMedium, fontFamilySemibold, palette, radius, shadows } from "
 type Props = {
   label: string;
   variant: "primary" | "secondary";
-  onPress: () => void;
+  href?: Href;
+  onPress?: () => void;
   onPressIn?: () => void;
   onFocus?: () => void;
   onHoverIn?: () => void;
@@ -24,6 +26,7 @@ type Props = {
 export function HeroActionButton({
   label,
   variant,
+  href,
   onPress,
   onPressIn,
   onFocus,
@@ -55,23 +58,9 @@ export function HeroActionButton({
     }).start();
   }
 
-  return (
-    <Animated.View
-      style={StyleSheet.flatten([
-        styles.hoverFrame,
-        fullWidth && styles.fullWidth,
-        style,
-        focused && focusRingStyle,
-        unavailable && { opacity: disabledOpacity },
-        {
-          transform: [{
-            translateY: hover.interpolate({ inputRange: [0, 1], outputRange: [0, -2] })
-          }]
-        }
-      ])}
-    >
-      <Pressable
-        accessibilityRole="button"
+  const button = (
+    <Pressable
+        accessibilityRole={href ? "link" : "button"}
         accessibilityState={{ busy: loading, disabled: unavailable }}
         disabled={unavailable}
         focusable={!unavailable}
@@ -126,7 +115,25 @@ export function HeroActionButton({
             style={styles.loader}
           />
         ) : null}
-      </Pressable>
+    </Pressable>
+  );
+
+  return (
+    <Animated.View
+      style={StyleSheet.flatten([
+        styles.hoverFrame,
+        fullWidth && styles.fullWidth,
+        style,
+        focused && focusRingStyle,
+        unavailable && { opacity: disabledOpacity },
+        {
+          transform: [{
+            translateY: hover.interpolate({ inputRange: [0, 1], outputRange: [0, -2] })
+          }]
+        }
+      ])}
+    >
+      {href && !unavailable ? <Link href={href} asChild>{button}</Link> : button}
     </Animated.View>
   );
 }

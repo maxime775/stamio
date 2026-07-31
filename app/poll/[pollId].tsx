@@ -2,7 +2,7 @@ import { useEffect, useMemo, useRef, useState } from "react";
 import { ActivityIndicator, Animated, Easing, Linking, Platform, Pressable, ScrollView, StyleSheet, Text, useWindowDimensions, View } from "react-native";
 import { LinearGradient } from "expo-linear-gradient";
 import { Check, ChevronDown, ExternalLink, MessagesSquare } from "lucide-react-native";
-import { useLocalSearchParams, useRouter, type Href } from "expo-router";
+import { Link, useLocalSearchParams, type Href } from "expo-router";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { PollCard } from "@/components/PollCard";
 import { PollTimer } from "@/components/PollTimer";
@@ -23,7 +23,6 @@ import type { Poll, PollHistoryPoint, PollResource, PollResult, VoteStatus } fro
 
 export default function PollScreen() {
   const { pollId } = useLocalSearchParams<{ pollId: string }>();
-  const router = useRouter();
   const { user, loading: authLoading } = useAuth();
   const compact = useWindowDimensions().width < 760;
   const [poll, setPoll] = useState<Poll | null>(null);
@@ -185,15 +184,16 @@ export default function PollScreen() {
             <Animated.View style={StyleSheet.flatten([styles.contentStack, { opacity: fade as unknown as number }])}>
               <View style={styles.hero}>
                 <View style={styles.metaRow}>
-                  <Pressable
-                    accessibilityRole="link"
-                    onPress={() => {
-                      if (poll.theme) router.push(getThemeRoute(poll.theme) as Href);
-                    }}
-                    style={({ hovered, pressed }) => StyleSheet.flatten([styles.themeLink, hovered && styles.themeLinkHighlighted, pressed && styles.themeLinkPressed])}
-                  >
+                  {poll.theme ? <Link href={getThemeRoute(poll.theme) as Href} asChild>
+                    <Pressable
+                      accessibilityRole="link"
+                      style={({ hovered, pressed }) => StyleSheet.flatten([styles.themeLink, hovered && styles.themeLinkHighlighted, pressed && styles.themeLinkPressed])}
+                    >
+                      <Text style={StyleSheet.flatten([styles.theme, getThemeTagStyle(poll.theme)])}>{getThemeLabel(poll.theme)}</Text>
+                    </Pressable>
+                  </Link> : <View style={styles.themeLink}>
                     <Text style={StyleSheet.flatten([styles.theme, getThemeTagStyle(poll.theme)])}>{getThemeLabel(poll.theme)}</Text>
-                  </Pressable>
+                  </View>}
                   <View style={styles.timerGroup}>
                     <Text style={styles.timerLabel}>Clôture dans</Text>
                     <PollTimer poll={poll} style={styles.timer} />
