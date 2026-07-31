@@ -1,0 +1,61 @@
+﻿name: Test OVH SFTP connection
+
+on:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  test-sftp:
+    name: Test SFTP access
+    runs-on: ubuntu-latest
+
+    environment:
+      name: production
+      url: https://stamio.fr
+
+    steps:
+      - name: Verify production branch
+        shell: bash
+        run: |
+          set -euo pipefail
+
+          if [ "${GITHUB_REF_NAME}" != "master" ]; then
+            echo "This workflow must be run from master."
+            exit 1
+          fi
+
+      - name: Install lftp
+        shell: bash
+        run: |
+          sudo apt-get update
+          sudo apt-get install --yes lftp
+
+      - name: Connect to OVH using SFTP
+        shell: bash
+        env:
+          LFTP_PASSWORD: ${{ secrets.OVH_SFTP_PASSWORD }}
+          OVH_SFTP_HOST: ${{ secrets.OVH_SFTP_HOST }}
+          OVH_SFTP_PORT: ${{ secrets.OVH_SFTP_PORT }}
+          OVH_SFTP_USERNAME: ${{ secrets.OVH_SFTP_USERNAME }}
+          OVH_REMOTE_PATH: ${{ secrets.OVH_REMOTE_PATH }}
+        run: |
+          set -euo pipefail
+
+          lftp -c "
+            set cmd:fail-exit yes;
+            set net:max-retries 1;
+            set net:timeout 20;
+            set sftp:auto-confirm yes;
+
+            open \
+              --env-password \
+              --user \"$OVH_SFTP_USERNAME\" \
+              -p \"$OVH_SFTP_PORT\" \
+              sftp://$OVH_SFTP_HOST;
+
+            pwd;
+            cls -la \"$OVH_REMOTE_PATH\";
+            bye;
+          "
