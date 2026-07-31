@@ -1,0 +1,252 @@
+﻿name: Deploy Stamio to OVH
+
+on:
+  workflow_dispatch:
+    inputs:
+      confirmation:
+        description: Type DEPLOY to confirm the production deployment
+        required: true
+        type: string
+
+permissions:
+  contents: read
+
+concurrency:
+  group: stamio-production-deployment
+  cancel-in-progress: false
+
+jobs:
+  deploy:
+    name: Build and deploy production
+    runs-on: ubuntu-latest
+
+    environment:
+      name: production
+      url: https://stamio.fr
+
+    env:
+      EXPO_PUBLIC_SUPABASE_URL: ${{ secrets.EXPO_PUBLIC_SUPABASE_URL }}
+      EXPO_PUBLIC_SUPABASE_ANON_KEY: ${{ secrets.EXPO_PUBLIC_SUPABASE_ANON_KEY }}
+
+    steps:
+      - name: Confirm production deployment
+        shell: bash
+        env:
+          DEPLOY_CONFIRMATION: ${{ inputs.confirmation }}
+        run: |
+          set -euo pipefail
+
+          if [ "$GITHUB_REF_NAME" != "master" ]; then
+            echo "Deployment is only allowed from master."
+            exit 1
+          fi
+
+          if [ "$DEPLOY_CONFIRMATION" != "DEPLOY" ]; then
+            echo "Deployment confirmation must be exactly DEPLOY."
+            exit 1
+          fi
+
+      - name: Check out repository
+        uses: actions/checkout@v4
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: npm
+
+      - name: Install dependencies
+        shell: bash
+        run: npm ci
+
+      - name: Run TypeScript validation
+        shell: bash
+        run: npm run typecheck
+
+      - name: Run Passkey tests
+        shell: bash
+        run: npm run test:passkey
+
+      - name: Run account menu tests
+        shell: bash
+        run: npm run test:account-menu
+
+      - name: Run authentication button tests
+        shell: bash
+        run: npm run test:auth-buttons
+
+      - name: Run static security checks
+        shell: bash
+        run: npm run security:static
+
+      - name: Scan repository for secrets
+        shell: bash
+        run: npm run security:secrets
+
+      - name: Build Expo Web application
+        shell: bash
+        run: |
+          set -euo pipefail
+
+          rm -rf dist
+
+          npx --no-install expo export \
+            --platform web \
+            --clear
+
+          cp .htaccess dist/.htaccess
+
+      - name: Validate production build
+        shell: bash
+        run: |
+          set -euo pipefail
+
+          test -f dist/index.html
+          test -f dist/.htaccess
+          test -d dist/_expo
+          test -d dist/assets
+          test -d dist/email-assets
+
+          grep -R -Fq \
+            "$EXPO_PUBLIC_SUPABASE_URL" \
+            dist/_expo
+
+          grep -R -Fq \
+            "$EXPO_PUBLIC_SUPABASE_ANON_KEY" \
+            dist/_expo
+
+          if grep -R -Fq \
+            "vfnqlyypvdhdookybolh" \
+            dist; then
+            echo "The build contains the Supabase test project reference."
+            exit 1
+          fi
+
+          LOCAL_ENTRY="$(
+            grep -oE \
+              '_expo/static/js/web/entry-[^"]+\.js' \
+              dist/index.html |
+            head -n 1
+          )"
+
+          if [ -z "$LOCAL_ENTRY" ]; then
+            echo "Unable to identify the generated JavaScript entry."
+            exit 1
+          fi
+
+          echo "LOCAL_ENTRY=$LOCAL_ENTRY" >> "$GITHUB_ENV"
+
+          FILE_COUNT="$(
+            find dist -type f |
+            wc -l |
+            tr -d ' '
+          )"
+
+          echo "Validated $FILE_COUNT production files."
+
+      - name: Install SFTP client
+        shell: bash
+        run: |
+          sudo apt-get update
+          sudo apt-get install --yes lftp
+
+      - name: Upload production files except index
+        shell: bash
+        env:
+          LFTP_PASSWORD: ${{ secrets.OVH_SFTP_PASSWORD }}
+          OVH_SFTP_HOST: ${{ secrets.OVH_SFTP_HOST }}
+          OVH_SFTP_PORT: ${{ secrets.OVH_SFTP_PORT }}
+          OVH_SFTP_USERNAME: ${{ secrets.OVH_SFTP_USERNAME }}
+          OVH_REMOTE_PATH: ${{ secrets.OVH_REMOTE_PATH }}
+        run: |
+          set -euo pipefail
+
+          lftp -c "
+            set cmd:fail-exit yes;
+            set net:max-retries 2;
+            set net:timeout 30;
+            set sftp:auto-confirm yes;
+
+            open \
+              --env-password \
+              --user \"$OVH_SFTP_USERNAME\" \
+              -p \"$OVH_SFTP_PORT\" \
+              sftp://$OVH_SFTP_HOST;
+
+            lcd \"$GITHUB_WORKSPACE\";
+            cd \"$OVH_REMOTE_PATH\";
+
+            mirror \
+              --reverse \
+              --verbose \
+              --parallel=2 \
+              --no-perms \
+              --exclude-glob index.html \
+              dist/ \
+              ./;
+
+            bye;
+          "
+
+      - name: Publish index.html last
+        shell: bash
+        env:
+          LFTP_PASSWORD: ${{ secrets.OVH_SFTP_PASSWORD }}
+          OVH_SFTP_HOST: ${{ secrets.OVH_SFTP_HOST }}
+          OVH_SFTP_PORT: ${{ secrets.OVH_SFTP_PORT }}
+          OVH_SFTP_USERNAME: ${{ secrets.OVH_SFTP_USERNAME }}
+          OVH_REMOTE_PATH: ${{ secrets.OVH_REMOTE_PATH }}
+        run: |
+          set -euo pipefail
+
+          lftp -c "
+            set cmd:fail-exit yes;
+            set net:max-retries 2;
+            set net:timeout 30;
+            set sftp:auto-confirm yes;
+
+            open \
+              --env-password \
+              --user \"$OVH_SFTP_USERNAME\" \
+              -p \"$OVH_SFTP_PORT\" \
+              sftp://$OVH_SFTP_HOST;
+
+            lcd \"$GITHUB_WORKSPACE\";
+            cd \"$OVH_REMOTE_PATH\";
+
+            put dist/index.html -o index.html;
+
+            bye;
+          "
+
+      - name: Verify live deployment
+        shell: bash
+        run: |
+          set -euo pipefail
+
+          LIVE_INDEX="/tmp/stamio-live-index.html"
+
+          for ATTEMPT in $(seq 1 12); do
+            CACHE_BUSTER="${GITHUB_RUN_ID}-${GITHUB_RUN_ATTEMPT}-${ATTEMPT}"
+
+            if curl \
+              --fail \
+              --silent \
+              --show-error \
+              --header "Cache-Control: no-cache" \
+              --header "Pragma: no-cache" \
+              "https://stamio.fr/?deployment=$CACHE_BUSTER" \
+              --output "$LIVE_INDEX"; then
+
+              if grep -Fq "$LOCAL_ENTRY" "$LIVE_INDEX"; then
+                echo "The new Stamio bundle is live."
+                exit 0
+              fi
+            fi
+
+            echo "Waiting for the new index to become visible..."
+            sleep 5
+          done
+
+          echo "The live site does not reference the newly built bundle."
+          exit 1
