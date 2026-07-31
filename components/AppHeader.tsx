@@ -39,13 +39,16 @@ export function HeaderTextAction({
   iconPosition?: "start" | "end";
   onPress: () => void;
 }) {
+  const [hovered, setHovered] = useState(false);
   return (
     <Pressable
       accessibilityRole="button"
       accessibilityLabel={accessibilityLabel ?? label}
       accessibilityHint={accessibilityHint}
       onPress={onPress}
-      style={({ pressed, hovered }) => StyleSheet.flatten([
+      onHoverIn={() => setHovered(true)}
+      onHoverOut={() => setHovered(false)}
+      style={({ pressed }) => StyleSheet.flatten([
         styles.secondaryButton,
         hovered && styles.actionHovered,
         pressed && styles.actionPressed
@@ -54,6 +57,36 @@ export function HeaderTextAction({
       {iconPosition === "start" ? icon : null}
       <Text style={styles.secondaryText}>{label}</Text>
       {iconPosition === "end" ? icon : null}
+    </Pressable>
+  );
+}
+
+function AccountMenuItem({
+  label,
+  icon,
+  danger = false,
+  onPress
+}: {
+  label: string;
+  icon: ReactNode;
+  danger?: boolean;
+  onPress: () => void;
+}) {
+  const [hovered, setHovered] = useState(false);
+  return (
+    <Pressable
+      accessibilityRole="menuitem"
+      onPress={onPress}
+      onHoverIn={() => setHovered(true)}
+      onHoverOut={() => setHovered(false)}
+      style={({ pressed }) => StyleSheet.flatten([
+        styles.menuItem,
+        hovered && (danger ? styles.menuDangerHovered : styles.menuItemHovered),
+        pressed && styles.menuItemPressed
+      ])}
+    >
+      <Text style={danger ? styles.menuDangerText : styles.menuItemText}>{label}</Text>
+      {icon}
     </Pressable>
   );
 }
@@ -68,6 +101,7 @@ export function AppHeader() {
   const [isAdmin, setIsAdmin] = useState(false);
   const [accountMenuOpen, setAccountMenuOpen] = useState(false);
   const [hoverCapable, setHoverCapable] = useState(false);
+  const [signupHovered, setSignupHovered] = useState(false);
   const accountMenuWrapRef = useRef<View | null>(null);
   const accountButtonRef = useRef<View | null>(null);
   const closeTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
@@ -249,19 +283,10 @@ export function AppHeader() {
                     nativeID="account-menu"
                     style={styles.accountMenu}
                   >
-                    <Pressable accessibilityRole="menuitem" onPress={() => go("/account")} style={({ hovered, pressed }) => StyleSheet.flatten([styles.menuItem, hovered && styles.menuItemHovered, pressed && styles.menuItemPressed])}>
-                      <Text style={styles.menuItemText}>Mon espace</Text>
-                      <LayoutDashboard size={15} color={palette.inkSecondary} />
-                    </Pressable>
-                    <Pressable accessibilityRole="menuitem" onPress={() => go("/account/informations")} style={({ hovered, pressed }) => StyleSheet.flatten([styles.menuItem, hovered && styles.menuItemHovered, pressed && styles.menuItemPressed])}>
-                      <Text style={styles.menuItemText}>Mes informations</Text>
-                      <UserRound size={15} color={palette.inkSecondary} />
-                    </Pressable>
+                    <AccountMenuItem label="Mon espace" icon={<LayoutDashboard size={15} color={palette.inkSecondary} />} onPress={() => go("/account")} />
+                    <AccountMenuItem label="Mes informations" icon={<UserRound size={15} color={palette.inkSecondary} />} onPress={() => go("/account/informations")} />
                     <View style={styles.menuSeparator} />
-                    <Pressable accessibilityRole="menuitem" onPress={handleSignOut} style={({ hovered, pressed }) => StyleSheet.flatten([styles.menuItem, hovered && styles.menuDangerHovered, pressed && styles.menuItemPressed])}>
-                      <Text style={styles.menuDangerText}>Se déconnecter</Text>
-                      <LogOut size={15} color={palette.dangerText} />
-                    </Pressable>
+                    <AccountMenuItem danger label="Se déconnecter" icon={<LogOut size={15} color={palette.dangerText} />} onPress={handleSignOut} />
                   </View>
                 ) : null}
               </View>
@@ -275,7 +300,12 @@ export function AppHeader() {
                   onPress={() => go("/auth/login")}
                 />
               ) : null}
-              <Pressable onPress={() => go("/auth/signup")} style={({ pressed, hovered }) => StyleSheet.flatten([styles.primaryButton, hovered && styles.primaryButtonHovered, pressed && styles.actionPressed])}>
+              <Pressable
+                onPress={() => go("/auth/signup")}
+                onHoverIn={() => setSignupHovered(true)}
+                onHoverOut={() => setSignupHovered(false)}
+                style={({ pressed }) => StyleSheet.flatten([styles.primaryButton, signupHovered && styles.primaryButtonHovered, pressed && styles.actionPressed])}
+              >
                 <Text style={styles.primaryText}>S’inscrire</Text>
               </Pressable>
             </>

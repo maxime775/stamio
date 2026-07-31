@@ -16,6 +16,7 @@ type Props = {
 export const ResultsPreviewCard = memo(function ResultsPreviewCard({ poll }: Props) {
   const [tooltipVisible, setTooltipVisible] = useState(false);
   const [ctaHovered, setCtaHovered] = useState(false);
+  const [ctaPressed, setCtaPressed] = useState(false);
   const ctaHover = useMemo(() => new Animated.Value(0), []);
   const date = poll.created_at ? new Date(poll.created_at).toLocaleDateString("fr-FR") : "Date non disponible";
   const visual = getThemeVisual(poll.theme);
@@ -85,7 +86,11 @@ export const ResultsPreviewCard = memo(function ResultsPreviewCard({ poll }: Pro
       </View>
       <Link href={`/poll/${poll.id}` as Href} asChild>
         <Pressable
-          onPressIn={warmPoll}
+          onPressIn={() => {
+            setCtaPressed(true);
+            warmPoll();
+          }}
+          onPressOut={() => setCtaPressed(false)}
           onFocus={warmPoll}
           onHoverIn={() => {
             warmPoll();
@@ -96,7 +101,7 @@ export const ResultsPreviewCard = memo(function ResultsPreviewCard({ poll }: Pro
             setCtaHovered(false);
             animateCta(0);
           }}
-          style={({ pressed }) => StyleSheet.flatten([styles.link, ctaHovered && styles.linkHovered, pressed && styles.linkPressed])}
+          style={StyleSheet.flatten([styles.link, ctaHovered && styles.linkHovered, ctaPressed && styles.linkPressed])}
         >
           <Animated.View pointerEvents="none" style={StyleSheet.flatten([styles.linkFill, { opacity: ctaFillOpacity }])} />
           <Text style={styles.linkText}>Voir le détail</Text>

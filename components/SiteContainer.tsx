@@ -8,8 +8,7 @@ export const siteContainerStyle: ViewStyle = {
   width: "100%",
   maxWidth: SITE_CONTAINER_MAX_WIDTH,
   paddingHorizontal: SITE_CONTAINER_HORIZONTAL_PADDING,
-  alignSelf: "center",
-  boxSizing: "border-box"
+  alignSelf: "center"
 };
 
 export function SiteContainer({ style, ...props }: ViewProps) {

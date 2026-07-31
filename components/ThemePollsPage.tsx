@@ -73,7 +73,7 @@ export function ThemePollsPage({ activeTheme }: Props) {
 const styles = StyleSheet.create({
   pageGrid: { width: "100%", maxWidth: 1120, alignSelf: "center", gap: 24 },
   hero: { flexDirection: "row", alignItems: "center", justifyContent: "space-between", flexWrap: "wrap", gap: 24 },
-  heading: { gap: 8, flex: 1, minWidth: 280 },
+  heading: { gap: 8, flex: 1, minWidth: 280, alignSelf: "flex-start" },
   kicker: { color: palette.primaryStrong, fontFamily: fontFamilySemibold, textTransform: "uppercase", fontSize: 10, letterSpacing: 1.2 },
   title: { color: palette.ink, fontFamily: fontFamilyBold, fontSize: 40, lineHeight: 47, letterSpacing: -1 },
   intro: { color: palette.muted, fontSize: 16, lineHeight: 25, maxWidth: 720 },

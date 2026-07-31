@@ -43,6 +43,7 @@ export function HeroActionButton({
   const hover = useMemo(() => new Animated.Value(0), []);
   const [hovered, setHovered] = useState(false);
   const [focused, setFocused] = useState(false);
+  const [pressed, setPressed] = useState(false);
   const reducedMotion = useReducedMotion();
   const unavailable = disabled || loading;
   const active = hovered || focused;
@@ -60,61 +61,65 @@ export function HeroActionButton({
 
   const button = (
     <Pressable
-        accessibilityRole={href ? "link" : "button"}
-        accessibilityState={{ busy: loading, disabled: unavailable }}
-        disabled={unavailable}
-        focusable={!unavailable}
-        onPress={onPress}
-        onPressIn={onPressIn}
-        onFocus={() => {
-          setFocused(true);
-          onFocus?.();
-        }}
-        onBlur={() => setFocused(false)}
-        onHoverIn={() => {
-          animateHover(1);
-          onHoverIn?.();
-        }}
-        onHoverOut={() => animateHover(0)}
-        style={({ pressed }) => StyleSheet.flatten([
-          variant === "primary" ? styles.primary : styles.secondary,
-          compact && styles.compactButton,
-          variant === "primary" && elevated && shadows.panel,
-          Platform.OS === "web" && (unavailable ? webDisabledInteractionStyle : webInteractionStyle),
-          pressed && variant === "primary" && styles.primaryPressed,
-          pressed && variant === "secondary" && styles.secondaryPressed
+      accessibilityRole={href ? "link" : "button"}
+      accessibilityState={{ busy: loading, disabled: unavailable }}
+      disabled={unavailable}
+      focusable={!unavailable}
+      onPress={onPress}
+      onPressIn={() => {
+        setPressed(true);
+        onPressIn?.();
+      }}
+      onPressOut={() => setPressed(false)}
+      onFocus={() => {
+        setFocused(true);
+        onFocus?.();
+      }}
+      onBlur={() => setFocused(false)}
+      onHoverIn={() => {
+        animateHover(1);
+        onHoverIn?.();
+      }}
+      onHoverOut={() => animateHover(0)}
+      style={StyleSheet.flatten([
+        variant === "primary" ? styles.primary : styles.secondary,
+        compact && styles.compactButton,
+        variant === "primary" && elevated && shadows.panel,
+        Platform.OS === "web" && (unavailable ? webDisabledInteractionStyle : webInteractionStyle),
+        pressed && variant === "primary" && styles.primaryPressed,
+        pressed && variant === "secondary" && styles.secondaryPressed
+      ])}
+    >
+      <Text
+        style={StyleSheet.flatten([
+          variant === "primary" ? styles.primaryText : styles.secondaryText,
+          compact && styles.compactText,
+          variant === "secondary" && active && styles.secondaryTextHovered,
+          loading && styles.loadingContent
         ])}
       >
-        <Text
+        {label}
+      </Text>
+      {variant === "primary" && showArrow ? (
+        <Animated.View
           style={StyleSheet.flatten([
-            variant === "primary" ? styles.primaryText : styles.secondaryText,
-            compact && styles.compactText,
-            variant === "secondary" && active && styles.secondaryTextHovered,
-            loading && styles.loadingContent
+            loading && styles.loadingContent,
+            {
+              transform: [{
+                translateX: hover.interpolate({ inputRange: [0, 1], outputRange: [0, 3] })
+              }]
+            }
           ])}
         >
-          {label}
-        </Text>
-        {variant === "primary" && showArrow ? (
-          <Animated.View
-            style={StyleSheet.flatten([
-              loading && styles.loadingContent,
-              {
-                transform: [{
-                  translateX: hover.interpolate({ inputRange: [0, 1], outputRange: [0, 3] })
-                }]
-              }
-            ])}
-          >
-            <ArrowRight size={18} color={palette.onPrimary} />
-          </Animated.View>
-        ) : null}
-        {loading ? (
-          <ActivityIndicator
-            color={variant === "primary" ? palette.onPrimary : palette.primaryStrong}
-            style={styles.loader}
-          />
-        ) : null}
+          <ArrowRight size={18} color={palette.onPrimary} />
+        </Animated.View>
+      ) : null}
+      {loading ? (
+        <ActivityIndicator
+          color={variant === "primary" ? palette.onPrimary : palette.primaryStrong}
+          style={styles.loader}
+        />
+      ) : null}
     </Pressable>
   );
 

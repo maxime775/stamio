@@ -228,7 +228,7 @@ function distanceToSegment(
 }
 
 const styles = StyleSheet.create({
-  card: { width: "100%", boxSizing: "border-box", paddingHorizontal: 4, paddingVertical: 2, gap: CARD_HEADING_GAP },
+  card: { width: "100%", paddingHorizontal: 4, paddingVertical: 2, gap: CARD_HEADING_GAP },
   heading: { flexDirection: "row", justifyContent: "space-between", alignItems: "flex-start", gap: 12, flexWrap: "wrap" },
   kicker: { color: palette.primaryStrong, fontFamily: fontFamilySemibold, fontSize: 10, textTransform: "uppercase", letterSpacing: 1.1 },
   title: { color: palette.ink, fontFamily: fontFamilySemibold, fontSize: 15, lineHeight: 20, marginTop: 5 },

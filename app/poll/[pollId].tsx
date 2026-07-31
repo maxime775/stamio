@@ -36,6 +36,7 @@ export default function PollScreen() {
   const [panelVisible, setPanelVisible] = useState(false);
   const [voteState, setVoteState] = useState<VoteStatus | null>(null);
   const [voteColumnHeight, setVoteColumnHeight] = useState(0);
+  const [themeLinkHovered, setThemeLinkHovered] = useState(false);
   const scrollRef = useRef<ScrollView>(null);
   const overviewAnchorY = useRef(0);
   const contextOffsetY = useRef(0);
@@ -187,7 +188,9 @@ export default function PollScreen() {
                   {poll.theme ? <Link href={getThemeRoute(poll.theme) as Href} asChild>
                     <Pressable
                       accessibilityRole="link"
-                      style={({ hovered, pressed }) => StyleSheet.flatten([styles.themeLink, hovered && styles.themeLinkHighlighted, pressed && styles.themeLinkPressed])}
+                      onHoverIn={() => setThemeLinkHovered(true)}
+                      onHoverOut={() => setThemeLinkHovered(false)}
+                      style={({ pressed }) => StyleSheet.flatten([styles.themeLink, themeLinkHovered && styles.themeLinkHighlighted, pressed && styles.themeLinkPressed])}
                     >
                       <Text style={StyleSheet.flatten([styles.theme, getThemeTagStyle(poll.theme)])}>{getThemeLabel(poll.theme)}</Text>
                     </Pressable>

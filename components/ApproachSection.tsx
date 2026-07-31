@@ -250,8 +250,7 @@ const styles = StyleSheet.create({
     paddingLeft: 14,
     borderRadius: radius.md,
     borderLeftWidth: 2,
-    borderLeftColor: "transparent",
-    cursor: "default"
+    borderLeftColor: "transparent"
   },
   stepPanelLead: { paddingTop: 10 },
   stepPanelCompact: { gap: 14, paddingVertical: 20, paddingRight: 8, paddingLeft: 12 },

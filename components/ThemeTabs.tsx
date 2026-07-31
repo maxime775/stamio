@@ -38,6 +38,7 @@ export function ThemeTabs({ active = "all", includeAll = true, onSelect }: Props
 
 function ThemeTabItem({ label, slug, selected, href, onSelect }: { label: string; slug: ThemeSlug | "all"; selected: boolean; href?: Href; onSelect?: (slug: ThemeSlug | "all") => void }) {
   const [hovered, setHovered] = useState(false);
+  const [pressed, setPressed] = useState(false);
   const line = useMemo(() => new Animated.Value(selected ? 1 : 0), []);
   const accent = slug === "all" ? ALL_THEMES_TAB_COLOR : getThemeVisual(slug).accent;
   const highlighted = selected || hovered;
@@ -65,11 +66,15 @@ function ThemeTabItem({ label, slug, selected, href, onSelect }: { label: string
       accessibilityRole="tab"
       accessibilityState={{ selected }}
       onPress={onSelect ? () => onSelect(slug) : undefined}
-      onPressIn={() => prefetchThemePolls(slug)}
+      onPressIn={() => {
+        setPressed(true);
+        prefetchThemePolls(slug);
+      }}
+      onPressOut={() => setPressed(false)}
       onFocus={() => prefetchThemePolls(slug)}
       onHoverIn={handleHoverIn}
       onHoverOut={handleHoverOut}
-      style={({ pressed }) => StyleSheet.flatten([styles.tab, pressed && styles.tabPressed])}
+      style={StyleSheet.flatten([styles.tab, pressed && styles.tabPressed])}
     >
       <Text style={StyleSheet.flatten([styles.label, highlighted && styles.labelActive, highlighted && { color: accent }])}>{label}</Text>
       <Animated.View style={StyleSheet.flatten([styles.tabLine, { backgroundColor: accent, transform: [{ scaleX: line }] }])} />

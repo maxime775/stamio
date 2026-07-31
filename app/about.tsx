@@ -406,12 +406,11 @@ function RevealBlock({ children, delay = 0, distance, eager = false }: { childre
 const styles = StyleSheet.create({
   page: { gap: 30 },
   hero: {
-    paddingTop: 2,
     paddingBottom: 24,
     borderBottomWidth: 1,
     borderBottomColor: palette.lineStrong
   },
-  heroCompact: { paddingTop: 0, paddingBottom: 20 },
+  heroCompact: { paddingBottom: 20 },
   heroCopy: { gap: 10, maxWidth: 860 },
   kicker: { color: palette.primaryStrong, fontFamily: fontFamilySemibold, textTransform: "uppercase", fontSize: 10, letterSpacing: 1.2 },
   title: { color: palette.ink, fontFamily: fontFamilyBold, fontSize: 40, lineHeight: 47, letterSpacing: -1, maxWidth: 820 },
