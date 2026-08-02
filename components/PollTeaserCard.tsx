@@ -21,6 +21,7 @@ export const PollTeaserCard = memo(function PollTeaserCard({ poll, compact = fal
   const router = useRouter();
   const [hovered, setHovered] = useState(false);
   const [ctaHovered, setCtaHovered] = useState(false);
+  const [ctaPressed, setCtaPressed] = useState(false);
   const hover = useMemo(() => new Animated.Value(0), []);
   const ctaHover = useMemo(() => new Animated.Value(0), []);
   const cardHoveredRef = useRef(false);
@@ -139,11 +140,15 @@ export const PollTeaserCard = memo(function PollTeaserCard({ poll, compact = fal
           <Pressable
             accessibilityRole="link"
             onPress={(event) => event.stopPropagation()}
-            onPressIn={warmPoll}
+            onPressIn={() => {
+              setCtaPressed(true);
+              warmPoll();
+            }}
+            onPressOut={() => setCtaPressed(false)}
             onFocus={warmPoll}
             onHoverIn={handleCtaHoverIn}
             onHoverOut={handleCtaHoverOut}
-            style={({ pressed }) => StyleSheet.flatten([styles.cta, ctaHovered && styles.ctaHovered, pressed && styles.ctaPressed])}
+            style={StyleSheet.flatten([styles.cta, ctaHovered && styles.ctaHovered, ctaPressed && styles.ctaPressed])}
           >
             <Animated.View pointerEvents="none" style={StyleSheet.flatten([styles.ctaFill, { opacity: ctaFillOpacity }])} />
             <Text style={styles.ctaText}>J’ai un avis</Text>
