@@ -2,7 +2,8 @@ import { readFileSync } from "node:fs";
 import { Buffer } from "node:buffer";
 import ts from "typescript";
 
-const read = (path) => readFileSync(new URL(`../${path}`, import.meta.url), "utf8");
+const read = (path) =>
+  readFileSync(new URL(`../${path}`, import.meta.url), "utf8").replace(/\r\n/g, "\n");
 const loadPureTypeScriptModule = async (path) => {
   const output = ts.transpileModule(read(path), {
     compilerOptions: {
