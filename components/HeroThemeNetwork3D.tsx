@@ -228,6 +228,13 @@ function HeroThemeNetworkWeb({ stats }: { stats: OpenPollStats | null }) {
       const pointer = new THREE.Vector2(0, 0);
       const targetRotation = { x: root.rotation.x, y: root.rotation.y };
       const targetPosition = { y: root.position.y };
+      const themeScaleTarget = new THREE.Vector3();
+      const themeHaloScaleTarget = new THREE.Vector3();
+      const themeForward = new THREE.Vector3();
+      const themePositionTarget = new THREE.Vector3();
+      const satelliteOffset = new THREE.Vector3();
+      const satellitePositionTarget = new THREE.Vector3();
+      const satelliteScaleTarget = new THREE.Vector3();
       let hovering = false;
 
       function setPointerFromEvent(event: PointerEvent) {
@@ -280,13 +287,16 @@ function HeroThemeNetworkWeb({ stats }: { stats: OpenPollStats | null }) {
           const dimmed = active !== null && !isActive;
           const pulse = reducedMotion ? 0 : Math.sin(seconds * 1.3 + item.base.x) * 0.018;
           const targetScale = isActive ? 1.62 : dimmed ? 0.86 : 1.03 + pulse;
-          item.mesh.scale.lerp(new THREE.Vector3(targetScale, targetScale, targetScale), 0.12);
-          item.halo.scale.lerp(new THREE.Vector3(isActive ? 1.86 : 1.06, isActive ? 1.86 : 1.06, isActive ? 1.86 : 1.06), 0.12);
+          themeScaleTarget.setScalar(targetScale);
+          item.mesh.scale.lerp(themeScaleTarget, 0.12);
+          themeHaloScaleTarget.setScalar(isActive ? 1.86 : 1.06);
+          item.halo.scale.lerp(themeHaloScaleTarget, 0.12);
           item.material.opacity += ((dimmed ? 0.28 : 0.95) - item.material.opacity) * 0.12;
           item.material.emissiveIntensity += ((isActive ? 1.35 : 0.42) - item.material.emissiveIntensity) * 0.12;
           item.halo.material.opacity += ((isActive ? 0.32 : dimmed ? 0.04 : 0.12) - item.halo.material.opacity) * 0.12;
-          const forward = item.base.clone().normalize().multiplyScalar(isActive ? 0.34 : 0);
-          item.mesh.position.lerp(item.base.clone().add(forward), 0.1);
+          themeForward.copy(item.base).normalize().multiplyScalar(isActive ? 0.34 : 0);
+          themePositionTarget.copy(item.base).add(themeForward);
+          item.mesh.position.lerp(themePositionTarget, 0.1);
           item.halo.position.copy(item.mesh.position);
         }
 
@@ -294,11 +304,12 @@ function HeroThemeNetworkWeb({ stats }: { stats: OpenPollStats | null }) {
           const isActive = active === item.theme;
           const dimmed = active !== null && !isActive;
           const orbit = reducedMotion ? 0 : seconds * 0.42 + item.seed;
-          const offset = new THREE.Vector3(Math.cos(orbit) * 0.025, Math.sin(orbit * 1.3) * 0.02, Math.sin(orbit) * 0.032);
-          const target = item.base.clone().add(offset.multiplyScalar(isActive ? 2.2 : 1));
-          item.mesh.position.lerp(target, 0.08);
+          satelliteOffset.set(Math.cos(orbit) * 0.025, Math.sin(orbit * 1.3) * 0.02, Math.sin(orbit) * 0.032).multiplyScalar(isActive ? 2.2 : 1);
+          satellitePositionTarget.copy(item.base).add(satelliteOffset);
+          item.mesh.position.lerp(satellitePositionTarget, 0.08);
           const scale = isActive ? 1.42 : dimmed ? 0.72 : 1;
-          item.mesh.scale.lerp(new THREE.Vector3(scale, scale, scale), 0.1);
+          satelliteScaleTarget.setScalar(scale);
+          item.mesh.scale.lerp(satelliteScaleTarget, 0.1);
           item.material.opacity += ((isActive ? 0.88 : dimmed ? 0.18 : 0.54) - item.material.opacity) * 0.1;
           item.material.emissiveIntensity += ((isActive ? 0.92 : 0.28) - item.material.emissiveIntensity) * 0.1;
         }
