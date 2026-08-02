@@ -1,6 +1,6 @@
 import { memo, useState, type ComponentProps, type ReactNode } from "react";
 import { Platform, Pressable, StyleSheet, Text, TextInput, View } from "react-native";
-import { Bold, Heading2, Italic, Link, List, ListOrdered, Quote } from "lucide-react-native";
+import { Bold, Heading2, Italic, Link, List, ListOrdered, Quote } from "@/lib/icons";
 import { MarkdownContent } from "@/components/MarkdownContent";
 import { authField, fontFamilyMedium, fontFamilySemibold, palette, radius } from "@/lib/design";
 

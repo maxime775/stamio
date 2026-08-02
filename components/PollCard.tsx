@@ -1,6 +1,6 @@
 import { useState, type ReactNode } from "react";
 import { Pressable, StyleSheet, Text, View } from "react-native";
-import { Check } from "lucide-react-native";
+import { Check } from "@/lib/icons";
 import type { Poll } from "@/lib/types";
 import { STAMIO_CORE_COLORS, fontFamilyMedium, fontFamilySemibold, getAnswerBackgroundColor, getAnswerColor, getColorWithOpacity, palette, radius } from "@/lib/design";
 

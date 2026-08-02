@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import { ActivityIndicator, Animated, Easing, Modal, Platform, Pressable, StyleSheet, Text, View, type ViewStyle } from "react-native";
-import { X } from "lucide-react-native";
+import { X } from "@/lib/icons";
 import { useRouter, type Href } from "expo-router";
 import { useAuth } from "@/components/AuthProvider";
 import { getCurrentUserProfile, getResults, invalidatePollCaches, submitVote } from "@/lib/api";

@@ -1,5 +1,5 @@
 import { StyleSheet, Text, View } from "react-native";
-import { BadgeCheck, ChartNoAxesColumnIncreasing, EyeOff, Fingerprint } from "lucide-react-native";
+import { BadgeCheck, ChartNoAxesColumnIncreasing, EyeOff, Fingerprint } from "@/lib/icons";
 import { fontFamilySemibold, palette, radius } from "@/lib/design";
 
 type IconName = "verified" | "results" | "private" | "lock";

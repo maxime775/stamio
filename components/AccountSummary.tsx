@@ -1,6 +1,6 @@
 import { useState } from "react";
 import { Pressable, StyleSheet, Text, View } from "react-native";
-import { Pencil } from "lucide-react-native";
+import { Pencil } from "@/lib/icons";
 import { getSexLabel } from "@/lib/product";
 import type { Profile, ProfileUpdateField } from "@/lib/types";
 import { fontFamilyBold, fontFamilyMedium, fontFamilySemibold, palette, radius } from "@/lib/design";

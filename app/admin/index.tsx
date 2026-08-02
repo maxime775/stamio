@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useMemo, useState, type ComponentProps, type ReactNode } from "react";
 import { ActivityIndicator, Alert, Platform, Pressable, ScrollView, StyleSheet, Text, TextInput, View } from "react-native";
 import { useRouter, type Href } from "expo-router";
-import { Archive, ArrowRight, CheckCircle2, Eye, EyeOff, FileText, Pencil, Plus, RefreshCw, Square, Trash2, XCircle } from "lucide-react-native";
+import { Archive, ArrowRight, CheckCircle2, Eye, EyeOff, FileText, Pencil, Plus, RefreshCw, Square, Trash2, XCircle } from "@/lib/icons";
 import { PageShell } from "@/components/PageShell";
 import { useAuth } from "@/components/AuthProvider";
 import { MarkdownEditor } from "@/components/MarkdownEditor";

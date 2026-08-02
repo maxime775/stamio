@@ -1,6 +1,6 @@
 import { useState } from "react";
 import { Modal, Pressable, ScrollView, StyleSheet, Text, View } from "react-native";
-import { ChevronDown } from "lucide-react-native";
+import { ChevronDown } from "@/lib/icons";
 import { REGIONS_FR } from "@/lib/product";
 import { authField, fontFamilyMedium, fontFamilySemibold, palette, radius } from "@/lib/design";
 

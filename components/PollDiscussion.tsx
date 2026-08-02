@@ -1,7 +1,7 @@
 import { useEffect, useMemo, useRef, useState, type ReactNode } from "react";
 import { ActivityIndicator, Animated, Easing, Image, Platform, Pressable, StyleSheet, Text, TextInput, View, type TextStyle } from "react-native";
 import * as ImagePicker from "expo-image-picker";
-import { Code2, Heart, ImagePlus, Italic, Link2, List, ListOrdered, MessageCircle, Quote, X } from "lucide-react-native";
+import { Code2, Heart, ImagePlus, Italic, Link2, List, ListOrdered, MessageCircle, Quote, X } from "@/lib/icons";
 import { useRouter, type Href } from "expo-router";
 import { useAuth } from "@/components/AuthProvider";
 import {

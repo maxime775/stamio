@@ -1,7 +1,7 @@
 import { memo, useCallback, useMemo, useState } from "react";
 import { Animated, Easing, Pressable, StyleSheet, Text, View } from "react-native";
 import { Link, type Href } from "expo-router";
-import { ArrowRight } from "lucide-react-native";
+import { ArrowRight } from "@/lib/icons";
 import { ResultsDonutSummary } from "@/components/ResultsDonutSummary";
 import { getThemeLabel } from "@/lib/product";
 import { fontFamilyBold, fontFamilyMedium, fontFamilySemibold, getAnswerColor, getThemeTagStyle, getThemeVisual, palette, radius } from "@/lib/design";

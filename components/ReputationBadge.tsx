@@ -1,5 +1,5 @@
 import { StyleSheet, Text, View } from "react-native";
-import { Award } from "lucide-react-native";
+import { Award } from "@/lib/icons";
 import { fontFamilyBold, fontFamilyMedium, fontFamilySemibold, palette, radius } from "@/lib/design";
 
 type Props = {

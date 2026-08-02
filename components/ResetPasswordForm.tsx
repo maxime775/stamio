@@ -1,7 +1,7 @@
 import { useState, type ComponentProps, type ReactNode } from "react";
 import { ActivityIndicator, Platform, Pressable, StyleSheet, Text, TextInput, View } from "react-native";
 import { useRouter, type Href } from "expo-router";
-import { Eye, EyeOff } from "lucide-react-native";
+import { Eye, EyeOff } from "@/lib/icons";
 import { AuthForm } from "@/components/AuthForm";
 import { PasswordStrengthRules } from "@/components/PasswordStrengthRules";
 import { updateCurrentUserPassword } from "@/lib/api";

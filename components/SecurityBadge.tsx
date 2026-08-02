@@ -1,5 +1,5 @@
 import { StyleSheet, Text, View } from "react-native";
-import { Hash, LockKeyhole, ShieldCheck } from "lucide-react-native";
+import { Hash, LockKeyhole, ShieldCheck } from "@/lib/icons";
 import { fontFamilyMedium, palette, radius } from "@/lib/design";
 
 type Props = {

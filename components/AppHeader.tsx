@@ -2,7 +2,7 @@ import { useEffect, useRef, useState } from "react";
 import type { ReactNode } from "react";
 import { Animated, Platform, Pressable, StyleSheet, Text, useWindowDimensions, View, type PointerEvent as ReactNativePointerEvent } from "react-native";
 import { Link, usePathname, useRouter, type Href } from "expo-router";
-import { BarChart3, CircleUserRound, Home, Info, Layers3, LayoutDashboard, LogIn, LogOut, ShieldCheck, UserRound } from "lucide-react-native";
+import { BarChart3, CircleUserRound, Home, Info, Layers3, LayoutDashboard, LogIn, LogOut, ShieldCheck, UserRound } from "@/lib/icons";
 import { useAuth } from "@/components/AuthProvider";
 import { SiteContainer } from "@/components/SiteContainer";
 import { StamioLogo } from "@/components/StamioLogo";

@@ -1,7 +1,7 @@
 import { useMemo, useState } from "react";
 import { ActivityIndicator, Animated, Easing, Platform, Pressable, StyleSheet, Text, type StyleProp, type ViewStyle } from "react-native";
 import { Link, type Href } from "expo-router";
-import { ArrowRight } from "lucide-react-native";
+import { ArrowRight } from "@/lib/icons";
 import { useReducedMotion } from "@/lib/useReducedMotion";
 import { fontFamilyMedium, fontFamilySemibold, palette, radius, shadows } from "@/lib/design";
 

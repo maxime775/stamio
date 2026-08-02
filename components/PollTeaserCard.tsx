@@ -1,7 +1,7 @@
 import { memo, useCallback, useMemo, useRef, useState } from "react";
 import { Animated, Easing, Pressable, StyleSheet, Text, View } from "react-native";
 import { Link, useRouter, type Href } from "expo-router";
-import { ArrowRight, TrendingUp } from "lucide-react-native";
+import { ArrowRight, TrendingUp } from "@/lib/icons";
 import { getThemeLabel } from "@/lib/product";
 import { getThemeTagStyle, getThemeVisual, fontFamilyBold, fontFamilyMedium, fontFamilySemibold, palette, radius } from "@/lib/design";
 import { PollTimer } from "@/components/PollTimer";
