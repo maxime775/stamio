@@ -21,7 +21,12 @@
       "favicon": "./public/favicon-48x48.png"
     },
     "plugins": [
-      "expo-router",
+      [
+        "expo-router",
+        {
+          "asyncRoutes": "production"
+        }
+      ],
       "expo-font"
     ],
     "experiments": {
