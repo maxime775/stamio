@@ -153,13 +153,24 @@ function HeroThemeNetworkWeb({ stats }: { stats: OpenPollStats | null }) {
       scene.add(new THREE.AmbientLight(0xffffff, 0.42));
 
       const themeMeshes: Array<{ theme: ThemeSlug; mesh: any; halo: any; material: any; base: any }> = [];
-      const satelliteMeshes: Array<{ theme: ThemeSlug; mesh: any; material: any; base: any; seed: number }> = [];
+      const satelliteMeshes: Array<{
+        theme: ThemeSlug;
+        mesh: THREE.InstancedMesh;
+        material: THREE.MeshStandardMaterial;
+        items: Array<{ instanceIndex: number; base: THREE.Vector3; position: THREE.Vector3; scale: THREE.Vector3; seed: number; size: number }>;
+      }> = [];
       const linkMaterials: Array<{ cluster: ThemeSlug | "bridge"; material: any }> = [];
       const hitMeshes: any[] = [];
 
-      function makeSphere(radius: number, color: string, opacity: number) {
+      const themeGeometry = new THREE.SphereGeometry(0.145, 32, 18);
+      const haloGeometry = new THREE.SphereGeometry(0.245, 32, 18);
+      const hitGeometry = new THREE.SphereGeometry(0.36, 24, 14);
+      const hitMaterial = new THREE.MeshBasicMaterial({ transparent: true, opacity: 0, depthWrite: false });
+      const satelliteGeometry = new THREE.SphereGeometry(1, 32, 18);
+
+      function makeSphere(color: string, opacity: number) {
         return new THREE.Mesh(
-          new THREE.SphereGeometry(radius, 32, 18),
+          themeGeometry,
           new THREE.MeshStandardMaterial({
             color,
             emissive: color,
@@ -175,54 +186,71 @@ function HeroThemeNetworkWeb({ stats }: { stats: OpenPollStats | null }) {
       for (const anchor of THEME_ANCHORS) {
         const visual = getThemeVisual(anchor.theme);
         const base = new THREE.Vector3(...anchor.position);
-        const mesh = makeSphere(0.145, visual.accent, 0.95);
+        const mesh = makeSphere(visual.accent, 0.95);
         mesh.position.copy(base);
         mesh.userData.theme = anchor.theme;
         root.add(mesh);
 
         const halo = new THREE.Mesh(
-          new THREE.SphereGeometry(0.245, 32, 18),
+          haloGeometry,
           new THREE.MeshBasicMaterial({ color: visual.accent, transparent: true, opacity: 0.12, wireframe: true })
         );
         halo.position.copy(base);
         root.add(halo);
 
         const hit = new THREE.Mesh(
-          new THREE.SphereGeometry(0.36, 24, 14),
-          new THREE.MeshBasicMaterial({ transparent: true, opacity: 0, depthWrite: false })
+          hitGeometry,
+          hitMaterial
         );
         hit.position.copy(base);
         hit.userData.theme = anchor.theme;
+        hit.visible = false;
         hitMeshes.push(hit);
         root.add(hit);
 
         themeMeshes.push({ theme: anchor.theme, mesh, halo, material: mesh.material, base });
       }
 
-      SATELLITES.forEach((satellite, index) => {
-        const visual = getThemeVisual(satellite.theme);
-        const base = new THREE.Vector3(...satellite.position);
-        const mesh = makeSphere(satellite.size, visual.accent, 0.58);
-        mesh.position.copy(base);
-        root.add(mesh);
-        satelliteMeshes.push({ theme: satellite.theme, mesh, material: mesh.material, base, seed: index * 0.63 });
-      });
-
-      LINKS.forEach((link) => {
-        const visual = getThemeVisual(link.theme);
-        const geometry = new THREE.BufferGeometry().setFromPoints([
-          new THREE.Vector3(...link.from),
-          new THREE.Vector3(...link.to)
-        ]);
-        const material = new THREE.LineBasicMaterial({
-          color: visual.line,
+      for (const theme of THEME_ORDER) {
+        const visual = getThemeVisual(theme);
+        const satellites = SATELLITES.filter((satellite) => satellite.theme === theme);
+        const material = new THREE.MeshStandardMaterial({
+          color: visual.accent,
+          emissive: visual.accent,
+          emissiveIntensity: 0.42,
+          roughness: 0.48,
+          metalness: 0.14,
           transparent: true,
-          opacity: link.cluster === "bridge" ? 0.16 : 0.23
+          opacity: 0.58
         });
-        const line = new THREE.Line(geometry, material);
-        root.add(line);
-        linkMaterials.push({ cluster: link.cluster, material });
-      });
+        const mesh = new THREE.InstancedMesh(satelliteGeometry, material, satellites.length);
+        mesh.instanceMatrix.setUsage(THREE.DynamicDrawUsage);
+        const items = satellites.map((satellite, instanceIndex) => {
+          const globalIndex = SATELLITES.indexOf(satellite);
+          const base = new THREE.Vector3(...satellite.position);
+          return { instanceIndex, base, position: base.clone(), scale: new THREE.Vector3(1, 1, 1), seed: globalIndex * 0.63, size: satellite.size };
+        });
+        satelliteMeshes.push({ theme, mesh, material, items });
+        root.add(mesh);
+      }
+
+      for (const theme of THEME_ORDER) {
+        const links = LINKS.filter((link) => link.cluster === theme);
+        const points = links.flatMap((link) => [new THREE.Vector3(...link.from), new THREE.Vector3(...link.to)]);
+        const material = new THREE.LineBasicMaterial({ color: getThemeVisual(theme).line, transparent: true, opacity: 0.23 });
+        root.add(new THREE.LineSegments(new THREE.BufferGeometry().setFromPoints(points), material));
+        linkMaterials.push({ cluster: theme, material });
+      }
+
+      const bridgeLinks = LINKS.filter((link) => link.cluster === "bridge");
+      const bridgeGeometry = new THREE.BufferGeometry().setFromPoints(bridgeLinks.flatMap((link) => [new THREE.Vector3(...link.from), new THREE.Vector3(...link.to)]));
+      bridgeGeometry.setAttribute("color", new THREE.Float32BufferAttribute(bridgeLinks.flatMap((link) => {
+        const color = new THREE.Color(getThemeVisual(link.theme).line);
+        return [color.r, color.g, color.b, color.r, color.g, color.b];
+      }), 3));
+      const bridgeMaterial = new THREE.LineBasicMaterial({ color: 0xffffff, vertexColors: true, transparent: true, opacity: 0.16 });
+      root.add(new THREE.LineSegments(bridgeGeometry, bridgeMaterial));
+      linkMaterials.push({ cluster: "bridge", material: bridgeMaterial });
 
       const raycaster = new THREE.Raycaster();
       const pointer = new THREE.Vector2(0, 0);
@@ -235,6 +263,9 @@ function HeroThemeNetworkWeb({ stats }: { stats: OpenPollStats | null }) {
       const satelliteOffset = new THREE.Vector3();
       const satellitePositionTarget = new THREE.Vector3();
       const satelliteScaleTarget = new THREE.Vector3();
+      const satelliteInstanceScale = new THREE.Vector3();
+      const satelliteInstanceMatrix = new THREE.Matrix4();
+      const satelliteInstanceRotation = new THREE.Quaternion();
       let hovering = false;
 
       function setPointerFromEvent(event: PointerEvent) {
@@ -300,18 +331,24 @@ function HeroThemeNetworkWeb({ stats }: { stats: OpenPollStats | null }) {
           item.halo.position.copy(item.mesh.position);
         }
 
-        for (const item of satelliteMeshes) {
-          const isActive = active === item.theme;
+        for (const group of satelliteMeshes) {
+          const isActive = active === group.theme;
           const dimmed = active !== null && !isActive;
-          const orbit = reducedMotion ? 0 : seconds * 0.42 + item.seed;
-          satelliteOffset.set(Math.cos(orbit) * 0.025, Math.sin(orbit * 1.3) * 0.02, Math.sin(orbit) * 0.032).multiplyScalar(isActive ? 2.2 : 1);
-          satellitePositionTarget.copy(item.base).add(satelliteOffset);
-          item.mesh.position.lerp(satellitePositionTarget, 0.08);
           const scale = isActive ? 1.42 : dimmed ? 0.72 : 1;
           satelliteScaleTarget.setScalar(scale);
-          item.mesh.scale.lerp(satelliteScaleTarget, 0.1);
-          item.material.opacity += ((isActive ? 0.88 : dimmed ? 0.18 : 0.54) - item.material.opacity) * 0.1;
-          item.material.emissiveIntensity += ((isActive ? 0.92 : 0.28) - item.material.emissiveIntensity) * 0.1;
+          for (const item of group.items) {
+            const orbit = reducedMotion ? 0 : seconds * 0.42 + item.seed;
+            satelliteOffset.set(Math.cos(orbit) * 0.025, Math.sin(orbit * 1.3) * 0.02, Math.sin(orbit) * 0.032).multiplyScalar(isActive ? 2.2 : 1);
+            satellitePositionTarget.copy(item.base).add(satelliteOffset);
+            item.position.lerp(satellitePositionTarget, 0.08);
+            item.scale.lerp(satelliteScaleTarget, 0.1);
+            satelliteInstanceScale.copy(item.scale).multiplyScalar(item.size);
+            satelliteInstanceMatrix.compose(item.position, satelliteInstanceRotation, satelliteInstanceScale);
+            group.mesh.setMatrixAt(item.instanceIndex, satelliteInstanceMatrix);
+          }
+          group.mesh.instanceMatrix.needsUpdate = true;
+          group.material.opacity += ((isActive ? 0.88 : dimmed ? 0.18 : 0.54) - group.material.opacity) * 0.1;
+          group.material.emissiveIntensity += ((isActive ? 0.92 : 0.28) - group.material.emissiveIntensity) * 0.1;
         }
 
         for (const item of linkMaterials) {
