@@ -1,10 +1,11 @@
-import { useRef, useState, type ComponentProps, type ReactNode } from "react";
+import { useEffect, useRef, useState, type ComponentProps, type ReactNode } from "react";
 import { Platform, Pressable, StyleSheet, Text, TextInput, View } from "react-native";
 import { useRouter, type Href } from "expo-router";
 import { Eye, EyeOff } from "@/lib/icons";
 import { AuthForm } from "@/components/AuthForm";
 import { HeroActionButton } from "@/components/HeroActionButton";
 import { getCurrentUserProfile, signInUser } from "@/lib/api";
+import { createPasskeyCeremonyController } from "@/lib/auth/passkeyCeremony";
 import { getPasskeyErrorMessage, signInWithPasskey } from "@/lib/auth/passkeys";
 import { getVisibleLoginError, normalizeAuthEmail, validateLogin, type LoginField } from "@/lib/authValidation";
 import { authField, fontFamilyMedium, fontFamilySemibold, palette, radius } from "@/lib/design";
@@ -20,8 +21,18 @@ export function LoginForm() {
   const [passwordVisible, setPasswordVisible] = useState(false);
   const [passkeyLoading, setPasskeyLoading] = useState(false);
   const submittingRef = useRef(false);
+  const passkeyCeremony = useRef(createPasskeyCeremonyController());
+  const mounted = useRef(true);
   const values = { email, password };
   const validationErrors = validateLogin(values);
+
+  useEffect(() => {
+    mounted.current = true;
+    return () => {
+      mounted.current = false;
+      passkeyCeremony.current.cancel();
+    };
+  }, []);
 
   function fieldError(field: LoginField) {
     return getVisibleLoginError(field, values, touched, submitted);
@@ -64,16 +75,25 @@ export function LoginForm() {
   }
 
   async function handlePasskeySignIn() {
-    if (passkeyLoading) return;
+    const lease = passkeyCeremony.current.begin();
+    if (!lease) return;
     setPasskeyLoading(true);
     setGlobalError(null);
     try {
-      await signInWithPasskey();
-      router.replace("/" as Href);
+      await signInWithPasskey(lease.signal);
+      if (mounted.current && passkeyCeremony.current.isActive(lease)) {
+        router.replace("/" as Href);
+      }
     } catch (error) {
-      setGlobalError(getPasskeyErrorMessage(error, "signin"));
+      if (mounted.current && passkeyCeremony.current.isActive(lease)) {
+        setGlobalError(getPasskeyErrorMessage(error, "signin"));
+      }
     } finally {
-      setPasskeyLoading(false);
+      const wasCurrentCeremony = passkeyCeremony.current.isActive(lease);
+      passkeyCeremony.current.finish(lease);
+      if (mounted.current && (wasCurrentCeremony || !passkeyCeremony.current.isActive())) {
+        setPasskeyLoading(false);
+      }
     }
   }
 

@@ -5,6 +5,7 @@ import { HeroActionButton } from "@/components/HeroActionButton";
 import { PageShell } from "@/components/PageShell";
 import { useAuth } from "@/components/AuthProvider";
 import { verifyPasskeyEnrollment } from "@/lib/api";
+import { createPasskeyCeremonyController } from "@/lib/auth/passkeyCeremony";
 import { clearPendingSignup } from "@/lib/auth/pendingSignup";
 import {
   createPasskeyEnrollmentTabId,
@@ -22,6 +23,7 @@ export default function PasskeyEnrollmentPage() {
   const { next, flow } = useLocalSearchParams<{ next?: string; flow?: string }>();
   const { user, loading: authLoading, emailVerified } = useAuth();
   const running = useRef(false);
+  const passkeyCeremony = useRef(createPasskeyCeremonyController());
   const pageActive = useRef(true);
   const authReady = useRef(false);
   const localEnrollmentAttempt = useRef(false);
@@ -78,6 +80,7 @@ export default function PasskeyEnrollmentPage() {
     pageActive.current = true;
     return () => {
       pageActive.current = false;
+      passkeyCeremony.current.cancel();
     };
   }, []);
 
@@ -121,18 +124,24 @@ export default function PasskeyEnrollmentPage() {
       router.replace("/auth/login" as Href);
       return;
     }
+    const lease = passkeyCeremony.current.begin();
+    if (!lease) return;
     running.current = true;
     localEnrollmentAttempt.current = true;
     setLoading(true);
     setError(null);
     try {
-      await registerPasskey();
+      await registerPasskey(lease.signal);
+      if (!pageActive.current || !passkeyCeremony.current.isActive(lease)) return;
+
       const result = await verifyPasskeyEnrollment();
+      if (!pageActive.current || !passkeyCeremony.current.isActive(lease)) return;
       if (!result.enrolled) throw new Error("webauthn_verification_failed");
       clearPendingSignup();
       if (flow === "signup") {
         completedInThisTab.current = true;
         const markerCreated = await markSignupEnrollmentComplete(user.id);
+        if (!pageActive.current || !passkeyCeremony.current.isActive(lease)) return;
         syncSubscription.current?.publishSuccess();
         navigationCommitted.current = true;
         router.replace(markerCreated ? "/auth/setup-complete" as Href : "/account" as Href);
@@ -141,17 +150,22 @@ export default function PasskeyEnrollmentPage() {
         router.replace(safeNext(next));
       }
     } catch (caught) {
-      const reconciled = flow === "signup" && !completedInThisTab.current
+      const isCurrentCeremony = pageActive.current && passkeyCeremony.current.isActive(lease);
+      const reconciled = isCurrentCeremony && flow === "signup" && !completedInThisTab.current
         ? await verifyExternalEnrollment(true)
         : false;
-      if (!reconciled && pageActive.current && !navigationCommitted.current) {
+      if (!reconciled && pageActive.current && passkeyCeremony.current.isActive(lease) && !navigationCommitted.current) {
         setError(getPasskeyErrorMessage(caught));
       }
     } finally {
-      localEnrollmentAttempt.current = false;
-      if (!navigationCommitted.current) {
+      const wasCurrentCeremony = passkeyCeremony.current.isActive(lease);
+      passkeyCeremony.current.finish(lease);
+      if (wasCurrentCeremony || !passkeyCeremony.current.isActive()) {
+        localEnrollmentAttempt.current = false;
         running.current = false;
-        setLoading(false);
+        if (pageActive.current && !navigationCommitted.current) {
+          setLoading(false);
+        }
       }
     }
   }

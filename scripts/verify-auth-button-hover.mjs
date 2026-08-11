@@ -236,8 +236,8 @@ assert.match(
 );
 assert.match(
   login.sourceText,
-  /await signInWithPasskey\(\);/,
-  "Le parcours Passkey doit rester branché sur signInWithPasskey"
+  /await signInWithPasskey\(lease\.signal\);/,
+  "Le parcours Passkey doit transmettre le signal de la cérémonie à signInWithPasskey"
 );
 assert.match(
   signup.sourceText,

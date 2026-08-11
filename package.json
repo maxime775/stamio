@@ -16,6 +16,7 @@
     "test:account-menu": "node scripts/verify-account-menu-hover.mjs",
     "test:auth-buttons": "node scripts/verify-auth-button-hover.mjs",
     "test:passkey": "node scripts/verify-passkey-flow.mjs",
+    "test:passkey-reliability": "node scripts/verify-passkey-reliability.mjs",
     "test:passkey-concurrency": "node scripts/verify-passkey-vote-concurrency.mjs",
     "test:passkey-vote-concurrency": "node scripts/verify-passkey-vote-concurrency.mjs",
     "test:signup-email-remote": "node scripts/verify-signup-email-remote.mjs",
