@@ -14,9 +14,13 @@ import { AppFooter } from "@/components/AppFooter";
 import { HeaderTextAction } from "@/components/AppHeader";
 import { VotePanel } from "@/components/VotePanel";
 import { SkeletonPoll } from "@/components/SkeletonPoll";
+import { DecisionTreePreview } from "@/components/decision-tree/DecisionTreePreview";
+import { IntrinsicEditorialSplit } from "@/components/IntrinsicEditorialSplit";
+import { NonBreakingFinalPunctuation } from "@/components/NonBreakingFinalPunctuation";
 import { siteContainerStyle } from "@/components/SiteContainer";
 import { useAuth } from "@/components/AuthProvider";
 import { fetchPoll, getCachedPoll, getCachedResults, getCachedResultsHistory, getResults, getResultsHistory, getUserPollAnswer } from "@/lib/api";
+import { decisionTreePreviewByPollId } from "@/lib/decisionTrees";
 import { getPollDescription, getThemeLabel, getThemeRoute } from "@/lib/product";
 import { STAMIO_CORE_COLORS, fontFamilyBold, fontFamilyMedium, fontFamilySemibold, getColorWithOpacity, getThemeTagStyle, palette, radius } from "@/lib/design";
 import type { Poll, PollHistoryPoint, PollResource, PollResult, VoteStatus } from "@/lib/types";
@@ -202,7 +206,9 @@ export default function PollScreen() {
                     <PollTimer poll={poll} style={styles.timer} />
                   </View>
                 </View>
-                <Text style={StyleSheet.flatten([styles.title, compact && styles.titleCompact])}>{poll.question}</Text>
+                <Text style={StyleSheet.flatten([styles.title, compact && styles.titleCompact])}>
+                  <NonBreakingFinalPunctuation value={poll.question} />
+                </Text>
                 <View
                   onLayout={(event) => { overviewAnchorY.current = event.nativeEvent.layout.y; }}
                   style={StyleSheet.flatten([styles.overview, compact && styles.overviewCompact])}
@@ -214,10 +220,18 @@ export default function PollScreen() {
                   >
                     <Text style={styles.contextKicker}>Enjeux</Text>
                     <MarkdownContent value={poll.description ?? getPollDescription(poll.id)} compact />
-                    {poll.resources && poll.resources.length > 0 ? <ResourceSection resources={poll.resources} /> : null}
+                    {!decisionTreePreviewByPollId[poll.id] && poll.resources && poll.resources.length > 0
+                      ? <ResourceSection resources={poll.resources} />
+                      : null}
                   </View>
                   <ResultsDonutSummary choices={poll.choices} results={results} />
                 </View>
+                {decisionTreePreviewByPollId[poll.id] ? (
+                  <IntrinsicEditorialSplit
+                    primary={poll.resources && poll.resources.length > 0 ? <ResourceSection resources={poll.resources} expanded /> : null}
+                    secondary={<DecisionTreePreview pollId={poll.id} embedded borderless />}
+                  />
+                ) : null}
               </View>
               <View style={styles.contentGrid}>
                 <View
@@ -303,11 +317,11 @@ export default function PollScreen() {
   );
 }
 
-function ResourceSection({ resources }: { resources: PollResource[] }) {
+function ResourceSection({ resources, expanded = false }: { resources: PollResource[]; expanded?: boolean }) {
   const [hoveredResourceId, setHoveredResourceId] = useState<string | null>(null);
 
   return (
-    <View style={styles.resources}>
+    <View style={StyleSheet.flatten([styles.resources, expanded && styles.resourcesExpanded])}>
       <Text style={styles.resourcesTitle}>Les ressources utiles</Text>
       <View style={styles.resourceList}>
       {resources.map((resource, index) => (
@@ -503,10 +517,12 @@ const styles = StyleSheet.create({
   contextBlock: { flex: 1, minWidth: 280, borderLeftWidth: 2, borderLeftColor: palette.primary, paddingVertical: 12, paddingHorizontal: 16, alignSelf: "stretch", justifyContent: "center", gap: 7 },
   contextKicker: { color: palette.primaryStrong, fontFamily: fontFamilySemibold, fontSize: 10, textTransform: "uppercase", letterSpacing: 1 },
   contextText: { color: palette.inkSecondary, fontSize: 14, lineHeight: 22, maxWidth: 720 },
-  resources: { marginTop: 11, paddingTop: 14, borderTopWidth: 1, borderTopColor: palette.line, gap: 9, maxWidth: 760 },
+  resources: { width: "100%", marginTop: 11, paddingTop: 14, borderTopWidth: 1, borderTopColor: palette.line, gap: 9, maxWidth: 760 },
+  resourcesExpanded: { marginTop: 0, paddingTop: 0, borderTopWidth: 0, maxWidth: "100%" },
   resourcesTitle: { color: palette.ink, fontFamily: fontFamilySemibold, fontSize: 14, lineHeight: 20 },
-  resourceList: { borderTopWidth: 1, borderTopColor: palette.line, marginTop: 2 },
+  resourceList: { width: "100%", borderTopWidth: 1, borderTopColor: palette.line, marginTop: 2 },
   resourceLink: {
+    width: "100%",
     minHeight: 58,
     borderBottomWidth: 1,
     borderBottomColor: palette.line,

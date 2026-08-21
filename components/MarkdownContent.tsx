@@ -1,5 +1,6 @@
 import { memo, type ReactNode } from "react";
 import { Linking, StyleSheet, Text, View } from "react-native";
+import { NonBreakingFinalPunctuation } from "@/components/NonBreakingFinalPunctuation";
 import { fontFamilyBold, fontFamilyMedium, fontFamilySemibold, palette } from "@/lib/design";
 
 type Props = {
@@ -51,16 +52,16 @@ export const MarkdownContent = memo(function MarkdownContent({ value, compact = 
 function renderInline(text: string, keyPrefix: number): ReactNode[] {
   return parseInline(text).map((token, index) => {
     const key = `${keyPrefix}-${index}`;
-    if (token.type === "bold") return <Text key={key} style={styles.bold}>{token.value}</Text>;
-    if (token.type === "italic") return <Text key={key} style={styles.italic}>{token.value}</Text>;
+    if (token.type === "bold") return <Text key={key} style={styles.bold}><NonBreakingFinalPunctuation value={token.value} /></Text>;
+    if (token.type === "italic") return <Text key={key} style={styles.italic}><NonBreakingFinalPunctuation value={token.value} /></Text>;
     if (token.type === "link") {
       return (
         <Text key={key} accessibilityRole="link" onPress={() => void Linking.openURL(token.url)} style={styles.link}>
-          {token.label}
+          <NonBreakingFinalPunctuation value={token.label} />
         </Text>
       );
     }
-    return <Text key={key}>{token.value}</Text>;
+    return <Text key={key}><NonBreakingFinalPunctuation value={token.value} /></Text>;
   });
 }
 

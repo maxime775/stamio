@@ -1,8 +1,8 @@
 import { useEffect, useMemo, useRef, useState } from "react";
-import { ActivityIndicator, Animated, Easing, Modal, Platform, Pressable, StyleSheet, Text, View, type ViewStyle } from "react-native";
-import { X } from "@/lib/icons";
+import { ActivityIndicator, Animated, Easing, Modal, Pressable, StyleSheet, Text, View } from "react-native";
 import { useRouter, type Href } from "expo-router";
 import { useAuth } from "@/components/AuthProvider";
+import { ModalCloseButton } from "@/components/ModalCloseButton";
 import { getCurrentUserProfile, getResults, invalidatePollCaches, submitVote } from "@/lib/api";
 import type { PollResult, VoteStatus } from "@/lib/types";
 import { STAMIO_CORE_COLORS, authField, fontFamilyBold, fontFamilyMedium, fontFamilySemibold, palette, radius } from "@/lib/design";
@@ -316,46 +316,6 @@ function ModalHeader({ title, choiceLabel }: { title: string; choiceLabel: strin
   );
 }
 
-function ModalCloseButton({ onPress }: { onPress: () => void }) {
-  const [hovered, setHovered] = useState(false);
-  const [focusVisible, setFocusVisible] = useState(false);
-  const active = hovered || focusVisible;
-
-  return (
-    <Pressable
-      accessibilityRole="button"
-      accessibilityLabel="Fermer"
-      onPress={onPress}
-      onHoverIn={() => setHovered(true)}
-      onHoverOut={() => setHovered(false)}
-      onFocus={(event) => {
-        if (Platform.OS !== "web") {
-          setFocusVisible(true);
-          return;
-        }
-        const target = event.currentTarget as unknown as { matches?: (selector: string) => boolean };
-        setFocusVisible(target.matches?.(":focus-visible") ?? true);
-      }}
-      onBlur={() => setFocusVisible(false)}
-      style={StyleSheet.flatten([styles.closeHitArea, closeHitAreaWebReset])}
-    >
-      {({ pressed }) => (
-        <View
-          pointerEvents="none"
-          style={StyleSheet.flatten([
-            styles.closeVisual,
-            active && styles.closeVisualActive,
-            focusVisible && styles.closeVisualFocused,
-            pressed && styles.closeVisualPressed
-          ])}
-        >
-          <X size={16} color={active ? palette.ink : palette.inkSecondary} />
-        </View>
-      )}
-    </Pressable>
-  );
-}
-
 function AnimatedPrimaryButton({
   label,
   loading,
@@ -424,15 +384,6 @@ function AnimatedPrimaryButton({
   );
 }
 
-const closeHitAreaWebReset = Platform.OS === "web"
-  ? ({
-      boxShadow: "none",
-      filter: "none",
-      outlineStyle: "none",
-      outlineWidth: 0
-    } as unknown as ViewStyle)
-  : null;
-
 const styles = StyleSheet.create({
   overlay: { flex: 1, alignItems: "center", justifyContent: "center", padding: 20 },
   scrim: { ...StyleSheet.absoluteFillObject, backgroundColor: "rgba(2, 6, 15, 0.74)" },
@@ -455,30 +406,6 @@ const styles = StyleSheet.create({
   title: { color: palette.ink, fontFamily: fontFamilyBold, fontSize: 20, lineHeight: 25 },
   answerText: { color: palette.inkSecondary, fontSize: 13, lineHeight: 20 },
   answerValue: { color: palette.primaryStrong, fontFamily: fontFamilyBold },
-  closeHitArea: {
-    position: "absolute",
-    top: 4,
-    right: 4,
-    width: 40,
-    height: 40,
-    alignItems: "center",
-    justifyContent: "center",
-    backgroundColor: "transparent",
-    borderWidth: 0
-  },
-  closeVisual: {
-    width: 28,
-    height: 28,
-    borderRadius: radius.sm,
-    alignItems: "center",
-    justifyContent: "center",
-    backgroundColor: "transparent"
-  },
-  closeVisualActive: {
-    backgroundColor: "rgba(2, 6, 15, 0.52)",
-  },
-  closeVisualFocused: { borderWidth: 1, borderColor: palette.primaryStrong },
-  closeVisualPressed: { backgroundColor: "rgba(2, 6, 15, 0.7)", transform: [{ translateY: 1 }] },
   body: { gap: 16, paddingTop: 2 },
   helperText: { color: palette.inkSecondary, fontFamily: fontFamilyMedium, fontSize: 13, lineHeight: 20 },
   editorialCopy: { gap: 10 },

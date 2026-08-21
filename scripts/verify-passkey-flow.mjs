@@ -29,6 +29,7 @@ const authForm = read("components/AuthForm.tsx");
 const professionSelect = read("components/ProfessionSelect.tsx");
 const regionSelect = read("components/RegionSelect.tsx");
 const votePanel = read("components/VotePanel.tsx");
+const modalCloseButton = read("components/ModalCloseButton.tsx");
 const pollScreen = read("app/poll/[pollId].tsx");
 const appHeader = read("components/AppHeader.tsx");
 const signupCompletion = read("lib/auth/signupCompletion.ts");
@@ -204,32 +205,33 @@ for (const copy of [
 ]) {
   if (!votePanel.includes(copy)) failures.push(`vote modal editorial copy missing: ${copy}`);
 }
-for (const check of ["onExploreContext", "onJoinDiscussion", "goToPollSection", "EDITORIAL_AMBER", "closeVisualActive"]) {
+for (const check of ["onExploreContext", "onJoinDiscussion", "goToPollSection", "EDITORIAL_AMBER"]) {
   if (!votePanel.includes(check)) failures.push(`vote modal internal navigation or premium interaction missing: ${check}`);
 }
-if (!/<X size=\{16\}/.test(votePanel) || !/closeHitArea:[\s\S]*?width: 40,[\s\S]*?height: 40/.test(votePanel) || !/closeVisual:[\s\S]*?width: 28,[\s\S]*?height: 28/.test(votePanel) || !votePanel.includes('width: "auto"')) {
+if (!modalCloseButton.includes("closeVisualActive")) failures.push("shared modal close interaction is missing");
+if (!/<X size=\{16\}/.test(modalCloseButton) || !/closeHitArea:[\s\S]*?width: 40,[\s\S]*?height: 40/.test(modalCloseButton) || !/closeVisual:[\s\S]*?width: 28,[\s\S]*?height: 28/.test(modalCloseButton) || !votePanel.includes('width: "auto"')) {
   failures.push("vote modal close control or compact action sizing is missing");
 }
-if (!votePanel.includes("active ? palette.ink : palette.inkSecondary") || !votePanel.includes("closeVisualActive")) {
+if (!modalCloseButton.includes("active ? palette.ink : palette.inkSecondary") || !modalCloseButton.includes("closeVisualActive")) {
   failures.push("vote modal close glyph must turn white over the compact active background");
 }
-const closeHitAreaStyle = /closeHitArea:\s*\{([\s\S]*?)\n  \},/.exec(votePanel)?.[1] ?? "";
+const closeHitAreaStyle = /closeHitArea:\s*\{([\s\S]*?)\n  \},/.exec(modalCloseButton)?.[1] ?? "";
 if (/shadowColor|shadowOpacity|shadowRadius|shadowOffset|elevation|filter|outline|boxShadow/.test(closeHitAreaStyle)) failures.push("close hit area must not define any visible shadow, filter, elevation, or outline");
-if (!votePanel.includes('boxShadow: "none"') || !votePanel.includes('filter: "none"') || !votePanel.includes('outlineStyle: "none"') || !votePanel.includes("closeHitAreaWebReset")) {
+if (!modalCloseButton.includes('boxShadow: "none"') || !modalCloseButton.includes('filter: "none"') || !modalCloseButton.includes('outlineStyle: "none"') || !modalCloseButton.includes("closeHitAreaWebReset")) {
   failures.push("web close hit area must explicitly suppress its native outline, filter, and box shadow");
 }
-if (!votePanel.includes('matches?.(":focus-visible")') || !votePanel.includes("closeVisualFocused")) failures.push("close focus must use a compact focus-visible treatment on the inner box");
-const closeActiveStyle = /closeVisualActive:\s*\{([\s\S]*?)\n  \},/.exec(votePanel)?.[1] ?? "";
-const closeVisualStyle = /closeVisual:\s*\{([\s\S]*?)\n  \},/.exec(votePanel)?.[1] ?? "";
-const closePressedStyle = /closeVisualPressed:\s*\{([^}]+)\}/s.exec(votePanel)?.[1] ?? "";
+if (!modalCloseButton.includes('matches?.(":focus-visible")') || !modalCloseButton.includes("closeVisualFocused")) failures.push("close focus must use a compact focus-visible treatment on the inner box");
+const closeActiveStyle = /closeVisualActive:\s*\{([^}]+)\}/s.exec(modalCloseButton)?.[1] ?? "";
+const closeVisualStyle = /closeVisual:\s*\{([\s\S]*?)\n  \},/.exec(modalCloseButton)?.[1] ?? "";
+const closePressedStyle = /closeVisualPressed:\s*\{([^}]+)\}/s.exec(modalCloseButton)?.[1] ?? "";
 for (const [name, style] of [["visual", closeVisualStyle], ["hover", closeActiveStyle], ["pressed", closePressedStyle]]) {
   if (/shadowColor|shadowOpacity|shadowRadius|shadowOffset|elevation|filter|drop-shadow|boxShadow/i.test(style)) {
     failures.push(`close ${name} style must not produce an exterior hover halo`);
   }
 }
-if (votePanel.includes("closeHoverShadow") || votePanel.includes("0 3px 8px rgba(0, 0, 0, 0.58)")) failures.push("the rejected diffuse close-button hover shadow must be removed");
+if (modalCloseButton.includes("closeHoverShadow") || modalCloseButton.includes("0 3px 8px rgba(0, 0, 0, 0.58)")) failures.push("the rejected diffuse close-button hover shadow must be removed");
 if (!closeActiveStyle.includes('backgroundColor: "rgba(2, 6, 15, 0.52)"')) failures.push("close hover must retain its compact dark background");
-const closeFocusStyle = /closeVisualFocused:\s*\{([^}]+)\}/s.exec(votePanel)?.[1] ?? "";
+const closeFocusStyle = /closeVisualFocused:\s*\{([^}]+)\}/s.exec(modalCloseButton)?.[1] ?? "";
 if (!closeFocusStyle.includes("borderWidth: 1") || /shadow|elevation|filter/i.test(closeFocusStyle)) failures.push("close keyboard focus must remain compact without a halo");
 const leadStyle = /editorialLead:\s*\{([^}]+)\}/s.exec(votePanel)?.[1] ?? "";
 const quoteStyle = /editorialQuote:\s*\{([^}]+)\}/s.exec(votePanel)?.[1] ?? "";
