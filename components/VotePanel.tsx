@@ -20,13 +20,14 @@ type Props = {
   choiceId: string;
   choiceLabel: string;
   platform: "web" | "native";
+  returnPath: string;
   onClose: () => void;
   onFinished: (status: VoteStatus, results?: PollResult[]) => void;
   onExploreContext: () => void;
   onJoinDiscussion: () => void;
 };
 
-export function VotePanel({ visible, pollId, choiceId, choiceLabel, platform, onClose, onFinished, onExploreContext, onJoinDiscussion }: Props) {
+export function VotePanel({ visible, pollId, choiceId, choiceLabel, platform, returnPath, onClose, onFinished, onExploreContext, onJoinDiscussion }: Props) {
   const router = useRouter();
   const { user, emailVerified } = useAuth();
   const running = useRef(false);
@@ -101,7 +102,7 @@ export function VotePanel({ visible, pollId, choiceId, choiceLabel, platform, on
 
   function goToEnrollment() {
     closeAll();
-    router.push(`/auth/passkey-enrollment?next=${encodeURIComponent(`/poll/${pollId}`)}` as Href);
+    router.push(`/auth/passkey-enrollment?next=${encodeURIComponent(returnPath)}` as Href);
   }
 
   function goToPollSection(onNavigate: () => void) {

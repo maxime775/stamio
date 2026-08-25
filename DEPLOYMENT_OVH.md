@@ -24,7 +24,11 @@ The canonical production domain is `https://stamio.fr`. The current `.htaccess` 
 
 These redirects are configured as temporary `302` redirects for the first deployment to avoid browser cache issues while testing. After validation, they can be changed to permanent `301` redirects.
 
-The current `.htaccess` keeps real files and directories working, then falls back all client-side routes to `index.html`. This is required for direct navigation or refresh on routes such as `/themes`, `/results`, `/poll/<pollId>`, `/auth/reset-password`, `/account`, and `/about`.
+The current `.htaccess` keeps real files and directories working, then falls back all client-side routes to `index.html`. This is required for direct navigation or refresh on routes such as `/themes`, `/results`, `/question/<slug>`, `/resultats/<slug>/vague-<number>`, `/poll/<pollId>`, `/auth/reset-password`, `/account`, and `/about`.
+
+Because this deployment is a single-page static export, an old dynamic `/poll/<pollId>` URL cannot be converted to a series URL by Apache alone: the slug and wave are resolved from Supabase at runtime. The compatibility route therefore uses an application-level `router.replace`. The initial HTTP response remains `200`; it is not a server-side `301`. Canonical tags point to the resolved `/question/<slug>` or `/resultats/<slug>/vague-<number>` URL. A real dynamic `301` would require a generated redirect map deployed with Apache or a server/edge runtime.
+
+The sitemap remains deliberately curated for this version. A series with an active wave publishes `/question/<slug>`; each closed wave with `show_in_results = true` may publish `/resultats/<slug>/vague-<number>`. A series or wave that is neither active nor published in results must not appear. Automating this inventory is deferred to a separate change.
 
 ## Email Assets
 

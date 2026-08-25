@@ -8,6 +8,7 @@ import { fontFamilyBold, fontFamilyMedium, fontFamilySemibold, getAnswerColor, g
 import { PollTimer } from "@/components/PollTimer";
 import { prefetchPollDetail } from "@/lib/api";
 import type { PollWithStats } from "@/lib/types";
+import { getHistoricalResultPath } from "@/lib/publicPollUrls";
 
 type Props = {
   poll: PollWithStats;
@@ -22,6 +23,9 @@ export const ResultsPreviewCard = memo(function ResultsPreviewCard({ poll }: Pro
   const visual = getThemeVisual(poll.theme);
   const warmPoll = useCallback(() => prefetchPollDetail(poll.id), [poll.id]);
   const hasResults = Boolean(poll.results && poll.results.length > 0);
+  const resultHref = poll.series_slug
+    ? getHistoricalResultPath(poll.series_slug, poll.wave_number ?? 1)
+    : `/poll/${poll.id}`;
   const tooltipRows = useMemo(() => {
     const results = poll.results ?? [];
     const total = results.reduce((sum, result) => sum + result.votes, 0);
@@ -84,7 +88,7 @@ export const ResultsPreviewCard = memo(function ResultsPreviewCard({ poll }: Pro
           <Text style={styles.analysisText}>Lorem ipsum dolor sit amet, consectetur adipiscing elit. Integer posuere nuance les enseignements du vote et met en perspective les principaux points de débat.</Text>
         </View>
       </View>
-      <Link href={`/poll/${poll.id}` as Href} asChild>
+      <Link href={resultHref as Href} asChild>
         <Pressable
           onPressIn={() => {
             setCtaPressed(true);

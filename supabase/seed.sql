@@ -19,6 +19,50 @@ set question = excluded.question,
     trend_label = excluded.trend_label,
     closes_at = excluded.closes_at;
 
+-- Deterministic local series metadata keeps fresh `supabase db reset` fixtures
+-- compatible with the public slug routes. Production series UUIDs are preserved
+-- by the migration backfill and are never replaced by these local fixture IDs.
+insert into public.poll_series (id, canonical_question, canonical_description, theme, slug)
+select proposed.series_id, p.question, p.description, p.theme, proposed.slug
+from (
+  values
+    ('11111111-1111-4111-8111-111111111111'::uuid, '33333333-3333-4333-8333-333333333331'::uuid, 'taxe-zucman'::text),
+    ('11111111-1111-4111-8111-111111111112'::uuid, '33333333-3333-4333-8333-333333333332'::uuid, 'peine-ineligibilite-entrave-democratie'::text),
+    ('11111111-1111-4111-8111-111111111113'::uuid, '33333333-3333-4333-8333-333333333333'::uuid, 'dette-publique'::text),
+    ('11111111-1111-4111-8111-111111111114'::uuid, '33333333-3333-4333-8333-333333333334'::uuid, 'origine-contenus-politiques-sponsorises'::text),
+    ('11111111-1111-4111-8111-111111111115'::uuid, '33333333-3333-4333-8333-333333333335'::uuid, 'evenements-sportifs-bilan-carbone'::text),
+    ('11111111-1111-4111-8111-111111111116'::uuid, '33333333-3333-4333-8333-333333333336'::uuid, 'referendums-locaux-projets-publics'::text),
+    ('11111111-1111-4111-8111-111111111117'::uuid, '33333333-3333-4333-8333-333333333337'::uuid, 'aides-publiques-entreprises-objectifs-mesurables'::text),
+    ('11111111-1111-4111-8111-111111111118'::uuid, '33333333-3333-4333-8333-333333333338'::uuid, 'droit-deconnexion-salaries'::text),
+    ('11111111-1111-4111-8111-111111111119'::uuid, '33333333-3333-4333-8333-333333333339'::uuid, 'clubs-professionnels-sport-amateur-local'::text),
+    ('11111111-1111-4111-8111-111111111120'::uuid, '33333333-3333-4333-8333-333333333340'::uuid, 'formation-continue-metiers-automatisation'::text)
+) as proposed(poll_id, series_id, slug)
+join public.polls p on p.id = proposed.poll_id
+on conflict (id) do update
+set canonical_question = excluded.canonical_question,
+    canonical_description = excluded.canonical_description,
+    theme = excluded.theme,
+    slug = excluded.slug;
+
+update public.polls p
+set series_id = proposed.series_id,
+    wave_number = coalesce(p.wave_number, 1),
+    launched_at = coalesce(p.launched_at, p.created_at, now())
+from (
+  values
+    ('11111111-1111-4111-8111-111111111111'::uuid, '33333333-3333-4333-8333-333333333331'::uuid),
+    ('11111111-1111-4111-8111-111111111112'::uuid, '33333333-3333-4333-8333-333333333332'::uuid),
+    ('11111111-1111-4111-8111-111111111113'::uuid, '33333333-3333-4333-8333-333333333333'::uuid),
+    ('11111111-1111-4111-8111-111111111114'::uuid, '33333333-3333-4333-8333-333333333334'::uuid),
+    ('11111111-1111-4111-8111-111111111115'::uuid, '33333333-3333-4333-8333-333333333335'::uuid),
+    ('11111111-1111-4111-8111-111111111116'::uuid, '33333333-3333-4333-8333-333333333336'::uuid),
+    ('11111111-1111-4111-8111-111111111117'::uuid, '33333333-3333-4333-8333-333333333337'::uuid),
+    ('11111111-1111-4111-8111-111111111118'::uuid, '33333333-3333-4333-8333-333333333338'::uuid),
+    ('11111111-1111-4111-8111-111111111119'::uuid, '33333333-3333-4333-8333-333333333339'::uuid),
+    ('11111111-1111-4111-8111-111111111120'::uuid, '33333333-3333-4333-8333-333333333340'::uuid)
+) as proposed(poll_id, series_id)
+where p.id = proposed.poll_id;
+
 insert into public.choices (id, poll_id, label, position)
 values
   ('22222222-2222-4222-8222-222222222221', '11111111-1111-4111-8111-111111111111', 'Pour', 1),

@@ -38,6 +38,7 @@ export type Sex = "homme" | "femme";
 export type Poll = {
   id: string;
   series_id?: string | null;
+  series_slug?: string | null;
   wave_number?: number | null;
   question: string;
   description?: string | null;
@@ -98,6 +99,7 @@ export type PollWithStats = Poll & {
 
 export type AdminCreatePollInput = {
   series_id?: string | null;
+  slug: string;
   question: string;
   description: string;
   theme: ThemeSlug;
@@ -114,6 +116,7 @@ export type AdminCreatePollInput = {
 export type AdminPollSummary = {
   id: string;
   series_id: string | null;
+  series_slug: string | null;
   wave_number: number | null;
   question: string;
   description: string | null;
@@ -138,6 +141,7 @@ export type AdminPollDetail = {
   };
   series: {
     id: string;
+    slug: string;
     canonical_question: string;
     canonical_description: string | null;
     theme: ThemeSlug;
@@ -152,6 +156,7 @@ export type AdminPollDetail = {
 
 export type AdminSeriesSummary = {
   series_id: string;
+  slug: string;
   question: string;
   theme: ThemeSlug;
   waveCount: number;
@@ -248,6 +253,9 @@ export type UserPollAnswer = {
   polls?: {
     question: string;
     theme: ThemeSlug | null;
+    status: "open" | "closed";
+    wave_number: number | null;
+    series_slug: string | null;
   } | null;
   choices?: {
     label: string;

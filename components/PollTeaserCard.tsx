@@ -7,6 +7,7 @@ import { getThemeTagStyle, getThemeVisual, fontFamilyBold, fontFamilyMedium, fon
 import { PollTimer } from "@/components/PollTimer";
 import { prefetchPollDetail } from "@/lib/api";
 import type { PollWithStats } from "@/lib/types";
+import { getQuestionPath } from "@/lib/publicPollUrls";
 
 type Props = {
   poll: PollWithStats;
@@ -27,10 +28,11 @@ export const PollTeaserCard = memo(function PollTeaserCard({ poll, compact = fal
   const cardHoveredRef = useRef(false);
   const ctaHoveredRef = useRef(false);
   const theme = getThemeVisual(poll.theme);
+  const pollHref = poll.series_slug ? getQuestionPath(poll.series_slug) : `/poll/${poll.id}`;
   const warmPoll = useCallback(() => {
     prefetchPollDetail(poll.id);
   }, [poll.id]);
-  const openPoll = useCallback(() => router.push(`/poll/${poll.id}` as Href), [poll.id, router]);
+  const openPoll = useCallback(() => router.push(pollHref as Href), [pollHref, router]);
   const startHoverPause = useCallback(() => {
     if (!cardHoveredRef.current && !ctaHoveredRef.current) onHoverStart?.();
   }, [onHoverStart]);
@@ -136,7 +138,7 @@ export const PollTeaserCard = memo(function PollTeaserCard({ poll, compact = fal
           <Text style={styles.votes}>Clôture dans</Text>
           <PollTimer poll={poll} style={styles.timer} />
         </View>
-        <Link href={`/poll/${poll.id}` as Href} asChild>
+        <Link href={pollHref as Href} asChild>
           <Pressable
             accessibilityRole="link"
             onPress={(event) => event.stopPropagation()}

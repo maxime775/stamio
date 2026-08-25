@@ -2,7 +2,8 @@ import { useEffect, useMemo, useRef, useState } from "react";
 import { ActivityIndicator, Animated, Easing, Linking, Platform, Pressable, ScrollView, StyleSheet, Text, useWindowDimensions, View } from "react-native";
 import { LinearGradient } from "expo-linear-gradient";
 import { Check, ChevronDown, ExternalLink, MessagesSquare } from "@/lib/icons";
-import { Link, useLocalSearchParams, type Href } from "expo-router";
+import { Link, useLocalSearchParams, useRouter, type Href } from "expo-router";
+import Head from "expo-router/head";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { PollCard } from "@/components/PollCard";
 import { PollTimer } from "@/components/PollTimer";
@@ -19,14 +20,60 @@ import { IntrinsicEditorialSplit } from "@/components/IntrinsicEditorialSplit";
 import { NonBreakingFinalPunctuation } from "@/components/NonBreakingFinalPunctuation";
 import { siteContainerStyle } from "@/components/SiteContainer";
 import { useAuth } from "@/components/AuthProvider";
-import { fetchPoll, getCachedPoll, getCachedResults, getCachedResultsHistory, getResults, getResultsHistory, getUserPollAnswer } from "@/lib/api";
+import { fetchPoll, getCachedPoll, getCachedResults, getCachedResultsHistory, getResults, getResultsHistory, getUserPollAnswer, resolveLegacyPollUrl } from "@/lib/api";
 import { decisionTreePreviewByPollId } from "@/lib/decisionTrees";
 import { getPollDescription, getThemeLabel, getThemeRoute } from "@/lib/product";
 import { STAMIO_CORE_COLORS, fontFamilyBold, fontFamilyMedium, fontFamilySemibold, getColorWithOpacity, getThemeTagStyle, palette, radius } from "@/lib/design";
 import type { Poll, PollHistoryPoint, PollResource, PollResult, VoteStatus } from "@/lib/types";
+import { getHistoricalResultPath, getQuestionPath } from "@/lib/publicPollUrls";
 
-export default function PollScreen() {
+export default function LegacyPollRoute() {
   const { pollId } = useLocalSearchParams<{ pollId: string }>();
+  const router = useRouter();
+  const [resolving, setResolving] = useState(true);
+
+  useEffect(() => {
+    let active = true;
+    setResolving(true);
+    if (!pollId) {
+      setResolving(false);
+      return () => { active = false; };
+    }
+
+    resolveLegacyPollUrl(pollId).then((resolution) => {
+      if (!active) return;
+      if (!resolution) {
+        setResolving(false);
+        return;
+      }
+      const path = resolution.route_kind === "question"
+        ? getQuestionPath(resolution.series_slug)
+        : getHistoricalResultPath(resolution.series_slug, resolution.wave_number);
+      router.replace(path as Href);
+    });
+
+    return () => { active = false; };
+  }, [pollId, router]);
+
+  return (
+    <>
+      <Head><meta name="robots" content="noindex, follow" /></Head>
+      <PollScreen pollId={null} resolving={resolving} />
+    </>
+  );
+}
+
+export function PollScreen({
+  pollId,
+  canonicalPath,
+  resolving = false,
+  resultsOnly = false
+}: {
+  pollId: string | null;
+  canonicalPath?: string;
+  resolving?: boolean;
+  resultsOnly?: boolean;
+}) {
   const { user, loading: authLoading } = useAuth();
   const { width } = useWindowDimensions();
   const compact = width < 760;
@@ -52,7 +99,16 @@ export default function PollScreen() {
   useEffect(() => {
     let active = true;
     async function load() {
-      if (!pollId) return;
+      if (resolving) return;
+      if (!pollId) {
+        setPoll(null);
+        setResults([]);
+        setResultsSnapshotAt(null);
+        setHistory([]);
+        setLoading(false);
+        fade.setValue(1);
+        return;
+      }
       const cachedPoll = getCachedPoll(pollId);
       const cachedResults = getCachedResults(pollId);
       const cachedHistory = getCachedResultsHistory(pollId);
@@ -96,7 +152,7 @@ export default function PollScreen() {
       active = false;
       clearInterval(timer);
     };
-  }, [fade, pollId]);
+  }, [fade, pollId, resolving]);
 
   useEffect(() => {
     let active = true;
@@ -124,7 +180,7 @@ export default function PollScreen() {
   }, [authLoading, pollId, user?.id]);
 
   const selectedChoice = poll?.choices.find((choice) => choice.id === selectedChoiceId) ?? null;
-  const isPollOpen = Boolean(poll && poll.status === "open" && (!poll.closes_at || new Date(poll.closes_at).getTime() > Date.now()));
+  const isPollOpen = Boolean(!resultsOnly && poll && poll.status === "open" && (!poll.closes_at || new Date(poll.closes_at).getTime() > Date.now()));
   const voteAccepted = voteState?.status === "accepted";
   const voteDuplicate = voteState?.status === "duplicate";
   const alreadyParticipated = Boolean((serverAnswerChoiceId || voteDuplicate) && !voteAccepted);
@@ -181,8 +237,20 @@ export default function PollScreen() {
     scrollRef.current?.scrollTo({ y: Math.max(0, contextY - 18), animated: true });
   }
 
+  const canonicalUrl = canonicalPath ? `https://stamio.fr${canonicalPath}` : null;
+
   return (
-    <LinearGradient colors={[palette.canvas, "#0A0E14", palette.canvas]} style={styles.root}>
+    <>
+      {poll && canonicalUrl ? (
+        <Head>
+          <title>{poll.question} — Stamio</title>
+          <link rel="canonical" href={canonicalUrl} />
+          <meta property="og:title" content={poll.question} />
+          <meta property="og:url" content={canonicalUrl} />
+          <meta property="og:type" content="article" />
+        </Head>
+      ) : null}
+      <LinearGradient colors={[palette.canvas, "#0A0E14", palette.canvas]} style={styles.root}>
       <SafeAreaView style={styles.safe}>
         <ScrollView ref={scrollRef} contentContainerStyle={styles.scroll} showsVerticalScrollIndicator={false}>
           {loading ? (
@@ -302,6 +370,7 @@ export default function PollScreen() {
             choiceId={selectedChoice.id}
             choiceLabel={selectedChoice.label}
             platform={Platform.OS === "web" ? "web" : "native"}
+            returnPath={canonicalPath ?? `/poll/${poll.id}`}
             onClose={() => setPanelVisible(false)}
             onFinished={handleVoteFinished}
             onExploreContext={scrollToContext}
@@ -309,7 +378,8 @@ export default function PollScreen() {
           />
         ) : null}
       </SafeAreaView>
-    </LinearGradient>
+      </LinearGradient>
+    </>
   );
 }
 

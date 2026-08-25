@@ -51,6 +51,9 @@ const publicCache = new Map<string, CacheEntry<unknown>>();
 
 const cacheKeys = {
   poll: (pollId: string) => `poll:${pollId}`,
+  questionRoute: (slug: string) => `question-route:${slug}`,
+  resultRoute: (slug: string, waveNumber: number) => `result-route:${slug}:${waveNumber}`,
+  legacyRoute: (pollId: string) => `legacy-route:${pollId}`,
   results: (pollId: string) => `results:${pollId}`,
   history: (pollId: string) => `history:${pollId}`,
   comments: (pollId: string) => `comments:${pollId}`,
@@ -59,8 +62,40 @@ const cacheKeys = {
     `collection:${options.status ?? "open"}:${options.theme ?? "all"}:${options.featuredOnly ? "featured" : "any"}:${options.showInResultsOnly ? "visible-results" : "any"}:${options.limit}:${options.includeResults ? "results" : "stats"}`
 };
 
-const BASE_POLL_SELECT = "id, series_id, wave_number, question, description, status, theme, featured, show_in_results, archived, trend_label, created_at, launched_at, closes_at, choices(id, poll_id, label, position, choice_key)";
+const BASE_POLL_SELECT = "id, series_id, wave_number, question, description, status, theme, featured, show_in_results, archived, trend_label, created_at, launched_at, closes_at, poll_series(slug), choices(id, poll_id, label, position, choice_key)";
 const POLL_SELECT = `${BASE_POLL_SELECT}, poll_resources(id, poll_id, title, url, resource_type, description, position, created_at)`;
+
+export type PublicPollResolution = {
+  poll_id: string;
+  series_id: string;
+  series_slug: string;
+  wave_number: number;
+  route_kind?: "question" | "resultats";
+};
+
+export async function resolvePublicQuestion(slug: string): Promise<PublicPollResolution | null> {
+  return cached(cacheKeys.questionRoute(slug), async () => {
+    const { data, error } = await supabase.rpc("resolve_public_question", { p_slug: slug });
+    return error ? null : readPublicPollResolution(data);
+  }, { label: "resolvePublicQuestion" });
+}
+
+export async function resolvePublicHistoricalResult(slug: string, waveNumber: number): Promise<PublicPollResolution | null> {
+  return cached(cacheKeys.resultRoute(slug, waveNumber), async () => {
+    const { data, error } = await supabase.rpc("resolve_public_poll_result", {
+      p_slug: slug,
+      p_wave_number: waveNumber
+    });
+    return error ? null : readPublicPollResolution(data);
+  }, { label: "resolvePublicHistoricalResult" });
+}
+
+export async function resolveLegacyPollUrl(pollId: string): Promise<PublicPollResolution | null> {
+  return cached(cacheKeys.legacyRoute(pollId), async () => {
+    const { data, error } = await supabase.rpc("resolve_legacy_poll_url", { p_poll_id: pollId });
+    return error ? null : readPublicPollResolution(data);
+  }, { label: "resolveLegacyPollUrl" });
+}
 
 export async function fetchPoll(pollId: string, options: CacheOptions = {}): Promise<Poll | null> {
   return cached(cacheKeys.poll(pollId), async () => {
@@ -299,10 +334,16 @@ export async function adminCreatePoll(input: AdminCreatePollInput): Promise<{ po
     p_series_id: input.series_id ?? null,
     p_choice_keys: input.choice_keys ?? null,
     p_show_in_results: input.show_in_results ?? false,
-    p_resources: input.resources ?? []
+    p_resources: input.resources ?? [],
+    p_slug: input.slug
   });
 
-  if (error) return { pollId: null, error: error.message };
+  if (error) {
+    const message = error.message.includes("slug_already_exists")
+      ? "Ce slug public est déjà utilisé par une autre série. Choisissez un slug distinct."
+      : error.message;
+    return { pollId: null, error: message };
+  }
   invalidatePublicCaches();
 
   const first = Array.isArray(data) ? data[0] : data;
@@ -451,17 +492,29 @@ export async function getLatestUserAnswers(): Promise<UserPollAnswer[]> {
 
   const { data, error } = await supabase
     .from("user_poll_answers")
-    .select("id, user_id, poll_id, choice_id, created_at, polls(question, theme), choices(label)")
+    .select("id, user_id, poll_id, choice_id, created_at, polls(question, theme, status, wave_number, poll_series(slug)), choices(label)")
     .eq("user_id", user.id)
     .order("created_at", { ascending: false })
     .limit(8);
 
   if (error || !data) return [];
-  return data.map((answer) => ({
-    ...answer,
-    polls: Array.isArray(answer.polls) ? answer.polls[0] ?? null : answer.polls,
-    choices: Array.isArray(answer.choices) ? answer.choices[0] ?? null : answer.choices
-  })) as unknown as UserPollAnswer[];
+  return data.map((answer) => {
+    const rawPoll = Array.isArray(answer.polls) ? answer.polls[0] ?? null : answer.polls;
+    const rawSeries = rawPoll && "poll_series" in rawPoll
+      ? (Array.isArray(rawPoll.poll_series) ? rawPoll.poll_series[0] ?? null : rawPoll.poll_series)
+      : null;
+    return {
+      ...answer,
+      polls: rawPoll ? {
+        question: rawPoll.question,
+        theme: rawPoll.theme,
+        status: rawPoll.status,
+        wave_number: rawPoll.wave_number,
+        series_slug: rawSeries?.slug ?? null
+      } : null,
+      choices: Array.isArray(answer.choices) ? answer.choices[0] ?? null : answer.choices
+    };
+  }) as unknown as UserPollAnswer[];
 }
 
 export async function getUserPollAnswer(pollId: string): Promise<UserPollAnswer | null> {
@@ -645,12 +698,30 @@ async function fetchPollCollection(options: {
 function normalizePoll(data: Record<string, unknown>): Poll {
   const choices = Array.isArray(data.choices) ? data.choices : [];
   const rawResources = Array.isArray(data.poll_resources) ? data.poll_resources : Array.isArray(data.resources) ? data.resources : [];
+  const rawSeries = Array.isArray(data.poll_series) ? data.poll_series[0] : data.poll_series;
+  const seriesSlug = rawSeries && typeof rawSeries === "object" && "slug" in rawSeries && typeof rawSeries.slug === "string"
+    ? rawSeries.slug
+    : null;
   return {
     ...(data as Poll),
+    series_slug: seriesSlug,
     description: typeof data.description === "string" && data.description.trim() ? data.description : getPollDescription(String(data.id)),
     choices: [...choices].sort((a, b) => Number(a.position) - Number(b.position)),
     resources: [...rawResources].sort((a, b) => Number(a.position) - Number(b.position)) as Poll["resources"]
   };
+}
+
+function readPublicPollResolution(data: unknown): PublicPollResolution | null {
+  const row = Array.isArray(data) ? data[0] : data;
+  if (!row || typeof row !== "object") return null;
+  const value = row as Record<string, unknown>;
+  if (
+    typeof value.poll_id !== "string"
+    || typeof value.series_id !== "string"
+    || typeof value.series_slug !== "string"
+    || typeof value.wave_number !== "number"
+  ) return null;
+  return value as PublicPollResolution;
 }
 
 function createEmptyOpenPollStats(): OpenPollStats {
@@ -720,7 +791,12 @@ function cached<T>(key: string, loader: () => Promise<T>, options: CacheOptions 
 function invalidateCollectionCaches() {
   publicCache.delete(cacheKeys.openPollStats());
   for (const key of publicCache.keys()) {
-    if (key.startsWith("collection:")) publicCache.delete(key);
+    if (
+      key.startsWith("collection:")
+      || key.startsWith("question-route:")
+      || key.startsWith("result-route:")
+      || key.startsWith("legacy-route:")
+    ) publicCache.delete(key);
   }
 }
 

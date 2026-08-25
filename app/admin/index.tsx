@@ -20,6 +20,7 @@ import { THEMES, getThemeLabel } from "@/lib/product";
 import { MAX_POLL_DESCRIPTION_LENGTH, validatePollDescription } from "@/lib/pollDescription";
 import type { AdminCreatePollInput, AdminPollSummary, AdminSeriesSummary, PollResourceInput, PollResourceType, ThemeSlug } from "@/lib/types";
 import { authField, fontFamilyBold, fontFamilyMedium, fontFamilySemibold, palette, radius } from "@/lib/design";
+import { createPollSeriesSlug, getPollPublicPath, getQuestionPath, validatePollSeriesSlug } from "@/lib/publicPollUrls";
 
 const DEFAULT_CHOICES = ["Oui", "Non", "Ne se prononce pas"];
 const RESOURCE_TYPES: Array<{ label: string; value: PollResourceType }> = [
@@ -55,6 +56,8 @@ export default function AdminPage() {
   const [editingVotes, setEditingVotes] = useState(0);
   const [theme, setTheme] = useState<ThemeSlug>("politique");
   const [question, setQuestion] = useState("");
+  const [slug, setSlug] = useState("");
+  const [slugTouched, setSlugTouched] = useState(false);
   const [description, setDescription] = useState("");
   const [choices, setChoices] = useState(DEFAULT_CHOICES);
   const [includeResources, setIncludeResources] = useState(false);
@@ -68,6 +71,7 @@ export default function AdminPage() {
   const [submitting, setSubmitting] = useState(false);
   const [formError, setFormError] = useState<string | null>(null);
   const [createdPollId, setCreatedPollId] = useState<string | null>(null);
+  const [createdPublicPath, setCreatedPublicPath] = useState<string | null>(null);
 
   useEffect(() => {
     let active = true;
@@ -183,6 +187,7 @@ export default function AdminPage() {
     }
 
     const response = await adminCreatePoll({
+      slug,
       question: question.trim(),
       description: description.trim(),
       theme,
@@ -202,12 +207,17 @@ export default function AdminPage() {
     }
 
     setCreatedPollId(response.pollId);
+    setCreatedPublicPath(getQuestionPath(slug));
     setActionMessage("Nouvelle serie creee avec sa premiere vague.");
     await reloadPolls();
   }
 
   function validateForm() {
     if (!question.trim()) return "La question est obligatoire.";
+    if (!editingPollId) {
+      const slugError = validatePollSeriesSlug(slug);
+      if (slugError) return slugError;
+    }
     if (!description.trim()) return "Le texte d'enjeux est obligatoire.";
     const descriptionError = validatePollDescription(description);
     if (descriptionError) return descriptionError;
@@ -241,6 +251,8 @@ export default function AdminPage() {
     setEditingPollId(null);
     setEditingVotes(0);
     setQuestion("");
+    setSlug("");
+    setSlugTouched(false);
     setDescription("");
     setChoices(DEFAULT_CHOICES);
     setIncludeResources(false);
@@ -252,6 +264,7 @@ export default function AdminPage() {
     setShowInResults(false);
     setFormError(null);
     setCreatedPollId(null);
+    setCreatedPublicPath(null);
   }
 
   async function startEdit(poll: AdminPollSummary) {
@@ -265,6 +278,8 @@ export default function AdminPage() {
     setEditingPollId(poll.id);
     setEditingVotes(Number(detail.total_votes ?? poll.total_votes ?? 0));
     setQuestion(detail.poll.question);
+    setSlug(detail.series?.slug ?? poll.series_slug ?? "");
+    setSlugTouched(true);
     setDescription(detail.poll.description ?? "");
     setTheme((detail.poll.theme ?? poll.theme) as ThemeSlug);
     setChoices(detail.choices.length > 0 ? detail.choices.map((choice) => choice.label) : DEFAULT_CHOICES);
@@ -380,7 +395,7 @@ export default function AdminPage() {
             emptyLabel="Aucune question ouverte."
             relaunchDays={relaunchDays}
             setRelaunchDays={setRelaunchDays}
-            onView={(id) => router.push(`/poll/${id}` as Href)}
+            onView={(poll) => router.push(getAdminPollHref(poll) as Href)}
             onEdit={startEdit}
             onClose={closePoll}
             onRelaunch={relaunchPoll}
@@ -395,7 +410,7 @@ export default function AdminPage() {
             emptyLabel="Aucune archive."
             relaunchDays={relaunchDays}
             setRelaunchDays={setRelaunchDays}
-            onView={(id) => router.push(`/poll/${id}` as Href)}
+            onView={(poll) => router.push(getAdminPollHref(poll) as Href)}
             onEdit={startEdit}
             onClose={closePoll}
             onRelaunch={relaunchPoll}
@@ -455,7 +470,32 @@ export default function AdminPage() {
             </Field>
 
             <Field label="Question">
-              <TextInput value={question} onChangeText={setQuestion} placeholder="Ex. Faut-il..." placeholderTextColor={authField.placeholderColor} style={styles.input} />
+              <TextInput
+                value={question}
+                onChangeText={(value) => {
+                  setQuestion(value);
+                  if (!editingPollId && !slugTouched) setSlug(createPollSeriesSlug(value));
+                }}
+                placeholder="Ex. Faut-il..."
+                placeholderTextColor={authField.placeholderColor}
+                style={styles.input}
+              />
+            </Field>
+
+            <Field label="Slug public de la série">
+              <TextInput
+                value={slug}
+                editable={!editingPollId}
+                autoCapitalize="none"
+                autoCorrect={false}
+                onChangeText={(value) => {
+                  setSlugTouched(true);
+                  setSlug(value);
+                }}
+                placeholder="question-lisible-et-stable"
+                placeholderTextColor={authField.placeholderColor}
+                style={StyleSheet.flatten([styles.input, editingPollId && styles.disabled])}
+              />
             </Field>
 
             <Field label="Enjeux / description">
@@ -564,7 +604,7 @@ export default function AdminPage() {
               <View style={styles.success}>
                 <Text style={styles.successTitle}>Sondage cree</Text>
                 <Text selectable style={styles.successText}>{createdPollId}</Text>
-                <Pressable onPress={() => router.push(`/poll/${createdPollId}` as Href)} style={styles.secondaryAction}>
+                <Pressable onPress={() => createdPublicPath && router.push(createdPublicPath as Href)} style={styles.secondaryAction}>
                   <Text style={styles.secondaryActionText}>Voir le sondage</Text>
                   <ArrowRight size={15} color={palette.primaryStrong} />
                 </Pressable>
@@ -597,7 +637,7 @@ function PollList({
   emptyLabel: string;
   relaunchDays: string;
   setRelaunchDays: (value: string) => void;
-  onView: (pollId: string) => void;
+  onView: (poll: AdminPollSummary) => void;
   onEdit: (poll: AdminPollSummary) => void;
   onClose: (pollId: string) => void;
   onRelaunch: (pollId: string) => void;
@@ -627,7 +667,7 @@ function PollList({
             </View>
           </View>
           <View style={styles.actions}>
-            <IconAction icon={<Eye size={15} color={palette.primaryStrong} />} label="Voir" onPress={() => onView(poll.id)} />
+            <IconAction icon={<Eye size={15} color={palette.primaryStrong} />} label="Voir" onPress={() => onView(poll)} />
             <IconAction icon={<Pencil size={15} color={palette.primaryStrong} />} label="Modifier" onPress={() => onEdit(poll)} />
             {poll.status === "open" ? <IconAction icon={<Square size={15} color={palette.primaryStrong} />} label="Cloturer" onPress={() => onClose(poll.id)} /> : null}
             {poll.status === "closed" && !poll.archived ? (
@@ -732,6 +772,7 @@ function buildSeries(polls: AdminPollSummary[]): AdminSeriesSummary[] {
       const lastWave = sorted[0];
       return {
         series_id: seriesId,
+        slug: lastWave.series_slug ?? "",
         question: lastWave.question,
         theme: lastWave.theme,
         waveCount: sorted.length,
@@ -740,6 +781,18 @@ function buildSeries(polls: AdminPollSummary[]): AdminSeriesSummary[] {
       };
     })
     .sort((a, b) => String(b.lastWave.created_at).localeCompare(String(a.lastWave.created_at)));
+}
+
+function getAdminPollHref(poll: AdminPollSummary) {
+  if (!poll.series_slug || poll.wave_number === null) return `/poll/${poll.id}`;
+  return getPollPublicPath({
+    series_slug: poll.series_slug,
+    wave_number: poll.wave_number,
+    status: poll.status,
+    closes_at: poll.closes_at,
+    show_in_results: poll.show_in_results,
+    archived: poll.archived
+  }) ?? `/poll/${poll.id}`;
 }
 
 function deriveChoiceKeys(labels: string[]) {
