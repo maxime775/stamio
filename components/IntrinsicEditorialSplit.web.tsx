@@ -5,11 +5,17 @@ import { palette } from "@/lib/design";
 type Props = {
   primary: ReactNode;
   secondary: ReactNode;
+  primaryWeight?: number;
+  secondaryWeight?: number;
+  stacked?: boolean;
+  variant?: "preview" | "balanced";
 };
 
 const ROOT_SELECTOR = '[data-stamio-intrinsic-editorial="root"]';
 const PRIMARY_SELECTOR = '[data-stamio-intrinsic-editorial="primary"]';
 const SECONDARY_SELECTOR = '[data-stamio-intrinsic-editorial="secondary"]';
+const DIVIDER_SELECTOR = '[data-stamio-intrinsic-editorial="divider"]';
+const BALANCED_SELECTOR = '[data-stamio-intrinsic-editorial="root"][data-layout-variant="balanced"]';
 
 const intrinsicLayoutCss = `
 ${ROOT_SELECTOR} {
@@ -45,6 +51,24 @@ ${SECONDARY_SELECTOR} {
   align-self: center;
 }
 
+${DIVIDER_SELECTOR} {
+  display: none;
+}
+
+${BALANCED_SELECTOR} {
+  grid-template-columns: minmax(0, 1fr) 1px minmax(0, 1fr);
+  column-gap: 24px;
+  padding-top: 0;
+  border-top: 0;
+}
+
+${BALANCED_SELECTOR} ${DIVIDER_SELECTOR} {
+  display: block;
+  width: 1px;
+  min-height: 100%;
+  background: ${palette.lineStrong};
+}
+
 @media (max-width: 899px) {
   ${ROOT_SELECTOR} {
     grid-template-columns: minmax(0, 1fr);
@@ -60,15 +84,31 @@ ${SECONDARY_SELECTOR} {
   ${SECONDARY_SELECTOR} {
     align-self: stretch;
   }
+
+  ${BALANCED_SELECTOR} {
+    row-gap: 0;
+  }
+
+  ${BALANCED_SELECTOR} ${DIVIDER_SELECTOR} {
+    width: 100%;
+    min-height: 1px;
+    height: 1px;
+    margin: 14px 0;
+  }
 }
 `;
 
-export function IntrinsicEditorialSplit({ primary, secondary }: Props) {
+export function IntrinsicEditorialSplit({ primary, secondary, variant = "preview" }: Props) {
+  if (!primary || !secondary) {
+    return <View style={{ width: "100%", minWidth: 0 }}>{primary ?? secondary}</View>;
+  }
+
   return (
     <>
       {createElement("style", { dangerouslySetInnerHTML: { __html: intrinsicLayoutCss } })}
-      <View {...({ dataSet: { stamioIntrinsicEditorial: "root" } } as object)}>
+      <View {...({ dataSet: { stamioIntrinsicEditorial: "root", layoutVariant: variant } } as object)}>
         <View {...({ dataSet: { stamioIntrinsicEditorial: "primary" } } as object)}>{primary}</View>
+        {variant === "balanced" ? <View {...({ dataSet: { stamioIntrinsicEditorial: "divider" } } as object)} /> : null}
         <View {...({ dataSet: { stamioIntrinsicEditorial: "secondary" } } as object)}>{secondary}</View>
       </View>
     </>

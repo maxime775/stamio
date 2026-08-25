@@ -28,7 +28,9 @@ import type { Poll, PollHistoryPoint, PollResource, PollResult, VoteStatus } fro
 export default function PollScreen() {
   const { pollId } = useLocalSearchParams<{ pollId: string }>();
   const { user, loading: authLoading } = useAuth();
-  const compact = useWindowDimensions().width < 760;
+  const { width } = useWindowDimensions();
+  const compact = width < 760;
+  const previewStacked = width < 1040;
   const [poll, setPoll] = useState<Poll | null>(null);
   const [selectedChoiceId, setSelectedChoiceId] = useState<string | null>(null);
   const [serverAnswerChoiceId, setServerAnswerChoiceId] = useState<string | null>(null);
@@ -220,18 +222,12 @@ export default function PollScreen() {
                   >
                     <Text style={styles.contextKicker}>Enjeux</Text>
                     <MarkdownContent value={poll.description ?? getPollDescription(poll.id)} compact />
-                    {!decisionTreePreviewByPollId[poll.id] && poll.resources && poll.resources.length > 0
-                      ? <ResourceSection resources={poll.resources} />
-                      : null}
                   </View>
                   <ResultsDonutSummary choices={poll.choices} results={results} />
                 </View>
-                {decisionTreePreviewByPollId[poll.id] ? (
-                  <IntrinsicEditorialSplit
-                    primary={poll.resources && poll.resources.length > 0 ? <ResourceSection resources={poll.resources} expanded /> : null}
-                    secondary={<DecisionTreePreview pollId={poll.id} embedded borderless />}
-                  />
-                ) : null}
+                {(poll.resources && poll.resources.length > 0) || decisionTreePreviewByPollId[poll.id]
+                  ? <ResourceBand pollId={poll.id} resources={poll.resources ?? []} compact={compact} previewStacked={previewStacked} />
+                  : null}
               </View>
               <View style={styles.contentGrid}>
                 <View
@@ -317,19 +313,65 @@ export default function PollScreen() {
   );
 }
 
-function ResourceSection({ resources, expanded = false }: { resources: PollResource[]; expanded?: boolean }) {
+function ResourceBand({ pollId, resources, compact, previewStacked }: { pollId: string; resources: PollResource[]; compact: boolean; previewStacked: boolean }) {
   const [hoveredResourceId, setHoveredResourceId] = useState<string | null>(null);
+  const hasPreview = Boolean(decisionTreePreviewByPollId[pollId]);
+  const splitIndex = Math.ceil(resources.length / 2);
+  const firstColumn = resources.slice(0, splitIndex);
+  const secondColumn = resources.slice(splitIndex);
+
+  const renderResourceList = (items: PollResource[]) => (
+    <ResourceList
+      resources={items}
+      hoveredResourceId={hoveredResourceId}
+      onHoverResource={setHoveredResourceId}
+    />
+  );
+
+  const resourceList = resources.length > 0 ? renderResourceList(resources) : null;
+
+  if (hasPreview) {
+    return (
+      <IntrinsicEditorialSplit
+        primary={
+          <View style={styles.previewResources}>
+            <Text style={styles.resourcesTitle}>Les ressources utiles</Text>
+            {resourceList}
+          </View>
+        }
+        secondary={<DecisionTreePreview pollId={pollId} embedded borderless />}
+        primaryWeight={0.85}
+        secondaryWeight={1.15}
+        stacked={previewStacked}
+      />
+    );
+  }
 
   return (
-    <View style={StyleSheet.flatten([styles.resources, expanded && styles.resourcesExpanded])}>
+    <View style={styles.resourcesBand}>
       <Text style={styles.resourcesTitle}>Les ressources utiles</Text>
-      <View style={styles.resourceList}>
+      {compact ? (
+        resourceList
+      ) : (
+        <IntrinsicEditorialSplit
+          primary={renderResourceList(firstColumn)}
+          secondary={renderResourceList(secondColumn)}
+          variant="balanced"
+        />
+      )}
+    </View>
+  );
+}
+
+function ResourceList({ resources, hoveredResourceId, onHoverResource }: { resources: PollResource[]; hoveredResourceId: string | null; onHoverResource: (resourceId: string | null) => void }) {
+  return (
+    <View style={styles.resourceList}>
       {resources.map((resource, index) => (
         <Pressable
           key={resource.id}
           accessibilityRole="link"
-          onHoverIn={() => setHoveredResourceId(resource.id)}
-          onHoverOut={() => setHoveredResourceId(null)}
+          onHoverIn={() => onHoverResource(resource.id)}
+          onHoverOut={() => onHoverResource(null)}
           onPress={() => void Linking.openURL(resource.url)}
           style={({ pressed }) => StyleSheet.flatten([
             styles.resourceLink,
@@ -349,7 +391,6 @@ function ResourceSection({ resources, expanded = false }: { resources: PollResou
           <ExternalLink size={13} color={hoveredResourceId === resource.id ? palette.primaryStrong : palette.muted} />
         </Pressable>
       ))}
-      </View>
     </View>
   );
 }
@@ -517,8 +558,8 @@ const styles = StyleSheet.create({
   contextBlock: { flex: 1, minWidth: 280, borderLeftWidth: 2, borderLeftColor: palette.primary, paddingVertical: 12, paddingHorizontal: 16, alignSelf: "stretch", justifyContent: "center", gap: 7 },
   contextKicker: { color: palette.primaryStrong, fontFamily: fontFamilySemibold, fontSize: 10, textTransform: "uppercase", letterSpacing: 1 },
   contextText: { color: palette.inkSecondary, fontSize: 14, lineHeight: 22, maxWidth: 720 },
-  resources: { width: "100%", marginTop: 11, paddingTop: 14, borderTopWidth: 1, borderTopColor: palette.line, gap: 9, maxWidth: 760 },
-  resourcesExpanded: { marginTop: 0, paddingTop: 0, borderTopWidth: 0, maxWidth: "100%" },
+  resourcesBand: { width: "100%", paddingTop: 14, borderTopWidth: 1, borderTopColor: palette.line, gap: 11 },
+  previewResources: { width: "100%", minWidth: 0, gap: 9 },
   resourcesTitle: { color: palette.ink, fontFamily: fontFamilySemibold, fontSize: 14, lineHeight: 20 },
   resourceList: { width: "100%", borderTopWidth: 1, borderTopColor: palette.line, marginTop: 2 },
   resourceLink: {
