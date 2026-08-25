@@ -17,6 +17,7 @@ import {
   getAdminStatus
 } from "@/lib/api";
 import { THEMES, getThemeLabel } from "@/lib/product";
+import { MAX_POLL_DESCRIPTION_LENGTH, validatePollDescription } from "@/lib/pollDescription";
 import type { AdminCreatePollInput, AdminPollSummary, AdminSeriesSummary, PollResourceInput, PollResourceType, ThemeSlug } from "@/lib/types";
 import { authField, fontFamilyBold, fontFamilyMedium, fontFamilySemibold, palette, radius } from "@/lib/design";
 
@@ -208,7 +209,8 @@ export default function AdminPage() {
   function validateForm() {
     if (!question.trim()) return "La question est obligatoire.";
     if (!description.trim()) return "Le texte d'enjeux est obligatoire.";
-    if (description.length > 4000) return "Limitez les enjeux a 4000 caracteres.";
+    const descriptionError = validatePollDescription(description);
+    if (descriptionError) return descriptionError;
     if (cleanedChoices.length < 2) return "Ajoutez au moins deux choix.";
     if (cleanedChoices.length > 6) return "Limitez le sondage a six choix maximum.";
     if (new Set(cleanedChoices).size !== cleanedChoices.length) return "Les choix ne doivent pas contenir de doublon exact.";
@@ -457,7 +459,12 @@ export default function AdminPage() {
             </Field>
 
             <Field label="Enjeux / description">
-              <MarkdownEditor value={description} onChangeText={setDescription} placeholder="Expliquez le contexte du debat..." />
+              <MarkdownEditor
+                value={description}
+                onChangeText={setDescription}
+                placeholder="Expliquez le contexte du debat..."
+                characterLimit={MAX_POLL_DESCRIPTION_LENGTH}
+              />
             </Field>
 
             <View style={styles.checkboxGrid}>

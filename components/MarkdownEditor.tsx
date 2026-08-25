@@ -8,6 +8,7 @@ type Props = {
   value: string;
   onChangeText: (value: string) => void;
   placeholder?: string;
+  characterLimit?: number;
 };
 
 type Selection = {
@@ -15,7 +16,7 @@ type Selection = {
   end: number;
 };
 
-export const MarkdownEditor = memo(function MarkdownEditor({ value, onChangeText, placeholder }: Props) {
+export const MarkdownEditor = memo(function MarkdownEditor({ value, onChangeText, placeholder, characterLimit }: Props) {
   const [selection, setSelection] = useState<Selection>({ start: value.length, end: value.length });
   const [preview, setPreview] = useState(false);
 
@@ -66,7 +67,14 @@ export const MarkdownEditor = memo(function MarkdownEditor({ value, onChangeText
           style={StyleSheet.flatten([styles.input, webInputReset])}
         />
       )}
-      <Text style={styles.help}>Markdown limité : gras, italique, listes, citation, lien http(s) et sous-titre.</Text>
+      <View style={styles.helpRow}>
+        <Text style={styles.help}>Markdown limité : gras, italique, listes, citation, lien http(s) et sous-titre.</Text>
+        {characterLimit ? (
+          <Text accessibilityLiveRegion="polite" style={styles.characterCount}>
+            {formatCharacterCount(value.length)} / {formatCharacterCount(characterLimit)}
+          </Text>
+        ) : null}
+      </View>
     </View>
   );
 });
@@ -134,5 +142,11 @@ const styles = StyleSheet.create({
     textAlignVertical: "top"
   },
   preview: { minHeight: 126, paddingHorizontal: 13, paddingVertical: 11 },
-  help: { color: palette.muted, fontSize: 11, lineHeight: 16, paddingHorizontal: 13, paddingBottom: 10 }
+  helpRow: { flexDirection: "row", alignItems: "flex-end", justifyContent: "space-between", gap: 12, paddingHorizontal: 13, paddingBottom: 10 },
+  help: { flex: 1, color: palette.muted, fontSize: 11, lineHeight: 16 },
+  characterCount: { color: palette.muted, fontFamily: fontFamilyMedium, fontSize: 11, lineHeight: 16 }
 });
+
+function formatCharacterCount(value: number) {
+  return value.toString().replace(/\B(?=(\d{3})+(?!\d))/g, " ");
+}

@@ -15,6 +15,7 @@
     "security:secrets": "node scripts/verify-no-client-secrets.mjs",
     "test:account-menu": "node scripts/verify-account-menu-hover.mjs",
     "test:auth-buttons": "node scripts/verify-auth-button-hover.mjs",
+    "test:poll-question-length": "node --experimental-strip-types --disable-warning=MODULE_TYPELESS_PACKAGE_JSON scripts/verify-poll-question-length.mjs",
     "test:passkey": "node scripts/verify-passkey-flow.mjs",
     "test:passkey-reliability": "node scripts/verify-passkey-reliability.mjs",
     "test:passkey-first-attempt": "node scripts/verify-passkey-first-attempt.mjs",

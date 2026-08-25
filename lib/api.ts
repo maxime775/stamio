@@ -1,5 +1,6 @@
 import { supabase } from "@/lib/supabase";
 import { getPollDescription } from "@/lib/product";
+import { validatePollDescription } from "@/lib/pollDescription";
 import type {
   Poll,
   PollComment,
@@ -283,6 +284,9 @@ export async function getAdminStatus(): Promise<boolean> {
 }
 
 export async function adminCreatePoll(input: AdminCreatePollInput): Promise<{ pollId: string | null; error?: string }> {
+  const descriptionError = validatePollDescription(input.description);
+  if (descriptionError) return { pollId: null, error: descriptionError };
+
   const { data, error } = await supabase.rpc("admin_create_poll", {
     p_question: input.question,
     p_description: input.description,
@@ -350,6 +354,9 @@ export async function adminRelaunchPoll(input: AdminRelaunchPollInput): Promise<
 }
 
 export async function adminUpdatePoll(input: AdminUpdatePollInput): Promise<{ ok: boolean; error?: string }> {
+  const descriptionError = validatePollDescription(input.description);
+  if (descriptionError) return { ok: false, error: descriptionError };
+
   const { error } = await supabase.rpc("admin_update_poll", {
     p_poll_id: input.poll_id,
     p_question: input.question,
