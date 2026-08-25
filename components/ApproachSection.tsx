@@ -5,7 +5,7 @@ import { useReducedMotion } from "@/lib/useReducedMotion";
 
 const SECTION_TITLE = "Notre approche";
 const ITEMS = [
-  { title: "Participer en confiance", text: "Chaque participation s’inscrit dans un processus de vérification sécurisé. Pour chaque question, un même numéro vérifié ne peut contribuer qu’une seule fois, afin de préserver la qualité du signal recueilli." },
+  { title: "Participer en confiance", text: "Chaque participation s’inscrit dans un processus de vérification sécurisé. Pour chaque question, un système d’authentification avec clé d’accès unique permet de préserver la qualité du signal recueilli." },
   { title: "Préserver l’anonymat", text: "Les résultats sont présentés sous forme agrégée afin de faire apparaître les tendances, sans jamais dévoiler les participations individuelles." },
   { title: "La réflexion au centre", text: "Les questions peuvent être accompagnées de ressources et d’éléments de contexte pour encourager chacun à s’interroger plus en profondeur sur les enjeux du sujet. Avoir un avis est légitime ; prendre le temps de le confronter, de le nuancer ou de le faire évoluer l’est tout autant." },
   { title: "Suivre l’évolution du signal", text: "Les sujets évoluent, les arguments convainquent ou se renversent, les positions changent. Stamio permet de mettre les avis en perspective et d’observer la manière dont les points de vue se transforment ou se consolident au fil du débat." }

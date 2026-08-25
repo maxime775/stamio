@@ -1,6 +1,7 @@
 import { memo, useEffect, useMemo } from "react";
 import { Animated, StyleSheet, Text, View } from "react-native";
 import Svg, { Circle } from "react-native-svg";
+import { formatAggregatedVotes, getAggregatedVotesLabel } from "@/lib/aggregatedVotes";
 import { fontFamilyBold, fontFamilyMedium, palette } from "@/lib/design";
 import { useReducedMotion } from "@/lib/useReducedMotion";
 
@@ -13,6 +14,8 @@ export const VotesMetric = memo(function VotesMetric({ value, accent = palette.p
   const draw = useMemo(() => new Animated.Value(0), []);
   const content = useMemo(() => new Animated.Value(0), []);
   const reducedMotion = useReducedMotion();
+  const formattedValue = formatAggregatedVotes(value);
+  const label = getAggregatedVotesLabel(value);
 
   useEffect(() => {
     draw.stopAnimation();
@@ -33,7 +36,7 @@ export const VotesMetric = memo(function VotesMetric({ value, accent = palette.p
   }, [animationKey, content, draw, reducedMotion]);
 
   return (
-    <View accessibilityLabel={`${value} votes agrégés`} style={styles.wrap}>
+    <View accessibilityLabel={formattedValue} style={styles.wrap}>
       <View style={styles.ring}>
         <Svg width={SIZE} height={SIZE} viewBox={`0 0 ${SIZE} ${SIZE}`} style={styles.svg}>
           <Circle cx={SIZE / 2} cy={SIZE / 2} r={RADIUS} fill="none" stroke={palette.lineStrong} strokeWidth={8} />
@@ -55,7 +58,7 @@ export const VotesMetric = memo(function VotesMetric({ value, accent = palette.p
           transform: [{ scale: content.interpolate({ inputRange: [0, 1], outputRange: [0.96, 1] }) }]
         }])}>
           <Text style={styles.value}>{value}</Text>
-          <Text style={styles.label}>votes agrégés</Text>
+          <Text style={styles.label}>{label}</Text>
         </Animated.View>
       </View>
     </View>

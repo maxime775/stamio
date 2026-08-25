@@ -1,7 +1,8 @@
-import { useEffect, useMemo, useRef, useState, type ReactNode } from "react";
-import { Animated, Easing, Platform, Pressable, StyleSheet, Text, useWindowDimensions, View } from "react-native";
-import { Link } from "expo-router";
+import { useEffect, useMemo, useRef, type ReactNode } from "react";
+import { Animated, Easing, Platform, StyleSheet, Text, useWindowDimensions, View } from "react-native";
+import { HeroActionButton } from "@/components/HeroActionButton";
 import { PageShell } from "@/components/PageShell";
+import { prefetchThemePolls } from "@/lib/api";
 import { STAMIO_CORE_COLORS, fontFamilyBold, fontFamilyMedium, fontFamilySemibold, palette, radius } from "@/lib/design";
 import { useReducedMotion } from "@/lib/useReducedMotion";
 
@@ -51,23 +52,6 @@ const FUTURE_POINTS = [
 export default function AboutPage() {
   const { width } = useWindowDimensions();
   const compact = width < 760;
-  const reducedMotion = useReducedMotion();
-  const [ctaActive, setCtaActive] = useState(false);
-  const ctaProgress = useMemo(() => new Animated.Value(0), []);
-
-  function animateCta(toValue: number) {
-    setCtaActive(toValue === 1);
-    if (reducedMotion) {
-      ctaProgress.setValue(toValue);
-      return;
-    }
-    Animated.timing(ctaProgress, {
-      toValue,
-      duration: 260,
-      easing: Easing.out(Easing.cubic),
-      useNativeDriver: true
-    }).start();
-  }
 
   return (
     <PageShell>
@@ -171,34 +155,14 @@ export default function AboutPage() {
               Notre conviction : une opinion gagne en valeur lorsqu’elle peut être exprimée dans un cadre clair, confrontée à d’autres points de vue et lue avec nuance.
             </Text>
             <RevealBlock delay={ABOUT_ANIMATION.ctaDelay} distance={18}>
-              <Link href="/themes" asChild>
-                <Pressable
-                  accessibilityRole="link"
-                  onHoverIn={() => animateCta(1)}
-                  onHoverOut={() => animateCta(0)}
-                  onFocus={() => animateCta(1)}
-                  onBlur={() => animateCta(0)}
-                  onPressIn={() => animateCta(1)}
-                  onPressOut={() => animateCta(0)}
-                  style={({ pressed }) => StyleSheet.flatten([styles.cta, pressed && styles.ctaPressed])}
-                >
-                  <Animated.View
-                    pointerEvents="none"
-                    style={StyleSheet.flatten([
-                      styles.ctaFill,
-                      {
-                        transform: [{
-                          translateY: ctaProgress.interpolate({
-                            inputRange: [0, 1],
-                            outputRange: [54, 0]
-                          })
-                        }]
-                      }
-                    ])}
-                  />
-                  <Text style={StyleSheet.flatten([styles.ctaText, ctaActive && styles.ctaTextActive])}>Découvrir les questions</Text>
-                </Pressable>
-              </Link>
+              <HeroActionButton
+                label="Découvrir les questions"
+                variant="primary"
+                href="/themes"
+                onPressIn={() => prefetchThemePolls("all")}
+                onFocus={() => prefetchThemePolls("all")}
+                onHoverIn={() => prefetchThemePolls("all")}
+              />
             </RevealBlock>
           </View>
         </RevealBlock>
@@ -465,26 +429,4 @@ const styles = StyleSheet.create({
   finalSectionCompact: { flexDirection: "column", alignItems: "flex-start" },
   finalText: { flex: 1, color: palette.ink, fontFamily: fontFamilyBold, fontSize: 28, lineHeight: 36, letterSpacing: 0, maxWidth: 820 },
   finalTextCompact: { fontSize: 23, lineHeight: 31 },
-  cta: {
-    minHeight: 48,
-    borderRadius: radius.sm,
-    borderWidth: 1,
-    borderColor: palette.primaryStrong,
-    backgroundColor: "transparent",
-    paddingHorizontal: 18,
-    alignItems: "center",
-    justifyContent: "center",
-    overflow: "hidden"
-  },
-  ctaPressed: { opacity: 0.9 },
-  ctaFill: {
-    position: "absolute",
-    left: 0,
-    right: 0,
-    bottom: 0,
-    height: 54,
-    backgroundColor: palette.primaryStrong
-  },
-  ctaText: { color: palette.primaryStrong, fontFamily: fontFamilySemibold, fontSize: 14, lineHeight: 20 },
-  ctaTextActive: { color: palette.onPrimary }
 });
