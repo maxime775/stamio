@@ -20,9 +20,6 @@ rp_display_name = "Stamio local"
 rp_id = "localhost"
 rp_origins = ["http://localhost:8081"]
 
-[functions.submit-vote]
-verify_jwt = false
-
 [functions.authorize-vote]
 verify_jwt = false
 

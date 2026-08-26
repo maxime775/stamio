@@ -520,14 +520,14 @@ export async function getCurrentUserProfile(): Promise<Profile | null> {
 
   const { data, error } = await supabase
     .from("profiles")
-    .select("id, email, username, username_normalized, sex, phone_last4, phone_verified_at, phone_last_changed_at, age, profession, region, reputation_score, created_at, updated_at, passkey_required_at, passkey_enrolled_at")
+    .select("id, email, username, username_normalized, sex, age, profession, region, reputation_score, created_at, updated_at, passkey_required_at, passkey_enrolled_at")
     .eq("id", user.id)
     .maybeSingle();
 
   if (error) {
     const fallback = await supabase
       .from("profiles")
-      .select("id, email, username, username_normalized, sex, phone_last4, age, profession, region, reputation_score, created_at, updated_at")
+      .select("id, email, username, username_normalized, sex, age, profession, region, reputation_score, created_at, updated_at")
       .eq("id", user.id)
       .maybeSingle();
     if (fallback.error || !fallback.data) return null;

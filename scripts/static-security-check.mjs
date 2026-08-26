@@ -56,41 +56,47 @@ if (!deletion.includes("auth.getUser(token)") || !deletion.includes("deletePassk
   failures.push("passkey deletion: ownership, last-key recovery and server resync required");
 }
 
-const vote = read("supabase/functions/submit-vote/index.ts");
+const authorizeVote = read("supabase/functions/authorize-vote/index.ts");
+const submitBallot = read("supabase/functions/submit-ballot/index.ts");
+const finalizeVote = read("supabase/functions/finalize-vote/index.ts");
 const votingAccount = read("supabase/functions/_shared/voting-account.ts");
-for (const expected of ["auth.getUser(token)", "VOTER_HASH_SECRET", "consume_rate_limit", "submit_authenticated_vote", "passkey_required_at"]) {
-  if (!vote.includes(expected)) failures.push(`submit-vote: missing ${expected}`);
+for (const expected of ["VOTER_HASH_SECRET", "consume_rate_limit", "issue_ballot_authorization"]) {
+  if (!authorizeVote.includes(expected)) failures.push(`authorize-vote: missing ${expected}`);
 }
 for (const expected of ["auth.getUser(token)", "passkey_required_at", "admin.passkey.listPasskeys({ userId: user.id })"]) {
   if (!votingAccount.includes(expected)) failures.push(`shared voting account verification: missing ${expected}`);
 }
-if (/\bnew Map\s*</.test(vote) || vote.includes("voteWindows")) failures.push("submit-vote: in-memory rate limit is forbidden");
-if (vote.includes("record_verified_user_answer") || vote.includes("submit_verified_vote")) failures.push("submit-vote: split or phone-based vote RPC remains");
-if (/body\?\.(?:user_id|userId)/.test(vote)) failures.push("submit-vote: user identity must not come from request body");
-if (/console\.(?:log|info|warn|error)\([^)]*(?:token|credential|user\.id|email|rawIp)/i.test(vote)) failures.push("submit-vote: sensitive material may be logged");
+if (/choice_id|choiceId/.test(authorizeVote)) failures.push("authorize-vote: Phase A must never receive or process a choice");
+if (!submitBallot.includes('req.headers.has("Authorization")') || !submitBallot.includes("redeem_ballot_permit")) failures.push("submit-ballot: anonymous authorization rejection or permit redemption missing");
+for (const forbidden of ["user_id", "auth.getUser", "profiles", "vote_authorization_bindings", "user_poll_participations", "SUPABASE_SERVICE_ROLE_KEY"]) {
+  if (submitBallot.includes(forbidden)) failures.push(`submit-ballot: Phase B contains forbidden ${forbidden}`);
+}
+if (/choice_id|choiceId|public\.votes/.test(finalizeVote)) failures.push("finalize-vote: Phase A finalization must not inspect a choice or ballot");
+for (const [name, source] of [["authorize-vote", authorizeVote], ["submit-ballot", submitBallot], ["finalize-vote", finalizeVote]]) {
+  if (/console\.(?:log|info|warn|error)/.test(source)) failures.push(`${name}: vote-path logs are forbidden`);
+}
 
-const migration = read("supabase/migrations/20260727120000_passkey_auth.sql");
-const serviceRoleGrants = read("supabase/migrations/20260727183000_passkey_service_role_grants.sql");
+const expand = read("supabase/migrations/20260826120000_anonymous_vote_expand.sql");
+const scrub = read("supabase/migrations/20260826160000_anonymous_vote_scrub.sql");
 for (const expected of [
-  "passkey_required_at", "passkey_enrolled_at", "vote_user_locks", "abuse_rate_limits",
-  "submit_authenticated_vote", "consume_rate_limit", "set search_path = pg_catalog, public",
-  "revoke all on function public.submit_authenticated_vote", "grant execute on function public.submit_authenticated_vote",
-  "insert into public.vote_user_locks", "insert into public.votes", "insert into public.user_poll_answers"
+  "user_poll_participations", "vote_authorization_bindings", "ballot_permits",
+  "issue_ballot_authorization", "redeem_ballot_permit", "finalize_ballot_participation",
+  "reconcile_consumed_ballot_participations", "set search_path = pg_catalog, public"
 ]) {
-  if (!migration.includes(expected)) failures.push(`passkey migration: missing ${expected}`);
+  if (!expand.includes(expected)) failures.push(`anonymous vote EXPAND: missing ${expected}`);
 }
-if (!/grant execute on function public\.submit_authenticated_vote\([^;]+to service_role;/s.test(migration) ||
-    /grant execute on function public\.submit_authenticated_vote\([^;]+to (?:anon|authenticated|public);/s.test(migration)) {
-  failures.push("passkey migration: sensitive RPC execution must be service_role-only");
+if (!/grant execute on function public\.issue_ballot_authorization\([^;]+to service_role;/s.test(expand) ||
+    /grant execute on function public\.issue_ballot_authorization\([^;]+to (?:anon|authenticated|public);/s.test(expand)) {
+  failures.push("anonymous vote EXPAND: Phase A authorization RPC must be service_role-only");
 }
-if (!migration.includes("passkey_required_at is not null") || !migration.includes("passkey_enrolled_at is null")) {
-  failures.push("passkey migration: progressive account gating missing");
+if (!/grant execute on function public\.redeem_ballot_permit\(text, uuid, uuid\)[^;]+to anon;/s.test(expand)) {
+  failures.push("anonymous vote EXPAND: Phase B must expose only the identity-free redemption RPC");
 }
-if (/phone_poll_hash\s*=\s*p_voter_hash/.test(migration)) failures.push("passkey migration: voter hash must not reuse phone_poll_hash");
-if (!serviceRoleGrants.includes("to service_role") ||
-    /to (?:anon|authenticated)/.test(serviceRoleGrants)) {
-  failures.push("passkey service-role grants: backend tables must remain restricted to service_role");
+for (const legacy of ["user_poll_answers", "vote_user_locks", "vote_phone_locks", "vote_attempts", "submit_authenticated_vote", "submit_verified_vote"]) {
+  if (!new RegExp(`drop (?:table|function)[^;]*${legacy}`, "i").test(scrub)) failures.push(`anonymous vote SCRUB: ${legacy} is not removed`);
 }
+if (!scrub.includes("drop column if exists user_lock_id") || !scrub.includes("drop column if exists lock_id") || !scrub.includes("drop column if exists receipt_hash")) failures.push("anonymous vote SCRUB: ballot identity columns remain");
+if (!scrub.includes("anonymous_vote_scrub_identity_and_choice_function_remains")) failures.push("anonymous vote SCRUB: final identity-plus-choice RPC guard missing");
 
 if (failures.length) {
   console.error(failures.join("\n"));

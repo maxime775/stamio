@@ -77,26 +77,7 @@ class AnonymousVoteModel {
     return cleaned;
   }
 
-  legacySubmit(userId, pollId, choiceId) {
-    const key = this.key(userId, pollId);
-    const permit = this.bindings.get(key);
-    if (permit) {
-      const row = this.permits.get(permit);
-      if (row?.status === "consumed") {
-        this.finalize(userId, pollId, permit);
-        return "already_voted";
-      }
-      if (row?.status === "active") row.status = "revoked";
-      this.bindings.delete(key);
-    }
-    if (this.participations.has(key)) return "already_voted";
-    this.ballots.push({ pollId, choiceId, legacy: true });
-    this.participations.add(key);
-    this.reputation.add(key);
-    return "accepted";
-  }
 }
-
 normalVoteAndReplay();
 lostPermitIsRevoked();
 lostResponseReconcilesOnAuthorize();
@@ -106,7 +87,6 @@ revocationConsumptionRacesAreSafe();
 invalidInputsDoNotConsume();
 expiredAlteredAndWrongPollPermitsFail();
 accountsAndPasskeysRespectAccountScope();
-legacyAndAnonymousPathsDoNotDoubleVote();
 console.log("Anonymous voting concurrency and recovery model verified.");
 
 function normalVoteAndReplay() {
@@ -221,18 +201,4 @@ function accountsAndPasskeysRespectAccountScope() {
   assert.equal(model.finalize("other-user", "poll-a", otherAccount.permit), "finalized");
   assert.equal(model.ballots.length, 2);
   assert.equal(model.participations.size, 2);
-}
-
-function legacyAndAnonymousPathsDoNotDoubleVote() {
-  const anonymousFirst = new AnonymousVoteModel();
-  const permit = anonymousFirst.authorize("user-a", "poll-a");
-  assert.equal(anonymousFirst.submit(permit.permit, "poll-a", "yes"), "accepted");
-  assert.equal(anonymousFirst.legacySubmit("user-a", "poll-a", "no"), "already_voted");
-  assert.equal(anonymousFirst.ballots.length, 1);
-
-  const legacyFirst = new AnonymousVoteModel();
-  const revoked = legacyFirst.authorize("user-a", "poll-a");
-  assert.equal(legacyFirst.legacySubmit("user-a", "poll-a", "yes"), "accepted");
-  assert.equal(legacyFirst.submit(revoked.permit, "poll-a", "no"), "revoked");
-  assert.equal(legacyFirst.ballots.length, 1);
 }

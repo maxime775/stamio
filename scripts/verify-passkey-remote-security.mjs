@@ -88,16 +88,20 @@ async function createTestUser(label) {
 async function verifyAuthenticatedLockdown(client, userId, pollId, choiceId) {
   expectDenied(await client.from("profiles").update({ passkey_enrolled_at: new Date().toISOString() }).eq("id", userId), "authenticated_enrolled_update");
   expectDenied(await client.from("profiles").update({ passkey_required_at: null }).eq("id", userId), "authenticated_required_update");
-  expectDenied(await client.from("votes").insert({ poll_id: pollId, choice_id: choiceId, receipt_hash: randomUUID() }), "authenticated_vote_insert");
-  expectDenied(await client.from("vote_user_locks").insert({ poll_id: pollId, voter_hash: "a".repeat(64) }), "authenticated_lock_insert");
+  expectDenied(await client.from("votes").insert({ poll_id: pollId, choice_id: choiceId }), "authenticated_vote_insert");
+  expectDenied(await client.from("user_poll_participations").insert({ user_id: userId, poll_id: pollId }), "authenticated_participation_insert");
+  expectDenied(await client.from("ballot_permits").insert({
+    permit_digest: "a".repeat(64), poll_id: pollId,
+    expires_at: new Date(Date.now() + 60_000).toISOString(), status: "active"
+  }), "authenticated_permit_insert");
+  expectDenied(await client.from("vote_authorization_bindings").insert({
+    user_id: userId, poll_id: pollId, permit_digest: "c".repeat(64),
+    expires_at: new Date(Date.now() + 60_000).toISOString()
+  }), "authenticated_binding_insert");
   expectDenied(await client.from("abuse_rate_limits").insert({
     key_hash: "b".repeat(64), action: "probe", window_started_at: new Date().toISOString(),
     request_count: 1, expires_at: new Date(Date.now() + 60_000).toISOString()
   }), "authenticated_rate_insert");
-  expectDenied(await client.rpc("submit_authenticated_vote", {
-    p_user_id: userId, p_poll_id: pollId, p_choice_id: choiceId,
-    p_voter_hash: "c".repeat(64), p_receipt_hash: "d".repeat(64)
-  }), "authenticated_vote_rpc");
   expectDenied(await client.rpc("consume_rate_limit", {
     p_key_hash: "e".repeat(64), p_action: "probe", p_limit: 1, p_window_seconds: 60
   }), "authenticated_rate_rpc");

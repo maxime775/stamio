@@ -19,16 +19,7 @@ const supabase = createClient(supabaseUrl, anonKey, {
 const choice = await findReadableChoice();
 const pollId = choice?.poll_id ?? randomUUID();
 const choiceId = choice?.id ?? randomUUID();
-const lockId = randomUUID();
-
 const checks = [
-  {
-    table: "vote_user_locks",
-    row: {
-      poll_id: pollId,
-      voter_hash: "f".repeat(64)
-    }
-  },
   {
     table: "abuse_rate_limits",
     row: {
@@ -43,73 +34,35 @@ const checks = [
     table: "votes",
     row: {
       poll_id: pollId,
-      choice_id: choiceId,
-      lock_id: lockId,
-      receipt_hash: `rls-${randomUUID()}`
+      choice_id: choiceId
     }
   },
   {
-    table: "vote_phone_locks",
+    table: "user_poll_participations",
+    row: { user_id: randomUUID(), poll_id: pollId, participated_on: new Date().toISOString().slice(0, 10) }
+  },
+  {
+    table: "ballot_permits",
     row: {
-      poll_id: pollId,
-      phone_poll_hash: "a".repeat(64)
+      permit_digest: "c".repeat(64), poll_id: pollId,
+      expires_at: new Date(Date.now() + 60_000).toISOString(), status: "active"
     }
   },
   {
-    table: "user_poll_answers",
-    row: { user_id: randomUUID(), poll_id: pollId, choice_id: choiceId },
-    optionalIfMissing: true
+    table: "vote_authorization_bindings",
+    row: {
+      user_id: randomUUID(), poll_id: pollId, permit_digest: "d".repeat(64),
+      expires_at: new Date(Date.now() + 60_000).toISOString()
+    }
   },
   {
     table: "user_reputation_events",
     row: { user_id: randomUUID(), poll_id: pollId, event_type: "client_write_probe", points: 999 },
     optionalIfMissing: true
-  },
-  {
-    table: "vote_attempts",
-    row: {
-      poll_id: null,
-      choice_id: null,
-      phone_poll_hash: "b".repeat(64),
-      event: "otp_rejected"
-    },
-    optionalIfMissing: true
-  },
-  {
-    table: "visitor_phone_participations",
-    row: {
-      visitor_phone_hash: "c".repeat(64),
-      poll_id: pollId
-    },
-    optionalIfMissing: true
-  },
-  {
-    table: "signup_phone_verifications",
-    row: {
-      token_hash: "d".repeat(64),
-      phone_global_hash: "e".repeat(64),
-      phone_last4: "1234",
-      phone_ciphertext: "not-readable",
-      phone_iv: "not-readable",
-      phone_encryption_version: 1,
-      expires_at: new Date(Date.now() + 60_000).toISOString()
-    },
-    optionalIfMissing: true,
-    verifyReadBlocked: true
   }
 ];
 
 const failures = [];
-
-const encryptedProfileProbe = await supabase
-  .from("profiles")
-  .select("phone_global_hash, phone_ciphertext, phone_iv, phone_encryption_version")
-  .limit(1);
-if (!encryptedProfileProbe.error) {
-  failures.push("profiles: authenticated-sensitive phone identity columns remain exposed to the public anon key");
-} else if (!["42501", "42703", "PGRST204"].includes(encryptedProfileProbe.error.code)) {
-  failures.push(`profiles: encrypted phone column probe failed unexpectedly (${encryptedProfileProbe.error.code ?? "unknown"}: ${encryptedProfileProbe.error.message})`);
-}
 
 for (const check of checks) {
   const { error } = await supabase.from(check.table).insert(check.row);
@@ -119,19 +72,8 @@ for (const check of checks) {
     continue;
   }
 
-  if (check.optionalIfMissing && (error.code === "42P01" || error.code === "PGRST205")) continue;
-
   if (error.code !== "42501") {
     failures.push(`${check.table}: insert was blocked by ${error.code ?? "an unknown error"} instead of RLS/permission denial (${error.message})`);
-  }
-
-  if (check.verifyReadBlocked) {
-    const { data, error: readError } = await supabase.from(check.table).select("*").limit(1);
-    if (!readError && Array.isArray(data) && data.length > 0) {
-      failures.push(`${check.table}: public anon key could read sensitive rows`);
-    } else if (readError && !(check.optionalIfMissing && (readError.code === "42P01" || readError.code === "PGRST205")) && readError.code !== "42501") {
-      failures.push(`${check.table}: read was blocked by ${readError.code ?? "an unknown error"} instead of RLS/permission denial (${readError.message})`);
-    }
   }
 }
 

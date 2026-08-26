@@ -208,9 +208,6 @@ export type Profile = {
   username: string | null;
   username_normalized: string | null;
   sex: Sex;
-  phone_last4: string | null;
-  phone_verified_at?: string | null;
-  phone_last_changed_at?: string | null;
   age: number | null;
   profession: string | null;
   region: string | null;
@@ -271,6 +268,6 @@ export type SignupPayload = {
 export type SignupEmailStatus = "available" | "existing_confirmed" | "existing_unconfirmed";
 
 export type VoteStatus =
-  | { status: "accepted"; receipt_hash?: string; results?: PollResult[]; results_unavailable?: boolean }
+  | { status: "accepted"; results?: PollResult[]; results_unavailable?: boolean }
   | { status: "duplicate"; message: string }
   | { status: "poll_closed" | "authentication_required" | "passkey_required" | "rate_limited" | "error"; message?: string };

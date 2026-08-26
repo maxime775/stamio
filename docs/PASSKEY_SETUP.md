@@ -51,7 +51,9 @@ Dans **Authentication → Bot and Abuse Protection**, activer CAPTCHA sur l’in
 
 Après validation de la migration sur un projet isolé, les fonctions concernées sont :
 
-- `submit-vote` ;
+- `authorize-vote` ;
+- `submit-ballot` ;
+- `finalize-vote` ;
 - `verify-passkey-enrollment` ;
 - `delete-passkey` ;
 - `check-signup-email` ;
@@ -60,8 +62,7 @@ Après validation de la migration sur un projet isolé, les fonctions concernée
 
 Secrets serveur nécessaires au vote :
 
-- `VOTER_HASH_SECRET` : secret HMAC dédié aux verrous anonymes de compte ;
-- `HMAC_SECRET` : reçus de vote historiques ;
+- `VOTER_HASH_SECRET` : secret HMAC dédié au rate limit compte/poll de Phase A ;
 - clés Supabase serveur déjà utilisées.
 
 `check-signup-email` nécessite également `EMAIL_LOOKUP_SECRET`, une valeur aléatoire dédiée au projet et strictement serveur. Elle ne doit jamais être exposée dans une variable `EXPO_PUBLIC_*`. La fonction applique une limite persistante par adresse normalisée et un plafond global temporaire. Les protections CAPTCHA natives de Supabase Auth restent recommandées pour l’inscription.
@@ -72,18 +73,19 @@ Le rate limit limite temporairement le nombre de vérifications d’existence d�
 
 La configuration locale utilise Expo Web sur `http://localhost:8081`. Aucun secret ne doit porter le préfixe `EXPO_PUBLIC_`.
 
-Les secrets Twilio et les variables `OTP_PROVIDER`, `OTP_TEST_PHONE_ALLOWLIST` et `OTP_TEST_CODE` ne sont plus nécessaires au nouveau parcours. Ils peuvent être retirés manuellement des secrets distants après validation. Les colonnes et données téléphone historiques restent intactes.
+Les secrets Twilio, `PHONE_ENCRYPTION_KEY`, `HMAC_SECRET` et les variables `OTP_PROVIDER`, `OTP_TEST_PHONE_ALLOWLIST` et `OTP_TEST_CODE` ne sont plus nécessaires après le SCRUB et la suppression contrôlée des anciennes fonctions distantes. Ils doivent être révoqués manuellement seulement après validation de la migration.
 
 ## Ordre de validation
 
 1. Utiliser un projet Supabase isolé.
-2. Rechercher d’éventuels doublons historiques avant migration :
+2. Vérifier que toutes les participations historiques ont été backfillées avant le SCRUB :
 
    ```sql
-   select user_id, poll_id, count(*)
-   from public.user_poll_answers
-   group by user_id, poll_id
-   having count(*) > 1;
+   select distinct a.user_id, a.poll_id
+   from public.user_poll_answers a
+   left join public.user_poll_participations p
+     on p.user_id = a.user_id and p.poll_id = a.poll_id
+   where p.user_id is null;
    ```
 
 3. Appliquer la migration dans ce projet isolé.
