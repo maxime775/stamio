@@ -10,6 +10,9 @@ const forbiddenClient = [
   ".from(\"vote_phone_locks\").insert", ".from('vote_phone_locks').insert",
   ".from(\"vote_user_locks\").insert", ".from('vote_user_locks').insert",
   ".from(\"user_poll_answers\").insert", ".from('user_poll_answers').insert",
+  ".from(\"user_poll_participations\").insert", ".from('user_poll_participations').insert",
+  ".from(\"vote_authorization_bindings\")", ".from('vote_authorization_bindings')",
+  ".from(\"ballot_permits\")", ".from('ballot_permits')",
   ".from(\"user_reputation_events\").insert", ".from('user_reputation_events').insert",
   ".from(\"abuse_rate_limits\").insert", ".from('abuse_rate_limits').insert",
   "passkey_enrolled_at:"
@@ -54,8 +57,12 @@ if (!deletion.includes("auth.getUser(token)") || !deletion.includes("deletePassk
 }
 
 const vote = read("supabase/functions/submit-vote/index.ts");
+const votingAccount = read("supabase/functions/_shared/voting-account.ts");
 for (const expected of ["auth.getUser(token)", "VOTER_HASH_SECRET", "consume_rate_limit", "submit_authenticated_vote", "passkey_required_at"]) {
   if (!vote.includes(expected)) failures.push(`submit-vote: missing ${expected}`);
+}
+for (const expected of ["auth.getUser(token)", "passkey_required_at", "admin.passkey.listPasskeys({ userId: user.id })"]) {
+  if (!votingAccount.includes(expected)) failures.push(`shared voting account verification: missing ${expected}`);
 }
 if (/\bnew Map\s*</.test(vote) || vote.includes("voteWindows")) failures.push("submit-vote: in-memory rate limit is forbidden");
 if (vote.includes("record_verified_user_answer") || vote.includes("submit_verified_vote")) failures.push("submit-vote: split or phone-based vote RPC remains");

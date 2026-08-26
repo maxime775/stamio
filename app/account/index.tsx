@@ -5,8 +5,8 @@ import { LatestAnswersList } from "@/components/LatestAnswersList";
 import { PageShell } from "@/components/PageShell";
 import { ThemeParticipationDonut } from "@/components/ThemeParticipationDonut";
 import { useAuth } from "@/components/AuthProvider";
-import { getCurrentUserProfile, getLatestUserAnswers, getMyAccountStats } from "@/lib/api";
-import type { AccountStats, Profile, UserPollAnswer } from "@/lib/types";
+import { getCurrentUserProfile, getLatestUserParticipations, getMyAccountStats } from "@/lib/api";
+import type { AccountStats, Profile, UserPollParticipation } from "@/lib/types";
 import { getUserReputationStatus } from "@/lib/types";
 import { fontFamilyBold, fontFamilyMedium, fontFamilySemibold, palette } from "@/lib/design";
 
@@ -18,7 +18,7 @@ export default function AccountPage() {
   const { width } = useWindowDimensions();
   const alignedColumns = width >= 1024;
   const [profile, setProfile] = useState<Profile | null>(null);
-  const [answers, setAnswers] = useState<UserPollAnswer[]>([]);
+  const [answers, setAnswers] = useState<UserPollParticipation[]>([]);
   const [stats, setStats] = useState<AccountStats | null>(null);
   const [loading, setLoading] = useState(true);
 
@@ -34,7 +34,9 @@ export default function AccountPage() {
     }
 
     let active = true;
-    Promise.all([getCurrentUserProfile(), getLatestUserAnswers(), getMyAccountStats()])
+    getLatestUserParticipations()
+      .then((nextAnswers) => Promise.all([getCurrentUserProfile(), getMyAccountStats()])
+        .then(([nextProfile, nextStats]) => [nextProfile, nextAnswers, nextStats] as const))
       .then(([nextProfile, nextAnswers, nextStats]) => {
         if (!active) return;
         if (nextProfile?.passkey_required_at && !nextProfile.passkey_enrolled_at) {
@@ -94,7 +96,7 @@ export default function AccountPage() {
             </View>
             <View style={styles.desktopRow}>
               <View style={styles.primarySlot}>
-                <Text style={styles.subtitle}>Suivez vos réponses et les thèmes auxquels vous avez pris part.</Text>
+                <Text style={styles.subtitle}>Suivez vos participations et les thèmes auxquels vous avez pris part.</Text>
               </View>
               <View style={StyleSheet.flatten([styles.secondarySlot, styles.secondaryCentered])}>
                 <Text style={StyleSheet.flatten([styles.status, styles.centeredText])}>{reputationStatus}</Text>
@@ -106,7 +108,7 @@ export default function AccountPage() {
             <View style={StyleSheet.flatten([styles.secondarySlot, styles.divider])} />
           </View>
           <View style={StyleSheet.flatten([styles.desktopRow, styles.sectionTitleRow])}>
-            <Text style={StyleSheet.flatten([styles.primarySlot, styles.sectionTitle])}>Mes dernières réponses</Text>
+            <Text style={StyleSheet.flatten([styles.primarySlot, styles.sectionTitle])}>Mes dernières participations</Text>
             <Text style={StyleSheet.flatten([styles.secondarySlot, styles.sectionTitle, styles.centeredText])}>Mes thèmes</Text>
           </View>
           <View style={styles.desktopRow}>
@@ -126,7 +128,7 @@ export default function AccountPage() {
             <View style={styles.heading}>
               <Text style={styles.kicker}>Mon compte</Text>
               <Text style={styles.title}>Espace personnel</Text>
-              <Text style={styles.subtitle}>Suivez vos réponses et les thèmes auxquels vous avez pris part.</Text>
+              <Text style={styles.subtitle}>Suivez vos participations et les thèmes auxquels vous avez pris part.</Text>
             </View>
             <LatestAnswersList answers={answers} />
           </View>

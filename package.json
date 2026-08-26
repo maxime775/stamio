@@ -22,6 +22,8 @@
     "test:passkey-first-attempt": "node scripts/verify-passkey-first-attempt.mjs",
     "test:passkey-concurrency": "node scripts/verify-passkey-vote-concurrency.mjs",
     "test:passkey-vote-concurrency": "node scripts/verify-passkey-vote-concurrency.mjs",
+    "test:anonymous-voting": "node scripts/verify-anonymous-voting.mjs",
+    "test:anonymous-voting-recovery": "node scripts/verify-anonymous-voting-recovery.mjs",
     "test:signup-email-remote": "node scripts/verify-signup-email-remote.mjs",
     "test:passkey-remote-security": "node scripts/verify-passkey-remote-security.mjs"
   },

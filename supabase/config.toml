@@ -23,6 +23,15 @@ rp_origins = ["http://localhost:8081"]
 [functions.submit-vote]
 verify_jwt = false
 
+[functions.authorize-vote]
+verify_jwt = false
+
+[functions.submit-ballot]
+verify_jwt = false
+
+[functions.finalize-vote]
+verify_jwt = false
+
 [functions.verify-passkey-enrollment]
 verify_jwt = false
 

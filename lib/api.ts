@@ -21,7 +21,7 @@ import type {
   SignupEmailStatus,
   ThemeSlug,
   OpenPollStats,
-  UserPollAnswer,
+  UserPollParticipation,
   VoteStatus
 } from "@/lib/types";
 import { clearPendingSignup } from "@/lib/auth/pendingSignup";
@@ -119,14 +119,80 @@ export async function fetchPoll(pollId: string, options: CacheOptions = {}): Pro
 }
 
 export async function submitVote(payload: SubmitPayload): Promise<VoteStatus> {
+  for (let attempt = 0; attempt < 2; attempt += 1) {
+    const authorization = await authorizeVote(payload.poll_id);
+    if (authorization.status !== "authorized") return authorization;
+
+    const ballot = await submitBallot({
+      poll_id: payload.poll_id,
+      choice_id: payload.choice_id,
+      permit: authorization.permit
+    });
+    if (ballot.status === "permit_invalid" && attempt === 0) continue;
+    if (ballot.status === "permit_invalid") {
+      return { status: "error", message: "L’autorisation de vote n’est plus valide." };
+    }
+    if (ballot.status !== "accepted") {
+      const recovery = await finalizeVote(payload.poll_id, authorization.permit).catch(() => null);
+      if (recovery?.status === "finalized") return { status: "accepted" };
+      return ballot;
+    }
+
+    await finalizeVote(payload.poll_id, authorization.permit).catch(() => undefined);
+    return { status: "accepted" };
+  }
+  return { status: "error", message: "L’autorisation de vote n’est plus valide." };
+}
+
+type VoteAuthorization =
+  | { status: "authorized"; permit: string; expires_at: string }
+  | Exclude<VoteStatus, { status: "accepted" }>;
+
+type BallotSubmission =
+  | { status: "accepted"; replay?: boolean }
+  | { status: "permit_invalid" }
+  | Exclude<VoteStatus, { status: "accepted" | "duplicate" | "authentication_required" | "passkey_required" | "rate_limited" }>;
+
+async function authorizeVote(pollId: string): Promise<VoteAuthorization> {
   const headers = await getFunctionAuthHeaders();
-  const { data, error } = await supabase.functions.invoke<VoteStatus>("submit-vote", {
-    body: payload,
+  const { data, error } = await supabase.functions.invoke<VoteAuthorization>("authorize-vote", {
+    body: { poll_id: pollId },
     headers
   });
   if (data) return data;
-  const errorPayload = await readFunctionError<VoteStatus>(error);
+  const errorPayload = await readFunctionError<VoteAuthorization>(error);
   return errorPayload ?? { status: "error", message: error?.message };
+}
+
+async function submitBallot(payload: SubmitPayload & { permit: string }): Promise<BallotSubmission> {
+  const url = process.env.EXPO_PUBLIC_SUPABASE_URL;
+  const anonKey = process.env.EXPO_PUBLIC_SUPABASE_ANON_KEY;
+  if (!url || !anonKey) return { status: "error", message: "Configuration du vote indisponible." };
+
+  try {
+    const response = await fetch(`${url}/functions/v1/submit-ballot`, {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        apikey: anonKey
+      },
+      body: JSON.stringify(payload)
+    });
+    const data = await response.json().catch(() => null) as BallotSubmission | null;
+    return data ?? { status: "error", message: "Réponse de vote invalide." };
+  } catch {
+    return { status: "error", message: "Le service de vote est inaccessible." };
+  }
+}
+
+async function finalizeVote(pollId: string, permit: string) {
+  const headers = await getFunctionAuthHeaders();
+  const { data, error } = await supabase.functions.invoke<{ status: "finalized" | "pending" | "error" }>("finalize-vote", {
+    body: { poll_id: pollId, permit },
+    headers
+  });
+  if (error || !data) throw error ?? new Error("vote_finalization_failed");
+  return data;
 }
 
 export async function verifyPasskeyEnrollment() {
@@ -485,55 +551,55 @@ export async function updateCurrentUserEmail(email: string) {
   return supabase.auth.updateUser({ email });
 }
 
-export async function getLatestUserAnswers(): Promise<UserPollAnswer[]> {
+export async function getLatestUserParticipations(): Promise<UserPollParticipation[]> {
   const { data: userData } = await supabase.auth.getUser();
   const user = userData.user;
   if (!user) return [];
 
+  await supabase.rpc("reconcile_my_ballot_participations");
+
   const { data, error } = await supabase
-    .from("user_poll_answers")
-    .select("id, user_id, poll_id, choice_id, created_at, polls(question, theme, status, wave_number, poll_series(slug)), choices(label)")
+    .from("user_poll_participations")
+    .select("id, user_id, poll_id, participated_on, polls(question, theme, status, wave_number, poll_series(slug))")
     .eq("user_id", user.id)
-    .order("created_at", { ascending: false })
+    .order("participated_on", { ascending: false })
     .limit(8);
 
   if (error || !data) return [];
-  return data.map((answer) => {
-    const rawPoll = Array.isArray(answer.polls) ? answer.polls[0] ?? null : answer.polls;
+  return data.map((participation) => {
+    const rawPoll = Array.isArray(participation.polls) ? participation.polls[0] ?? null : participation.polls;
     const rawSeries = rawPoll && "poll_series" in rawPoll
       ? (Array.isArray(rawPoll.poll_series) ? rawPoll.poll_series[0] ?? null : rawPoll.poll_series)
       : null;
     return {
-      ...answer,
+      ...participation,
       polls: rawPoll ? {
         question: rawPoll.question,
         theme: rawPoll.theme,
         status: rawPoll.status,
         wave_number: rawPoll.wave_number,
         series_slug: rawSeries?.slug ?? null
-      } : null,
-      choices: Array.isArray(answer.choices) ? answer.choices[0] ?? null : answer.choices
+      } : null
     };
-  }) as unknown as UserPollAnswer[];
+  }) as unknown as UserPollParticipation[];
 }
 
-export async function getUserPollAnswer(pollId: string): Promise<UserPollAnswer | null> {
+export async function getUserPollParticipation(pollId: string): Promise<UserPollParticipation | null> {
   const { data: userData } = await supabase.auth.getUser();
   const user = userData.user;
   if (!user) return null;
 
+  await supabase.rpc("reconcile_my_ballot_participations");
+
   const { data, error } = await supabase
-    .from("user_poll_answers")
-    .select("id, user_id, poll_id, choice_id, created_at, choices(label)")
+    .from("user_poll_participations")
+    .select("id, user_id, poll_id, participated_on")
     .eq("user_id", user.id)
     .eq("poll_id", pollId)
     .maybeSingle();
 
   if (error || !data) return null;
-  return {
-    ...data,
-    choices: Array.isArray(data.choices) ? data.choices[0] ?? null : data.choices
-  } as unknown as UserPollAnswer;
+  return data as UserPollParticipation;
 }
 
 export async function getMyAccountStats(): Promise<AccountStats> {

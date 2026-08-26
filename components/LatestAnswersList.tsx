@@ -2,11 +2,11 @@ import { Pressable, StyleSheet, Text, View } from "react-native";
 import { useRouter, type Href } from "expo-router";
 import { EmptyState } from "@/components/EmptyState";
 import { getThemeLabel } from "@/lib/product";
-import type { UserPollAnswer } from "@/lib/types";
+import type { UserPollParticipation } from "@/lib/types";
 import { fontFamilyBold, fontFamilyMedium, fontFamilySemibold, getThemeTagStyle, palette } from "@/lib/design";
 
 type Props = {
-  answers: UserPollAnswer[];
+  answers: UserPollParticipation[];
   showTitle?: boolean;
 };
 
@@ -16,8 +16,8 @@ export function LatestAnswersList({ answers, showTitle = true }: Props) {
   if (answers.length === 0) {
     return (
       <EmptyState
-        title="Aucune réponse enregistrée"
-        message="Vos réponses aux différents sujets apparaîtront ici. N’attendez pas, prenez part aux débats."
+        title="Aucune participation enregistrée"
+        message="Les sujets auxquels vous participez apparaîtront ici. N’attendez pas, prenez part aux débats."
         actionLabel="Découvrir les sondages"
         onAction={() => router.push("/themes" as Href)}
       />
@@ -26,7 +26,7 @@ export function LatestAnswersList({ answers, showTitle = true }: Props) {
 
   return (
     <View style={styles.wrap}>
-      {showTitle ? <Text style={styles.title}>Mes dernières réponses</Text> : null}
+      {showTitle ? <Text style={styles.title}>Mes dernières participations</Text> : null}
       {answers.map((answer) => (
         <Pressable
           key={answer.id}
@@ -36,9 +36,9 @@ export function LatestAnswersList({ answers, showTitle = true }: Props) {
           <View style={styles.rowMain}>
             <Text style={StyleSheet.flatten([styles.theme, getThemeTagStyle(answer.polls?.theme ?? undefined)])}>{getThemeLabel(answer.polls?.theme ?? undefined)}</Text>
             <Text style={styles.question}>{answer.polls?.question ?? "Question indisponible"}</Text>
-            <Text style={styles.date}>{new Date(answer.created_at).toLocaleDateString("fr-FR")}</Text>
+            <Text style={styles.date}>{new Date(answer.participated_on).toLocaleDateString("fr-FR")}</Text>
           </View>
-          <Text style={styles.choice}>{answer.choices?.label ?? "Choix non disponible"}</Text>
+          <Text style={styles.choice}>Participation enregistrée</Text>
         </Pressable>
       ))}
     </View>

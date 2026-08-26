@@ -244,21 +244,17 @@ export function getUserReputationStatus(score: number): UserReputationStatus {
   return "Observateur";
 }
 
-export type UserPollAnswer = {
+export type UserPollParticipation = {
   id: string;
   user_id: string;
   poll_id: string;
-  choice_id: string | null;
-  created_at: string;
+  participated_on: string;
   polls?: {
     question: string;
     theme: ThemeSlug | null;
     status: "open" | "closed";
     wave_number: number | null;
     series_slug: string | null;
-  } | null;
-  choices?: {
-    label: string;
   } | null;
 };
 
@@ -275,6 +271,6 @@ export type SignupPayload = {
 export type SignupEmailStatus = "available" | "existing_confirmed" | "existing_unconfirmed";
 
 export type VoteStatus =
-  | { status: "accepted"; receipt_hash: string; results?: PollResult[]; results_unavailable?: boolean }
+  | { status: "accepted"; receipt_hash?: string; results?: PollResult[]; results_unavailable?: boolean }
   | { status: "duplicate"; message: string }
   | { status: "poll_closed" | "authentication_required" | "passkey_required" | "rate_limited" | "error"; message?: string };

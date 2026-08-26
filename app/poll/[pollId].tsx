@@ -20,7 +20,7 @@ import { IntrinsicEditorialSplit } from "@/components/IntrinsicEditorialSplit";
 import { NonBreakingFinalPunctuation } from "@/components/NonBreakingFinalPunctuation";
 import { siteContainerStyle } from "@/components/SiteContainer";
 import { useAuth } from "@/components/AuthProvider";
-import { fetchPoll, getCachedPoll, getCachedResults, getCachedResultsHistory, getResults, getResultsHistory, getUserPollAnswer, resolveLegacyPollUrl } from "@/lib/api";
+import { fetchPoll, getCachedPoll, getCachedResults, getCachedResultsHistory, getResults, getResultsHistory, getUserPollParticipation, resolveLegacyPollUrl } from "@/lib/api";
 import { decisionTreePreviewByPollId } from "@/lib/decisionTrees";
 import { getPollDescription, getThemeLabel, getThemeRoute } from "@/lib/product";
 import { STAMIO_CORE_COLORS, fontFamilyBold, fontFamilyMedium, fontFamilySemibold, getColorWithOpacity, getThemeTagStyle, palette, radius } from "@/lib/design";
@@ -80,7 +80,7 @@ export function PollScreen({
   const previewStacked = width < 1040;
   const [poll, setPoll] = useState<Poll | null>(null);
   const [selectedChoiceId, setSelectedChoiceId] = useState<string | null>(null);
-  const [serverAnswerChoiceId, setServerAnswerChoiceId] = useState<string | null>(null);
+  const [serverParticipation, setServerParticipation] = useState(false);
   const [serverAnswerLoading, setServerAnswerLoading] = useState(false);
   const [results, setResults] = useState<PollResult[]>([]);
   const [resultsSnapshotAt, setResultsSnapshotAt] = useState<string | null>(null);
@@ -157,8 +157,8 @@ export function PollScreen({
   useEffect(() => {
     let active = true;
 
-    async function loadServerAnswer() {
-      setServerAnswerChoiceId(null);
+    async function loadServerParticipation() {
+      setServerParticipation(false);
       if (authLoading) return;
       if (!pollId || !user) {
         setServerAnswerLoading(false);
@@ -166,14 +166,13 @@ export function PollScreen({
       }
 
       setServerAnswerLoading(true);
-      const answer = await getUserPollAnswer(pollId);
+      const participation = await getUserPollParticipation(pollId);
       if (!active) return;
-      setServerAnswerChoiceId(answer?.choice_id ?? null);
-      if (answer?.choice_id) setSelectedChoiceId(answer.choice_id);
+      setServerParticipation(Boolean(participation));
       setServerAnswerLoading(false);
     }
 
-    void loadServerAnswer();
+    void loadServerParticipation();
     return () => {
       active = false;
     };
@@ -183,7 +182,7 @@ export function PollScreen({
   const isPollOpen = Boolean(!resultsOnly && poll && poll.status === "open" && (!poll.closes_at || new Date(poll.closes_at).getTime() > Date.now()));
   const voteAccepted = voteState?.status === "accepted";
   const voteDuplicate = voteState?.status === "duplicate";
-  const alreadyParticipated = Boolean((serverAnswerChoiceId || voteDuplicate) && !voteAccepted);
+  const alreadyParticipated = Boolean((serverParticipation || voteDuplicate) && !voteAccepted);
   const participationStatusLoading = authLoading || serverAnswerLoading;
   const answerSelectionLocked = alreadyParticipated || voteAccepted || participationStatusLoading;
   const voteButtonDisabled = !selectedChoiceId || voteAccepted || alreadyParticipated || participationStatusLoading;
@@ -221,9 +220,7 @@ export function PollScreen({
     if (status.status === "accepted" && pollId) setHistory(await getResultsHistory(pollId, { force: true, label: "getResultsHistoryAfterVote" }));
     if (status.status === "duplicate") {
       if (pollId && user) {
-        const answer = await getUserPollAnswer(pollId);
-        setServerAnswerChoiceId(answer?.choice_id ?? null);
-        if (answer?.choice_id) setSelectedChoiceId(answer.choice_id);
+        setServerParticipation(Boolean(await getUserPollParticipation(pollId)));
       }
     }
   }
