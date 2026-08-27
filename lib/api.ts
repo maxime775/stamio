@@ -25,6 +25,7 @@ import type {
   VoteStatus
 } from "@/lib/types";
 import { clearPendingSignup } from "@/lib/auth/pendingSignup";
+import { CGU_VERSION, PRIVACY_VERSION } from "@/lib/legalVersions";
 
 type SubmitPayload = {
   poll_id: string;
@@ -647,7 +648,10 @@ export async function signUpUser(payload: SignupPayload) {
         sex: payload.sex,
         age: payload.age,
         profession: payload.profession,
-        region: payload.region
+        region: payload.region,
+        legal_terms_accepted: payload.termsAccepted,
+        legal_terms_version: CGU_VERSION,
+        legal_privacy_version: PRIVACY_VERSION
       },
       emailRedirectTo: getAuthRedirectUrl("/auth/callback")
     }

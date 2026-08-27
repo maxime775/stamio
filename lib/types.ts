@@ -263,6 +263,7 @@ export type SignupPayload = {
   age: number;
   profession: string;
   region: string;
+  termsAccepted: true;
 };
 
 export type SignupEmailStatus = "available" | "existing_confirmed" | "existing_unconfirmed";

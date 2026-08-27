@@ -77,7 +77,7 @@ function componentByLabel(file, label) {
   return matches[0];
 }
 
-function assertAuthButton(file, label, stateName, callbackName, disabledOpacity) {
+function assertAuthButton(file, label, stateName, callbackName, disabledOpacity, disabledExpression = stateName) {
   const button = componentByLabel(file, label);
   assert.equal(jsxAttribute(button, "variant", file.sourceFile), "primary");
   assert.equal(jsxAttribute(button, "compact", file.sourceFile), true);
@@ -85,7 +85,7 @@ function assertAuthButton(file, label, stateName, callbackName, disabledOpacity)
   assert.equal(jsxAttribute(button, "elevated", file.sourceFile), "false");
   assert.equal(jsxAttribute(button, "showArrow", file.sourceFile), "false");
   assert.equal(jsxAttribute(button, "loading", file.sourceFile), stateName);
-  assert.equal(jsxAttribute(button, "disabled", file.sourceFile), stateName);
+  assert.equal(jsxAttribute(button, "disabled", file.sourceFile), disabledExpression);
   assert.equal(jsxAttribute(button, "disabledOpacity", file.sourceFile), disabledOpacity);
   assert.equal(jsxAttribute(button, "onPress", file.sourceFile), callbackName);
 }
@@ -128,7 +128,7 @@ assertAuthButton(
   "0.72"
 );
 assertAuthButton(login, "Se connecter", "loading", "handleSubmit", "0.72");
-assertAuthButton(signup, "S'inscrire", "loading", "handleSubmit", "1");
+assertAuthButton(signup, "S'inscrire", "loading", "handleSubmit", "0.52", "loading || !legalAccepted");
 
 assert.equal(
   jsxComponents(login, "HeroActionButton").length,

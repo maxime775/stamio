@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState } from "react";
-import { ActivityIndicator, Platform, Pressable, StyleSheet, Text, useWindowDimensions, View } from "react-native";
+import { ActivityIndicator, Platform, Pressable, StyleSheet, Text, useWindowDimensions, View, type ViewStyle } from "react-native";
 import { useRouter, type Href } from "expo-router";
 import { AuthSexSegmented, AuthTextField } from "@/components/AuthFields";
 import { AuthForm } from "@/components/AuthForm";
@@ -8,6 +8,7 @@ import { PasswordStrengthRules } from "@/components/PasswordStrengthRules";
 import { RegionSelect } from "@/components/RegionSelect";
 import { ProfessionSelect } from "@/components/ProfessionSelect";
 import { REGIONS_FR } from "@/lib/product";
+import { Check } from "@/lib/icons";
 import { checkSignupEmail, checkUsernameAvailability, resendSignupConfirmation, signUpUser } from "@/lib/api";
 import { markPendingSignup } from "@/lib/auth/pendingSignup";
 import { getVisibleSignupError, isValidSignupUsername, normalizeSignupEmail, normalizeSignupUsername, touchAllSignupFields, validateSignup, type SignupField, type SignupTouched, type SignupValues } from "@/lib/signupValidation";
@@ -37,6 +38,9 @@ export function SignupForm() {
   const [loading, setLoading] = useState(false);
   const [existingEmailState, setExistingEmailState] = useState<ExistingEmailState | null>(null);
   const [resendMessage, setResendMessage] = useState<string | null>(null);
+  const [legalAccepted, setLegalAccepted] = useState(false);
+  const [legalTouched, setLegalTouched] = useState(false);
+  const [legalFocused, setLegalFocused] = useState(false);
 
   const values: SignupValues = { email, confirmEmail, password, confirmPassword, username, sex, age, profession, region };
   const validationErrors = validateSignup(values);
@@ -104,6 +108,11 @@ export function SignupForm() {
   }
 
   async function handleSubmit() {
+    if (!legalAccepted) {
+      setLegalTouched(true);
+      setGlobalError(null);
+      return;
+    }
     setTouched(touchAllSignupFields());
     setSubmitted(touchAllSignupFields());
     if (Object.keys(validationErrors).length > 0) {
@@ -148,7 +157,8 @@ export function SignupForm() {
       sex,
       age: parsedAge,
       profession,
-      region
+      region,
+      termsAccepted: true
     });
     setLoading(false);
 
@@ -253,13 +263,39 @@ export function SignupForm() {
       </View>
 
       {globalError ? <Text accessibilityLiveRegion="polite" style={styles.globalError}>{globalError}</Text> : null}
-      <Text style={styles.privacyText}>
-        En continuant, vous acceptez nos <Text accessibilityRole="link" onPress={() => router.push("/conditions-utilisation" as Href)} style={styles.privacyLink}>conditions d’utilisation</Text> et notre <Text accessibilityRole="link" onPress={() => router.push("/confidentialite" as Href)} style={styles.privacyLink}>politique de confidentialité</Text> applicable au traitement de vos données personnelles.
-      </Text>
+      <View style={styles.legalAcceptanceRow}>
+        <Pressable
+          accessibilityHint="Cochez cette case pour pouvoir vous inscrire."
+          accessibilityLabel="J’ai lu et j’accepte les conditions d’utilisation et je reconnais avoir pris connaissance de la politique de confidentialité applicable au traitement de mes données personnelles."
+          accessibilityLabelledBy="signup-legal-acceptance-label"
+          accessibilityRole="checkbox"
+          accessibilityState={{ checked: legalAccepted }}
+          onBlur={() => setLegalFocused(false)}
+          onFocus={() => setLegalFocused(true)}
+          onPress={() => {
+            setLegalAccepted((current) => !current);
+            setLegalTouched(true);
+          }}
+          style={styles.checkboxHitTarget}
+        >
+          <View style={[
+            styles.checkbox,
+            legalAccepted && styles.checkboxChecked,
+            legalFocused && styles.checkboxFocused,
+            legalTouched && !legalAccepted && styles.checkboxInvalid
+          ]}>
+            {legalAccepted ? <Check aria-hidden size={10} strokeWidth={3} color={palette.onPrimary} /> : null}
+          </View>
+        </Pressable>
+        <Text nativeID="signup-legal-acceptance-label" style={styles.privacyText}>
+          J’ai lu et j’accepte les <Text accessibilityRole="link" onPress={() => router.push("/conditions-utilisation" as Href)} style={styles.privacyLink}>conditions d’utilisation</Text> et je reconnais avoir pris connaissance de la <Text accessibilityRole="link" onPress={() => router.push("/confidentialite" as Href)} style={styles.privacyLink}>politique de confidentialité</Text> applicable au traitement de mes données personnelles.
+        </Text>
+      </View>
+      {legalTouched && !legalAccepted ? <Text accessibilityLiveRegion="polite" style={styles.legalError}>Vous devez accepter les conditions d’utilisation pour vous inscrire.</Text> : null}
       <HeroActionButton
         compact
-        disabled={loading}
-        disabledOpacity={1}
+        disabled={loading || !legalAccepted}
+        disabledOpacity={0.52}
         elevated={false}
         fullWidth
         label="S'inscrire"
@@ -318,8 +354,15 @@ const styles = StyleSheet.create({
   availabilityPending: { color: palette.muted, fontSize: 11, lineHeight: 15, marginTop: -8 },
   availabilityOk: { color: palette.positiveText, fontSize: 11, lineHeight: 15, marginTop: -8 },
   globalError: { color: palette.dangerText, backgroundColor: palette.dangerSoft, borderRadius: radius.sm, padding: 12 },
-  privacyText: { color: palette.muted, fontSize: 11, lineHeight: 17, marginTop: -2 },
+  legalAcceptanceRow: { flexDirection: "row", alignItems: "flex-start", gap: 0, marginTop: -2 },
+  checkboxHitTarget: { width: 44, minWidth: 44, height: 44, marginRight: -16, alignItems: "flex-start", justifyContent: "flex-start" },
+  checkbox: { width: 16, height: 16, marginTop: 2, borderRadius: radius.xs, borderWidth: 1, borderColor: palette.lineStrong, backgroundColor: palette.surfaceSubtle, alignItems: "center", justifyContent: "center" },
+  checkboxChecked: { borderColor: palette.primaryStrong, backgroundColor: palette.primary },
+  checkboxFocused: Platform.OS === "web" ? ({ outlineStyle: "solid", outlineWidth: 2, outlineColor: palette.primaryStrong, outlineOffset: 3 } as unknown as ViewStyle) : { borderWidth: 2, borderColor: palette.primaryStrong },
+  checkboxInvalid: { borderColor: palette.dangerText },
+  privacyText: { color: palette.muted, fontSize: 11, lineHeight: 17, flex: 1, minWidth: 0 },
   privacyLink: { color: palette.primaryStrong, fontFamily: fontFamilySemibold },
+  legalError: { color: palette.dangerText, fontSize: 11, lineHeight: 17, marginTop: -8, paddingLeft: 28 },
   primaryText: { color: palette.onPrimary, fontFamily: fontFamilySemibold, fontSize: 15 },
   separator: { height: 1, width: "100%", backgroundColor: authField.separatorColor, marginTop: 6, marginBottom: 2 },
   loginPrompt: { flexDirection: "row", justifyContent: "center", alignItems: "center", gap: 5, flexWrap: "wrap", paddingTop: 2 },
