@@ -1,6 +1,7 @@
 import { forwardRef, useImperativeHandle, type ReactNode } from "react";
 import { Linking, StyleSheet, Text, View, type StyleProp, type TextStyle, type ViewStyle } from "react-native";
 import { fontFamilyBold, fontFamilyMedium, palette, radius } from "@/lib/design";
+import { splitDiscussionMentions } from "@/lib/discussionMentions";
 
 export const RICH_TEXT_PREFIX = "STAMIO_RICH_TEXT_V1:";
 
@@ -20,6 +21,9 @@ export type RichDiscussionEditorHandle = {
   clear: () => void;
   getSerializedBody: () => string | null;
   getText: () => string;
+  focus: () => void;
+  prependMention: (username: string) => void;
+  replaceActiveMention: (username: string) => boolean;
 };
 
 type RichDiscussionEditorProps = {
@@ -29,6 +33,8 @@ type RichDiscussionEditorProps = {
   onChangeText: (text: string) => void;
   onActiveFormatsChange: (formats: RichTextActiveFormats) => void;
   onFocusChange: (focused: boolean) => void;
+  onMentionQueryChange: (query: string | null) => void;
+  onMentionKeyDown?: (key: string) => boolean;
 };
 
 export const RichDiscussionEditor = forwardRef<RichDiscussionEditorHandle, RichDiscussionEditorProps>(function RichDiscussionEditor(_props, ref) {
@@ -40,7 +46,10 @@ export const RichDiscussionEditor = forwardRef<RichDiscussionEditorHandle, RichD
     },
     getText() {
       return "";
-    }
+    },
+    focus() {},
+    prependMention() {},
+    replaceActiveMention() { return false; }
   }), []);
   return null;
 });
@@ -49,14 +58,14 @@ export function isRichTextBody(value: string) {
   return value.startsWith(RICH_TEXT_PREFIX);
 }
 
-export function RichCommentBody({ value, deleted, bodyStyle, deletedStyle }: { value: string; deleted: boolean; bodyStyle: StyleProp<TextStyle>; deletedStyle: StyleProp<TextStyle> }) {
+export function RichCommentBody({ value, deleted, bodyStyle, deletedStyle, mentionUsernames = [] }: { value: string; deleted: boolean; bodyStyle: StyleProp<TextStyle>; deletedStyle: StyleProp<TextStyle>; mentionUsernames?: readonly string[] }) {
   if (deleted || !isRichTextBody(value)) {
-    return <Text style={StyleSheet.flatten([bodyStyle, deleted && deletedStyle])}>{value}</Text>;
+    return <Text style={StyleSheet.flatten([bodyStyle, deleted && deletedStyle])}>{renderMentionText(value, mentionUsernames, "plain")}</Text>;
   }
 
   const doc = parseRichTextBody(value);
-  if (!doc) return <Text style={bodyStyle}>{value}</Text>;
-  return <View style={styles.richBody}>{renderBlockNodes(doc.content ?? [], bodyStyle, 0)}</View>;
+  if (!doc) return <Text style={bodyStyle}>{renderMentionText(value, mentionUsernames, "invalid-rich")}</Text>;
+  return <View style={styles.richBody}>{renderBlockNodes(doc.content ?? [], bodyStyle, mentionUsernames, 0)}</View>;
 }
 
 function parseRichTextBody(value: string): RichTextNode | null {
@@ -68,30 +77,30 @@ function parseRichTextBody(value: string): RichTextNode | null {
   }
 }
 
-function renderBlockNodes(nodes: RichTextNode[], bodyStyle: StyleProp<TextStyle>, depth: number) {
+function renderBlockNodes(nodes: RichTextNode[], bodyStyle: StyleProp<TextStyle>, mentionUsernames: readonly string[], depth: number) {
   return nodes.map((node, index) => {
     const key = `${depth}-${index}-${node.type ?? "node"}`;
     if (node.type === "paragraph") {
-      return <Text key={key} style={bodyStyle}>{renderInlineNodes(node.content ?? [], bodyStyle, key)}</Text>;
+      return <Text key={key} style={bodyStyle}>{renderInlineNodes(node.content ?? [], bodyStyle, mentionUsernames, key)}</Text>;
     }
     if (node.type === "blockquote") {
-      return <View key={key} style={styles.quote}><Text style={StyleSheet.flatten([bodyStyle, styles.quoteText])}>{renderInlineNodes(flattenInlineContent(node.content ?? []), bodyStyle, key)}</Text></View>;
+      return <View key={key} style={styles.quote}><Text style={StyleSheet.flatten([bodyStyle, styles.quoteText])}>{renderInlineNodes(flattenInlineContent(node.content ?? []), bodyStyle, mentionUsernames, key)}</Text></View>;
     }
     if (node.type === "bulletList" || node.type === "orderedList") {
-      return <View key={key} style={styles.list}>{renderListItems(node.content ?? [], bodyStyle, node.type === "orderedList", key)}</View>;
+      return <View key={key} style={styles.list}>{renderListItems(node.content ?? [], bodyStyle, mentionUsernames, node.type === "orderedList", key)}</View>;
     }
     if (node.type === "codeBlock") {
       return <Text key={key} style={StyleSheet.flatten([bodyStyle, styles.codeBlock])}>{getTextFromRichNode(node)}</Text>;
     }
-    return <Text key={key} style={bodyStyle}>{renderInlineNodes(flattenInlineContent(node.content ?? []), bodyStyle, key)}</Text>;
+    return <Text key={key} style={bodyStyle}>{renderInlineNodes(flattenInlineContent(node.content ?? []), bodyStyle, mentionUsernames, key)}</Text>;
   });
 }
 
-function renderListItems(nodes: RichTextNode[], bodyStyle: StyleProp<TextStyle>, ordered: boolean, keyPrefix: string) {
+function renderListItems(nodes: RichTextNode[], bodyStyle: StyleProp<TextStyle>, mentionUsernames: readonly string[], ordered: boolean, keyPrefix: string) {
   return nodes.map((node, index) => (
     <View key={`${keyPrefix}-item-${index}`} style={styles.listItem}>
       <Text style={StyleSheet.flatten([bodyStyle, styles.listMarker])}>{ordered ? `${index + 1}.` : "•"}</Text>
-      <Text style={StyleSheet.flatten([bodyStyle, styles.listText])}>{renderInlineNodes(flattenInlineContent(node.content ?? []), bodyStyle, `${keyPrefix}-item-${index}`)}</Text>
+      <Text style={StyleSheet.flatten([bodyStyle, styles.listText])}>{renderInlineNodes(flattenInlineContent(node.content ?? []), bodyStyle, mentionUsernames, `${keyPrefix}-item-${index}`)}</Text>
     </View>
   ));
 }
@@ -103,7 +112,7 @@ function flattenInlineContent(nodes: RichTextNode[]): RichTextNode[] {
   });
 }
 
-function renderInlineNodes(nodes: RichTextNode[], bodyStyle: StyleProp<TextStyle>, keyPrefix: string): ReactNode[] {
+function renderInlineNodes(nodes: RichTextNode[], bodyStyle: StyleProp<TextStyle>, mentionUsernames: readonly string[], keyPrefix: string): ReactNode[] {
   return nodes.map((node, index) => {
     if (node.type === "hardBreak") return "\n";
     const text = node.text ?? "";
@@ -111,10 +120,16 @@ function renderInlineNodes(nodes: RichTextNode[], bodyStyle: StyleProp<TextStyle
     const linkHref = getLinkHref(node.marks ?? []);
     const key = `${keyPrefix}-inline-${index}`;
     if (linkHref) {
-      return <Text key={key} style={StyleSheet.flatten([bodyStyle, markStyle, styles.link])} onPress={() => void Linking.openURL(linkHref)}>{text}</Text>;
+      return <Text key={key} style={StyleSheet.flatten([bodyStyle, markStyle, styles.link])} onPress={() => void Linking.openURL(linkHref)}>{renderMentionText(text, mentionUsernames, key)}</Text>;
     }
-    return <Text key={key} style={StyleSheet.flatten([bodyStyle, markStyle])}>{text}</Text>;
+    return <Text key={key} style={StyleSheet.flatten([bodyStyle, markStyle])}>{renderMentionText(text, mentionUsernames, key)}</Text>;
   });
+}
+
+function renderMentionText(value: string, mentionUsernames: readonly string[], keyPrefix: string) {
+  return splitDiscussionMentions(value, mentionUsernames).map((segment, index) => (
+    <Text key={`${keyPrefix}-mention-${index}`} style={segment.username ? styles.mention : undefined}>{segment.text}</Text>
+  ));
 }
 
 function getTextFromRichNode(node: RichTextNode): string {
@@ -155,6 +170,7 @@ const styles = StyleSheet.create({
   bold: { fontFamily: fontFamilyBold, color: palette.ink },
   italic: { fontStyle: "italic" },
   link: { color: palette.primaryStrong, textDecorationLine: "underline" },
+  mention: { color: palette.primaryStrong, fontFamily: fontFamilyBold },
   quote: { borderLeftWidth: 2, borderLeftColor: palette.lineStrong, paddingLeft: 10, paddingVertical: 2 },
   quoteText: { color: palette.muted, fontStyle: "italic" },
   list: { gap: 5 },

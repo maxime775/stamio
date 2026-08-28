@@ -13,6 +13,13 @@ import {
 } from "@/lib/api";
 import { authField, fontFamily, fontFamilyBold, fontFamilyMedium, fontFamilySemibold, palette, radius } from "@/lib/design";
 import {
+  filterDiscussionParticipants,
+  getActiveDiscussionMention,
+  getDiscussionParticipants,
+  prependReplyMention,
+  replaceActiveDiscussionMention
+} from "@/lib/discussionMentions";
+import {
   RichCommentBody,
   RichDiscussionEditor,
   type RichDiscussionEditorHandle,
@@ -73,6 +80,7 @@ export function PollDiscussion({ pollId }: { pollId: string }) {
       repliesByParent: replies
     };
   }, [comments, sort]);
+  const mentionParticipants = useMemo(() => getDiscussionParticipants(comments.map((comment) => comment.author_label)), [comments]);
 
   return (
     <View style={styles.section}>
@@ -87,7 +95,7 @@ export function PollDiscussion({ pollId }: { pollId: string }) {
       </View>
 
       {user ? (
-        <CommentComposer pollId={pollId} parent={replyTo} onCancel={() => setReplyTo(null)} onCreated={async () => { setReplyTo(null); await refresh(); }} />
+        <CommentComposer pollId={pollId} parent={replyTo} mentionParticipants={mentionParticipants} onCancel={() => setReplyTo(null)} onCreated={async () => { setReplyTo(null); await refresh(); }} />
       ) : (
         <View style={styles.signupCta}>
           <View style={styles.signupCopy}><Text style={styles.signupTitle}>Envie de participer ?</Text><Text style={styles.signupText}>Inscrivez-vous pour participer au débat.</Text></View>
@@ -101,9 +109,9 @@ export function PollDiscussion({ pollId }: { pollId: string }) {
         <View style={styles.list}>
           {roots.map((comment) => (
             <View key={comment.id} style={styles.thread}>
-              <CommentItem comment={comment} authenticated={Boolean(user)} onLike={() => like(comment)} onReply={() => user ? setReplyTo(comment) : router.push("/auth/signup" as Href)} />
+              <CommentItem comment={comment} authenticated={Boolean(user)} mentionParticipants={mentionParticipants} onLike={() => like(comment)} onReply={() => user ? setReplyTo(comment) : router.push("/auth/signup" as Href)} />
               {(repliesByParent.get(comment.id) ?? []).map((reply) => (
-                <View key={reply.id} style={styles.reply}><CommentItem comment={reply} authenticated={Boolean(user)} onLike={() => like(reply)} onReply={() => user ? setReplyTo(comment) : router.push("/auth/signup" as Href)} /></View>
+                <View key={reply.id} style={styles.reply}><CommentItem comment={reply} authenticated={Boolean(user)} mentionParticipants={mentionParticipants} onLike={() => like(reply)} onReply={() => user ? setReplyTo(reply) : router.push("/auth/signup" as Href)} /></View>
               ))}
             </View>
           ))}
@@ -142,9 +150,13 @@ const WEB_INPUT_FOCUS_RESET = Platform.OS === "web"
   ? ({ outlineStyle: "none", outlineWidth: 0, outlineColor: "transparent" } as unknown as TextStyle)
   : null;
 
-function CommentComposer({ pollId, parent, onCancel, onCreated }: { pollId: string; parent: PollComment | null; onCancel: () => void; onCreated: () => Promise<void> }) {
+function CommentComposer({ pollId, parent, mentionParticipants, onCancel, onCreated }: { pollId: string; parent: PollComment | null; mentionParticipants: readonly string[]; onCancel: () => void; onCreated: () => Promise<void> }) {
   const richEditorRef = useRef<RichDiscussionEditorHandle | null>(null);
+  const nativeInputRef = useRef<TextInput | null>(null);
   const [body, setBody] = useState("");
+  const [selection, setSelection] = useState({ start: 0, end: 0 });
+  const [mentionQuery, setMentionQuery] = useState<string | null>(null);
+  const [activeMentionIndex, setActiveMentionIndex] = useState(0);
   const [editorFocused, setEditorFocused] = useState(false);
   const [activeFormats, setActiveFormats] = useState<RichTextActiveFormats>({});
   const [hoveredFormat, setHoveredFormat] = useState<FormatAction | null>(null);
@@ -154,10 +166,69 @@ function CommentComposer({ pollId, parent, onCancel, onCreated }: { pollId: stri
   const sendHover = useMemo(() => new Animated.Value(0), []);
   const richEditorEnabled = Platform.OS === "web";
   const canSubmit = body.trim().length > 0 && body.length <= 2000;
+  const mentionSuggestions = useMemo(
+    () => mentionQuery === null ? [] : filterDiscussionParticipants(mentionParticipants, mentionQuery).slice(0, 5),
+    [mentionParticipants, mentionQuery]
+  );
+  const mentionMenuOpen = mentionQuery !== null && mentionSuggestions.length > 0;
 
   useEffect(() => {
     if (sending || !canSubmit) sendHover.setValue(0);
   }, [canSubmit, sending, sendHover]);
+
+  useEffect(() => {
+    setActiveMentionIndex(0);
+  }, [mentionQuery]);
+
+  useEffect(() => {
+    if (!parent) return;
+    const username = getDiscussionParticipants([parent.author_label])[0];
+    if (!username) return;
+    if (richEditorEnabled) {
+      richEditorRef.current?.prependMention(username);
+      richEditorRef.current?.focus();
+      return;
+    }
+    setBody((current) => {
+      const result = prependReplyMention(current, username);
+      setSelection({ start: result.cursor, end: result.cursor });
+      return result.value;
+    });
+    nativeInputRef.current?.focus();
+  }, [parent?.id, richEditorEnabled]);
+
+  function selectMention(username: string) {
+    if (richEditorEnabled) {
+      richEditorRef.current?.replaceActiveMention(username);
+    } else {
+      const result = replaceActiveDiscussionMention(body, selection.end, username);
+      setBody(result.value);
+      setSelection({ start: result.cursor, end: result.cursor });
+      nativeInputRef.current?.focus();
+    }
+    setMentionQuery(null);
+  }
+
+  function handleMentionKeyDown(key: string) {
+    if (!mentionMenuOpen) return false;
+    if (key === "ArrowDown") {
+      setActiveMentionIndex((current) => (current + 1) % mentionSuggestions.length);
+      return true;
+    }
+    if (key === "ArrowUp") {
+      setActiveMentionIndex((current) => (current - 1 + mentionSuggestions.length) % mentionSuggestions.length);
+      return true;
+    }
+    if (key === "Enter") {
+      selectMention(mentionSuggestions[activeMentionIndex] ?? mentionSuggestions[0]);
+      return true;
+    }
+    if (key === "Escape") {
+      setMentionQuery(null);
+      return true;
+    }
+    return false;
+  }
 
   async function pickImage() {
     setError(null);
@@ -187,13 +258,16 @@ function CommentComposer({ pollId, parent, onCancel, onCreated }: { pollId: stri
     let uploadedImage: PollCommentImage | undefined;
     try {
       if (image) uploadedImage = await uploadPollCommentImage(pollId, image.base64, image.mimeType, image.size);
-      const { error: submitError } = await createPollComment(pollId, content, parent?.id ?? null, uploadedImage);
+      const parentCommentId = parent ? parent.parent_comment_id ?? parent.id : null;
+      const { error: submitError } = await createPollComment(pollId, content, parentCommentId, uploadedImage);
       if (submitError) {
         if (uploadedImage) await removePollCommentImage(uploadedImage.path);
         setError("Impossible de publier ce commentaire.");
         return;
       }
       setBody("");
+      setSelection({ start: 0, end: 0 });
+      setMentionQuery(null);
       setActiveFormats({});
       richEditorRef.current?.clear();
       setImage(null);
@@ -250,11 +324,27 @@ function CommentComposer({ pollId, parent, onCancel, onCreated }: { pollId: stri
           onChangeText={setBody}
           onActiveFormatsChange={setActiveFormats}
           onFocusChange={setEditorFocused}
+          onMentionQueryChange={setMentionQuery}
+          onMentionKeyDown={handleMentionKeyDown}
         />
       ) : (
         <TextInput
+          ref={nativeInputRef}
           value={body}
-          onChangeText={setBody}
+          selection={selection}
+          onChangeText={(nextBody) => {
+            const delta = nextBody.length - body.length;
+            const nextCursor = selection.start === selection.end
+              ? Math.max(0, Math.min(nextBody.length, selection.end + delta))
+              : nextBody.length;
+            setBody(nextBody);
+            setMentionQuery(getActiveDiscussionMention(nextBody, nextCursor)?.query ?? null);
+          }}
+          onSelectionChange={(event) => {
+            const nextSelection = event.nativeEvent.selection;
+            setSelection(nextSelection);
+            setMentionQuery(getActiveDiscussionMention(body, nextSelection.end)?.query ?? null);
+          }}
           multiline
           maxLength={2000}
           placeholder="Partagez un point de vue argumenté…"
@@ -265,6 +355,19 @@ function CommentComposer({ pollId, parent, onCancel, onCreated }: { pollId: stri
         />
       )}
     </View>
+    {mentionMenuOpen ? <View accessibilityRole="list" accessibilityLabel="Participants à mentionner" style={styles.mentionSuggestions}>
+      {mentionSuggestions.map((username, index) => (
+        <Pressable
+          key={username.toLowerCase()}
+          accessibilityRole="button"
+          accessibilityLabel={`Mentionner @${username}`}
+          onPress={() => selectMention(username)}
+          style={({ pressed }) => StyleSheet.flatten([styles.mentionSuggestion, index === activeMentionIndex && styles.mentionSuggestionActive, pressed && styles.pressed])}
+        >
+          <Text style={styles.mentionSuggestionText}>@{username}</Text>
+        </Pressable>
+      ))}
+    </View> : null}
     {image ? <View style={styles.imagePreviewWrap}>
       <Image source={{ uri: image.uri }} resizeMode="contain" style={styles.imagePreview} accessibilityLabel="Aperçu de l’image à publier" />
       <Pressable disabled={sending} onPress={() => setImage(null)} accessibilityRole="button" accessibilityLabel="Retirer l’image" style={({ pressed }) => StyleSheet.flatten([styles.removeImage, pressed && styles.pressed])}><X size={17} color={palette.ink} /></Pressable>
@@ -333,11 +436,12 @@ function getBase64ByteLength(value: string) {
   return Math.floor((value.length * 3) / 4) - padding;
 }
 
-function CommentItem({ comment, authenticated, onLike, onReply }: { comment: PollComment; authenticated: boolean; onLike: () => void; onReply: () => void }) {
+function CommentItem({ comment, authenticated, mentionParticipants, onLike, onReply }: { comment: PollComment; authenticated: boolean; mentionParticipants: readonly string[]; onLike: () => void; onReply: () => void }) {
   const date = new Date(comment.created_at).toLocaleDateString("fr-FR", { day: "numeric", month: "short", hour: "2-digit", minute: "2-digit" });
+  const authorInitial = comment.author_label.startsWith("@") ? comment.author_label.slice(1, 2).toUpperCase() : "?";
   return <View style={styles.comment}>
-    <View style={styles.commentMeta}><View style={styles.avatar}><Text style={styles.avatarText}>{comment.author_label.slice(0, 1)}</Text></View><Text style={styles.author}>{comment.author_label}</Text><Text style={styles.date}>{date}</Text></View>
-    <RichCommentBody value={comment.body} deleted={Boolean(comment.deleted_at)} bodyStyle={styles.body} deletedStyle={styles.deleted} />
+    <View style={styles.commentMeta}><View style={styles.avatar}><Text style={styles.avatarText}>{authorInitial}</Text></View><Text style={styles.author}>{comment.author_label}</Text><Text style={styles.date}>{date}</Text></View>
+    <RichCommentBody value={comment.body} deleted={Boolean(comment.deleted_at)} bodyStyle={styles.body} deletedStyle={styles.deleted} mentionUsernames={mentionParticipants} />
     {comment.image_url && !comment.deleted_at ? <Image source={{ uri: comment.image_url }} resizeMode="contain" style={styles.commentImage} accessibilityLabel="Image jointe au commentaire" /> : null}
     {!comment.deleted_at ? <View style={styles.actions}>
       <Pressable onPress={onLike} accessibilityLabel={authenticated ? "Aimer ce commentaire" : "S’inscrire pour aimer"} style={styles.action}><Heart size={14} color={comment.liked_by_me ? palette.danger : palette.muted} fill={comment.liked_by_me ? palette.danger : "transparent"} /><Text style={styles.actionText}>{comment.likes}</Text></Pressable>
@@ -376,6 +480,10 @@ const styles = StyleSheet.create({
     overflow: "visible"
   },
   editorFrameFocused: { borderColor: palette.ink, backgroundColor: authField.backgroundFocused },
+  mentionSuggestions: { alignSelf: "flex-start", minWidth: 190, maxWidth: "100%", marginTop: -8, paddingVertical: 4, borderLeftWidth: 2, borderLeftColor: palette.primary, borderRadius: radius.xs, backgroundColor: palette.surfaceRaised, overflow: "hidden" },
+  mentionSuggestion: { minHeight: 44, justifyContent: "center", paddingHorizontal: 12, paddingVertical: 8 },
+  mentionSuggestionActive: { backgroundColor: palette.primarySoft },
+  mentionSuggestionText: { color: palette.primaryStrong, fontFamily: fontFamilySemibold, fontSize: 13 },
   formatToolbar: {
     minHeight: 38,
     paddingHorizontal: 8,

@@ -30,6 +30,7 @@
     "test:anonymous-voting-scrub": "node scripts/verify-anonymous-voting-scrub.mjs",
     "test:anonymous-voting-scrub-content": "node scripts/verify-anonymous-voting-scrub-content.mjs",
     "test:signup-email-remote": "node scripts/verify-signup-email-remote.mjs",
+    "test:discussion-mentions": "node scripts/verify-discussion-mentions.mjs",
     "test:passkey-remote-security": "node scripts/verify-passkey-remote-security.mjs"
   },
   "dependencies": {
