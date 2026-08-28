@@ -11,7 +11,7 @@ import {
   togglePollCommentLike,
   uploadPollCommentImage
 } from "@/lib/api";
-import { authField, fontFamily, fontFamilyBold, fontFamilyMedium, fontFamilySemibold, palette, radius } from "@/lib/design";
+import { STAMIO_CORE_COLORS, authField, fontFamily, fontFamilyBold, fontFamilyMedium, fontFamilySemibold, palette, radius } from "@/lib/design";
 import {
   filterDiscussionParticipants,
   getActiveDiscussionMention,
@@ -22,6 +22,7 @@ import {
 import {
   RichCommentBody,
   RichDiscussionEditor,
+  type RichDiscussionMentionAnchor,
   type RichDiscussionEditorHandle,
   type RichTextActiveFormats,
   type RichTextFormatAction
@@ -149,6 +150,8 @@ const FORMAT_ACTIONS: Array<{ id: FormatAction; label: string; shortcut?: string
 const WEB_INPUT_FOCUS_RESET = Platform.OS === "web"
   ? ({ outlineStyle: "none", outlineWidth: 0, outlineColor: "transparent" } as unknown as TextStyle)
   : null;
+const INLINE_MENTION_LINE_HEIGHT = 20;
+const MAX_MENTION_SUGGESTIONS = 5;
 
 function CommentComposer({ pollId, parent, mentionParticipants, onCancel, onCreated }: { pollId: string; parent: PollComment | null; mentionParticipants: readonly string[]; onCancel: () => void; onCreated: () => Promise<void> }) {
   const richEditorRef = useRef<RichDiscussionEditorHandle | null>(null);
@@ -156,6 +159,7 @@ function CommentComposer({ pollId, parent, mentionParticipants, onCancel, onCrea
   const [body, setBody] = useState("");
   const [selection, setSelection] = useState({ start: 0, end: 0 });
   const [mentionQuery, setMentionQuery] = useState<string | null>(null);
+  const [mentionAnchor, setMentionAnchor] = useState<RichDiscussionMentionAnchor | null>(null);
   const [activeMentionIndex, setActiveMentionIndex] = useState(0);
   const [editorFocused, setEditorFocused] = useState(false);
   const [activeFormats, setActiveFormats] = useState<RichTextActiveFormats>({});
@@ -166,11 +170,23 @@ function CommentComposer({ pollId, parent, mentionParticipants, onCancel, onCrea
   const sendHover = useMemo(() => new Animated.Value(0), []);
   const richEditorEnabled = Platform.OS === "web";
   const canSubmit = body.trim().length > 0 && body.length <= 2000;
-  const mentionSuggestions = useMemo(
-    () => mentionQuery === null ? [] : filterDiscussionParticipants(mentionParticipants, mentionQuery).slice(0, 5),
+  const matchingMentionParticipants = useMemo(
+    () => mentionQuery === null ? [] : filterDiscussionParticipants(mentionParticipants, mentionQuery),
     [mentionParticipants, mentionQuery]
   );
+  const exactMentionRecognized = mentionQuery !== null
+    && matchingMentionParticipants.some((username) => username.toLowerCase() === mentionQuery);
+  const mentionSuggestions = exactMentionRecognized
+    ? []
+    : matchingMentionParticipants.slice(0, MAX_MENTION_SUGGESTIONS);
   const mentionMenuOpen = mentionQuery !== null && mentionSuggestions.length > 0;
+  const inlineMentionLayout = richEditorEnabled && mentionAnchor
+    ? getInlineMentionLayout(mentionAnchor, mentionSuggestions.length)
+    : null;
+  const visibleMentionSuggestions = richEditorEnabled
+    ? mentionSuggestions.slice(0, inlineMentionLayout?.visibleCount ?? 0)
+    : mentionSuggestions;
+  const activeMentionSuggestion = visibleMentionSuggestions[activeMentionIndex] ?? visibleMentionSuggestions[0] ?? null;
 
   useEffect(() => {
     if (sending || !canSubmit) sendHover.setValue(0);
@@ -207,24 +223,26 @@ function CommentComposer({ pollId, parent, mentionParticipants, onCancel, onCrea
       nativeInputRef.current?.focus();
     }
     setMentionQuery(null);
+    setMentionAnchor(null);
   }
 
   function handleMentionKeyDown(key: string) {
-    if (!mentionMenuOpen) return false;
+    if (!mentionMenuOpen || visibleMentionSuggestions.length === 0) return false;
     if (key === "ArrowDown") {
-      setActiveMentionIndex((current) => (current + 1) % mentionSuggestions.length);
+      setActiveMentionIndex((current) => (current + 1) % visibleMentionSuggestions.length);
       return true;
     }
     if (key === "ArrowUp") {
-      setActiveMentionIndex((current) => (current - 1 + mentionSuggestions.length) % mentionSuggestions.length);
+      setActiveMentionIndex((current) => (current - 1 + visibleMentionSuggestions.length) % visibleMentionSuggestions.length);
       return true;
     }
     if (key === "Enter") {
-      selectMention(mentionSuggestions[activeMentionIndex] ?? mentionSuggestions[0]);
+      selectMention(activeMentionSuggestion ?? visibleMentionSuggestions[0]);
       return true;
     }
     if (key === "Escape") {
       setMentionQuery(null);
+      setMentionAnchor(null);
       return true;
     }
     return false;
@@ -268,6 +286,7 @@ function CommentComposer({ pollId, parent, mentionParticipants, onCancel, onCrea
       setBody("");
       setSelection({ start: 0, end: 0 });
       setMentionQuery(null);
+      setMentionAnchor(null);
       setActiveFormats({});
       richEditorRef.current?.clear();
       setImage(null);
@@ -289,6 +308,36 @@ function CommentComposer({ pollId, parent, mentionParticipants, onCancel, onCrea
       useNativeDriver: true
     }).start();
   }
+
+  const mentionMenu = mentionMenuOpen && (!richEditorEnabled || mentionAnchor) ? (
+    <View
+      accessibilityRole="list"
+      accessibilityLabel="Participants à mentionner"
+      style={StyleSheet.flatten([
+        richEditorEnabled ? styles.mentionSuggestionInlineWeb : styles.mentionSuggestionsNative,
+        richEditorEnabled && mentionAnchor && inlineMentionLayout ? { left: mentionAnchor.left, top: inlineMentionLayout.top } : null
+      ])}
+    >
+      {visibleMentionSuggestions.map((username) => (
+        <Pressable
+          key={username.toLowerCase()}
+          accessibilityRole="button"
+          accessibilityLabel={`Mentionner @${username}`}
+          onPress={() => selectMention(username)}
+          style={({ pressed }) => StyleSheet.flatten([
+            richEditorEnabled ? styles.mentionSuggestionInlineActionWeb : styles.mentionSuggestionNative,
+            !richEditorEnabled && username === activeMentionSuggestion && styles.mentionSuggestionNativeActive,
+            !richEditorEnabled && pressed && styles.pressed
+          ])}
+        >
+          <Text style={StyleSheet.flatten([
+            richEditorEnabled ? styles.mentionSuggestionInlineTextWeb : styles.mentionSuggestionTextNative,
+            richEditorEnabled && username === activeMentionSuggestion ? styles.mentionSuggestionInlineTextActiveWeb : null
+          ])}>{richEditorEnabled ? username : `@${username}`}</Text>
+        </Pressable>
+      ))}
+    </View>
+  ) : null;
 
   return <View style={styles.composer}>
     {parent ? <View style={styles.replying}><Text style={styles.replyingText}>Réponse à {parent.author_label}</Text><Pressable onPress={onCancel}><Text style={styles.cancel}>Annuler</Text></Pressable></View> : null}
@@ -319,12 +368,14 @@ function CommentComposer({ pollId, parent, mentionParticipants, onCancel, onCrea
         <RichDiscussionEditor
           ref={richEditorRef}
           disabled={sending}
+          mentionUsernames={mentionParticipants}
           placeholder="Partagez un point de vue argumenté…"
           style={styles.richInput}
           onChangeText={setBody}
           onActiveFormatsChange={setActiveFormats}
           onFocusChange={setEditorFocused}
           onMentionQueryChange={setMentionQuery}
+          onMentionAnchorChange={setMentionAnchor}
           onMentionKeyDown={handleMentionKeyDown}
         />
       ) : (
@@ -354,20 +405,9 @@ function CommentComposer({ pollId, parent, mentionParticipants, onCancel, onCrea
           style={StyleSheet.flatten([styles.input, WEB_INPUT_FOCUS_RESET])}
         />
       )}
+      {richEditorEnabled ? <View pointerEvents="box-none" style={styles.mentionSuggestionClipWeb}>{mentionMenu}</View> : null}
     </View>
-    {mentionMenuOpen ? <View accessibilityRole="list" accessibilityLabel="Participants à mentionner" style={styles.mentionSuggestions}>
-      {mentionSuggestions.map((username, index) => (
-        <Pressable
-          key={username.toLowerCase()}
-          accessibilityRole="button"
-          accessibilityLabel={`Mentionner @${username}`}
-          onPress={() => selectMention(username)}
-          style={({ pressed }) => StyleSheet.flatten([styles.mentionSuggestion, index === activeMentionIndex && styles.mentionSuggestionActive, pressed && styles.pressed])}
-        >
-          <Text style={styles.mentionSuggestionText}>@{username}</Text>
-        </Pressable>
-      ))}
-    </View> : null}
+    {!richEditorEnabled ? mentionMenu : null}
     {image ? <View style={styles.imagePreviewWrap}>
       <Image source={{ uri: image.uri }} resizeMode="contain" style={styles.imagePreview} accessibilityLabel="Aperçu de l’image à publier" />
       <Pressable disabled={sending} onPress={() => setImage(null)} accessibilityRole="button" accessibilityLabel="Retirer l’image" style={({ pressed }) => StyleSheet.flatten([styles.removeImage, pressed && styles.pressed])}><X size={17} color={palette.ink} /></Pressable>
@@ -436,9 +476,22 @@ function getBase64ByteLength(value: string) {
   return Math.floor((value.length * 3) / 4) - padding;
 }
 
+function getInlineMentionLayout(anchor: RichDiscussionMentionAnchor, suggestionCount: number) {
+  const availableHeight = Math.max(0, anchor.bottom - anchor.minTop);
+  const linesThatFit = Math.max(1, Math.floor(availableHeight / INLINE_MENTION_LINE_HEIGHT));
+  const visibleCount = Math.min(MAX_MENTION_SUGGESTIONS, suggestionCount, linesThatFit);
+  const listHeight = visibleCount * INLINE_MENTION_LINE_HEIGHT;
+  const latestTop = Math.max(anchor.minTop, anchor.bottom - listHeight);
+  return {
+    top: Math.max(anchor.minTop, Math.min(anchor.top, latestTop)),
+    visibleCount
+  };
+}
+
 function CommentItem({ comment, authenticated, mentionParticipants, onLike, onReply }: { comment: PollComment; authenticated: boolean; mentionParticipants: readonly string[]; onLike: () => void; onReply: () => void }) {
   const date = new Date(comment.created_at).toLocaleDateString("fr-FR", { day: "numeric", month: "short", hour: "2-digit", minute: "2-digit" });
-  const authorInitial = comment.author_label.startsWith("@") ? comment.author_label.slice(1, 2).toUpperCase() : "?";
+  const authorUsername = getDiscussionParticipants([comment.author_label])[0];
+  const authorInitial = authorUsername?.slice(0, 1).toLocaleUpperCase("fr-FR") ?? "?";
   return <View style={styles.comment}>
     <View style={styles.commentMeta}><View style={styles.avatar}><Text style={styles.avatarText}>{authorInitial}</Text></View><Text style={styles.author}>{comment.author_label}</Text><Text style={styles.date}>{date}</Text></View>
     <RichCommentBody value={comment.body} deleted={Boolean(comment.deleted_at)} bodyStyle={styles.body} deletedStyle={styles.deleted} mentionUsernames={mentionParticipants} />
@@ -473,17 +526,22 @@ const styles = StyleSheet.create({
   composer: { borderTopWidth: 1, borderTopColor: "rgba(143, 184, 198, 0.16)", paddingTop: 16, gap: 12 },
   replying: { flexDirection: "row", justifyContent: "space-between" }, replyingText: { color: palette.inkSecondary, fontFamily: fontFamilyMedium, fontSize: 12 }, cancel: { color: palette.primaryStrong, fontFamily: fontFamilySemibold, fontSize: 12 },
   editorFrame: {
+    position: "relative",
     borderRadius: authField.borderRadius,
     borderWidth: authField.borderWidth,
     borderColor: "transparent",
-    backgroundColor: authField.background,
-    overflow: "visible"
+    backgroundColor: authField.background
   },
   editorFrameFocused: { borderColor: palette.ink, backgroundColor: authField.backgroundFocused },
-  mentionSuggestions: { alignSelf: "flex-start", minWidth: 190, maxWidth: "100%", marginTop: -8, paddingVertical: 4, borderLeftWidth: 2, borderLeftColor: palette.primary, borderRadius: radius.xs, backgroundColor: palette.surfaceRaised, overflow: "hidden" },
-  mentionSuggestion: { minHeight: 44, justifyContent: "center", paddingHorizontal: 12, paddingVertical: 8 },
-  mentionSuggestionActive: { backgroundColor: palette.primarySoft },
-  mentionSuggestionText: { color: palette.primaryStrong, fontFamily: fontFamilySemibold, fontSize: 13 },
+  mentionSuggestionsNative: { alignSelf: "flex-start", minWidth: 190, maxWidth: "100%", marginTop: -8, paddingVertical: 4, borderLeftWidth: 2, borderLeftColor: palette.primary, borderRadius: radius.xs, backgroundColor: palette.surfaceRaised, overflow: "hidden" },
+  mentionSuggestionNative: { minHeight: 44, justifyContent: "center", paddingHorizontal: 12, paddingVertical: 8 },
+  mentionSuggestionNativeActive: { backgroundColor: palette.primarySoft },
+  mentionSuggestionTextNative: { color: palette.primaryStrong, fontFamily: fontFamilySemibold, fontSize: 13 },
+  mentionSuggestionClipWeb: { position: "absolute", top: 0, right: 0, bottom: 0, left: 0, overflow: "hidden", zIndex: 30 },
+  mentionSuggestionInlineWeb: { position: "absolute", alignSelf: "flex-start", zIndex: 30 },
+  mentionSuggestionInlineActionWeb: { alignSelf: "flex-start" },
+  mentionSuggestionInlineTextWeb: { color: STAMIO_CORE_COLORS.editorialAmber, fontFamily: fontFamilySemibold, fontSize: 15, lineHeight: INLINE_MENTION_LINE_HEIGHT },
+  mentionSuggestionInlineTextActiveWeb: { fontFamily: fontFamilyBold },
   formatToolbar: {
     minHeight: 38,
     paddingHorizontal: 8,

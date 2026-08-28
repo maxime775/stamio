@@ -1,17 +1,27 @@
-import { forwardRef, useEffect, useImperativeHandle, useRef, type ReactNode } from "react";
+import { forwardRef, useEffect, useImperativeHandle, useMemo, useRef, type ReactNode } from "react";
 import { Linking, Platform, StyleSheet, Text, View, type StyleProp, type TextStyle, type ViewStyle } from "react-native";
 import { EditorContent, useEditor, type Editor } from "@tiptap/react";
-import type { JSONContent } from "@tiptap/core";
+import { Extension, type JSONContent } from "@tiptap/core";
+import type { Node as ProseMirrorNode } from "@tiptap/pm/model";
+import { Plugin } from "@tiptap/pm/state";
+import { Decoration, DecorationSet } from "@tiptap/pm/view";
 import StarterKit from "@tiptap/starter-kit";
 import Link from "@tiptap/extension-link";
 import Placeholder from "@tiptap/extension-placeholder";
-import { fontFamily, fontFamilyBold, fontFamilyMedium, palette, radius } from "@/lib/design";
+import { STAMIO_CORE_COLORS, fontFamily, fontFamilyBold, fontFamilyMedium, palette, radius } from "@/lib/design";
 import { getActiveDiscussionMention, prependReplyMention, splitDiscussionMentions } from "@/lib/discussionMentions";
 
 export const RICH_TEXT_PREFIX = "STAMIO_RICH_TEXT_V1:";
 
 export type RichTextFormatAction = "bold" | "italic" | "link" | "quote" | "bullet" | "numbered" | "code";
 export type RichTextActiveFormats = Partial<Record<RichTextFormatAction, boolean>>;
+
+export type RichDiscussionMentionAnchor = {
+  left: number;
+  top: number;
+  minTop: number;
+  bottom: number;
+};
 
 export type RichTextNode = JSONContent;
 
@@ -27,28 +37,37 @@ export type RichDiscussionEditorHandle = {
 
 type RichDiscussionEditorProps = {
   disabled?: boolean;
+  mentionUsernames: readonly string[];
   placeholder: string;
   style?: StyleProp<ViewStyle>;
   onChangeText: (text: string) => void;
   onActiveFormatsChange: (formats: RichTextActiveFormats) => void;
   onFocusChange: (focused: boolean) => void;
   onMentionQueryChange: (query: string | null) => void;
+  onMentionAnchorChange: (anchor: RichDiscussionMentionAnchor | null) => void;
   onMentionKeyDown?: (key: string) => boolean;
 };
 
 const EMPTY_DOC: RichTextNode = { type: "doc", content: [{ type: "paragraph" }] };
 const STYLE_ELEMENT_ID = "stamio-rich-discussion-editor-styles";
+const VALID_MENTION_CLASS = "stamio-valid-discussion-mention";
 
 export const RichDiscussionEditor = forwardRef<RichDiscussionEditorHandle, RichDiscussionEditorProps>(function RichDiscussionEditor({
   disabled = false,
+  mentionUsernames,
   placeholder,
   style,
   onChangeText,
   onActiveFormatsChange,
   onFocusChange,
   onMentionQueryChange,
+  onMentionAnchorChange,
   onMentionKeyDown
 }, ref) {
+  const containerRef = useRef<View | null>(null);
+  const mentionUsernamesRef = useRef(mentionUsernames);
+  mentionUsernamesRef.current = mentionUsernames;
+  const mentionDecorationExtension = useMemo(() => createMentionDecorationExtension(mentionUsernamesRef), []);
   const mentionKeyDownRef = useRef(onMentionKeyDown);
   mentionKeyDownRef.current = onMentionKeyDown;
   useEffect(() => {
@@ -176,6 +195,11 @@ export const RichDiscussionEditor = forwardRef<RichDiscussionEditorHandle, RichD
   -webkit-text-fill-color: ${palette.primaryStrong};
   text-decoration: underline;
 }
+.stamio-rich-discussion-editor .${VALID_MENTION_CLASS},
+.stamio-rich-discussion-editor .${VALID_MENTION_CLASS} * {
+  color: ${STAMIO_CORE_COLORS.editorialAmber} !important;
+  -webkit-text-fill-color: ${STAMIO_CORE_COLORS.editorialAmber} !important;
+}
 .stamio-rich-discussion-editor p.is-editor-empty:first-child::before,
 .stamio-rich-discussion-editor.ProseMirror p.is-editor-empty:first-child::before,
 .stamio-rich-discussion-editor .ProseMirror p.is-editor-empty:first-child::before {
@@ -206,7 +230,8 @@ export const RichDiscussionEditor = forwardRef<RichDiscussionEditorHandle, RichD
           target: "_blank"
         }
       }),
-      Placeholder.configure({ placeholder })
+      Placeholder.configure({ placeholder }),
+      mentionDecorationExtension
     ],
     content: EMPTY_DOC,
     editable: !disabled,
@@ -216,18 +241,37 @@ export const RichDiscussionEditor = forwardRef<RichDiscussionEditorHandle, RichD
       },
       handleKeyDown: (_view, event) => mentionKeyDownRef.current?.(event.key) ?? false
     },
-    onUpdate: ({ editor: currentEditor }) => reportEditorState(currentEditor, onChangeText, onActiveFormatsChange, onMentionQueryChange),
+    onUpdate: ({ editor: currentEditor }) => reportEditorState(currentEditor, containerRef.current, onChangeText, onActiveFormatsChange, onMentionQueryChange, onMentionAnchorChange),
     onSelectionUpdate: ({ editor: currentEditor }) => {
       onActiveFormatsChange(getActiveFormats(currentEditor));
-      onMentionQueryChange(getEditorMentionQuery(currentEditor));
+      reportEditorMention(currentEditor, containerRef.current, onMentionQueryChange, onMentionAnchorChange);
     },
-    onFocus: () => onFocusChange(true),
+    onFocus: ({ editor: currentEditor }) => {
+      onFocusChange(true);
+      reportEditorMention(currentEditor, containerRef.current, onMentionQueryChange, onMentionAnchorChange);
+    },
     onBlur: () => onFocusChange(false)
   });
 
   useEffect(() => {
     editor?.setEditable(!disabled);
   }, [disabled, editor]);
+
+  useEffect(() => {
+    if (!editor) return;
+    editor.view.dispatch(editor.state.tr.setMeta("discussionMentionUsernamesChanged", true));
+  }, [editor, mentionUsernames]);
+
+  useEffect(() => {
+    if (!editor || Platform.OS !== "web" || typeof window === "undefined") return;
+    const updateAnchor = () => onMentionAnchorChange(getEditorMentionAnchor(editor, containerRef.current));
+    window.addEventListener("resize", updateAnchor);
+    window.addEventListener("scroll", updateAnchor, true);
+    return () => {
+      window.removeEventListener("resize", updateAnchor);
+      window.removeEventListener("scroll", updateAnchor, true);
+    };
+  }, [editor, onMentionAnchorChange]);
 
   useImperativeHandle(ref, () => ({
     applyFormat(format) {
@@ -242,6 +286,7 @@ export const RichDiscussionEditor = forwardRef<RichDiscussionEditorHandle, RichD
       onChangeText("");
       onActiveFormatsChange({});
       onMentionQueryChange(null);
+      onMentionAnchorChange(null);
     },
     getSerializedBody() {
       if (!editor || isRichTextDocEmpty(editor.getJSON() as RichTextNode)) return null;
@@ -271,19 +316,80 @@ export const RichDiscussionEditor = forwardRef<RichDiscussionEditorHandle, RichD
       ).run();
       return true;
     }
-  }), [disabled, editor, onActiveFormatsChange, onChangeText, onMentionQueryChange]);
+  }), [disabled, editor, onActiveFormatsChange, onChangeText, onMentionAnchorChange, onMentionQueryChange]);
 
   return (
-    <View style={style}>
+    <View ref={containerRef} style={style}>
       {editor ? <EditorContent editor={editor} /> : null}
     </View>
   );
 });
 
-function reportEditorState(editor: Editor, onChangeText: (text: string) => void, onActiveFormatsChange: (formats: RichTextActiveFormats) => void, onMentionQueryChange: (query: string | null) => void) {
+function createMentionDecorationExtension(mentionUsernamesRef: { current: readonly string[] }) {
+  return Extension.create({
+    name: "discussionMentionDecorations",
+    addProseMirrorPlugins() {
+      return [new Plugin({
+        props: {
+          decorations: (state) => getDiscussionMentionDecorations(state.doc, mentionUsernamesRef.current)
+        }
+      })];
+    }
+  });
+}
+
+function getDiscussionMentionDecorations(doc: ProseMirrorNode, mentionUsernames: readonly string[]) {
+  const decorations: Decoration[] = [];
+  doc.descendants((node, blockPosition) => {
+    if (!node.isTextblock) return;
+    let textRun = "";
+    let textRunStart = 0;
+    let nextTextOffset = -1;
+    const flushTextRun = () => {
+      if (textRun) addMentionDecorations(decorations, textRun, textRunStart, mentionUsernames);
+      textRun = "";
+      nextTextOffset = -1;
+    };
+    node.descendants((child, childOffset) => {
+      if (!child.isText || !child.text) {
+        if (child.isInline) flushTextRun();
+        return false;
+      }
+      if (textRun && childOffset !== nextTextOffset) flushTextRun();
+      if (!textRun) textRunStart = blockPosition + 1 + childOffset;
+      textRun += child.text;
+      nextTextOffset = childOffset + child.nodeSize;
+      return false;
+    });
+    flushTextRun();
+    return false;
+  });
+  return DecorationSet.create(doc, decorations);
+}
+
+function addMentionDecorations(decorations: Decoration[], text: string, textPosition: number, mentionUsernames: readonly string[]) {
+  let offset = 0;
+  for (const segment of splitDiscussionMentions(text, mentionUsernames)) {
+    if (segment.username) {
+      decorations.push(Decoration.inline(
+        textPosition + offset,
+        textPosition + offset + segment.text.length,
+        { class: VALID_MENTION_CLASS }
+      ));
+    }
+    offset += segment.text.length;
+  }
+}
+
+function reportEditorState(editor: Editor, container: View | null, onChangeText: (text: string) => void, onActiveFormatsChange: (formats: RichTextActiveFormats) => void, onMentionQueryChange: (query: string | null) => void, onMentionAnchorChange: (anchor: RichDiscussionMentionAnchor | null) => void) {
   onChangeText(editor.getText());
   onActiveFormatsChange(getActiveFormats(editor));
+  reportEditorMention(editor, container, onMentionQueryChange, onMentionAnchorChange);
+}
+
+function reportEditorMention(editor: Editor, container: View | null, onMentionQueryChange: (query: string | null) => void, onMentionAnchorChange: (anchor: RichDiscussionMentionAnchor | null) => void) {
   onMentionQueryChange(getEditorMentionQuery(editor));
+  onMentionAnchorChange(getEditorMentionAnchor(editor, container));
 }
 
 function getEditorMention(editor: Editor) {
@@ -295,6 +401,26 @@ function getEditorMention(editor: Editor) {
 
 function getEditorMentionQuery(editor: Editor) {
   return getEditorMention(editor)?.query ?? null;
+}
+
+function getEditorMentionAnchor(editor: Editor, container: View | null): RichDiscussionMentionAnchor | null {
+  if (!getEditorMention(editor) || !container) return null;
+  const element = container as unknown as HTMLElement;
+  const frame = element.parentElement;
+  if (!frame || typeof frame.getBoundingClientRect !== "function") return null;
+  try {
+    const caret = editor.view.coordsAtPos(editor.state.selection.from);
+    const frameBounds = frame.getBoundingClientRect();
+    const editorBounds = element.getBoundingClientRect();
+    return {
+      left: Math.max(0, caret.right - frameBounds.left + 3),
+      top: Math.max(0, caret.top - frameBounds.top + 4),
+      minTop: Math.max(0, editorBounds.top - frameBounds.top + 4),
+      bottom: Math.max(0, frameBounds.height - 5)
+    };
+  } catch {
+    return null;
+  }
 }
 
 function getActiveFormats(editor: Editor): RichTextActiveFormats {

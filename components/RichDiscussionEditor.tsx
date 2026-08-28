@@ -8,6 +8,13 @@ export const RICH_TEXT_PREFIX = "STAMIO_RICH_TEXT_V1:";
 export type RichTextFormatAction = "bold" | "italic" | "link" | "quote" | "bullet" | "numbered" | "code";
 export type RichTextActiveFormats = Partial<Record<RichTextFormatAction, boolean>>;
 
+export type RichDiscussionMentionAnchor = {
+  left: number;
+  top: number;
+  minTop: number;
+  bottom: number;
+};
+
 export type RichTextNode = {
   type?: string;
   text?: string;
@@ -28,12 +35,14 @@ export type RichDiscussionEditorHandle = {
 
 type RichDiscussionEditorProps = {
   disabled?: boolean;
+  mentionUsernames: readonly string[];
   placeholder: string;
   style?: StyleProp<ViewStyle>;
   onChangeText: (text: string) => void;
   onActiveFormatsChange: (formats: RichTextActiveFormats) => void;
   onFocusChange: (focused: boolean) => void;
   onMentionQueryChange: (query: string | null) => void;
+  onMentionAnchorChange: (anchor: RichDiscussionMentionAnchor | null) => void;
   onMentionKeyDown?: (key: string) => boolean;
 };
 
