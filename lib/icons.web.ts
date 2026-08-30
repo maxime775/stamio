@@ -1,5 +1,7 @@
 type LucideExports = typeof import("lucide-react-native");
 
+export { XBrandIcon } from "@/lib/XBrandIcon";
+
 export const Archive: LucideExports["Archive"] = require("lucide-react-native/dist/cjs/icons/archive.js");
 export const ArrowRight: LucideExports["ArrowRight"] = require("lucide-react-native/dist/cjs/icons/arrow-right.js");
 export const Award: LucideExports["Award"] = require("lucide-react-native/dist/cjs/icons/award.js");
@@ -12,6 +14,8 @@ export const CheckCircle2: LucideExports["CheckCircle2"] = require("lucide-react
 export const ChevronDown: LucideExports["ChevronDown"] = require("lucide-react-native/dist/cjs/icons/chevron-down.js");
 export const CircleUserRound: LucideExports["CircleUserRound"] = require("lucide-react-native/dist/cjs/icons/circle-user-round.js");
 export const Code2: LucideExports["Code2"] = require("lucide-react-native/dist/cjs/icons/code-xml.js");
+export const Copy: LucideExports["Copy"] = require("lucide-react-native/dist/cjs/icons/copy.js");
+export const Ellipsis: LucideExports["Ellipsis"] = require("lucide-react-native/dist/cjs/icons/ellipsis.js");
 export const ExternalLink: LucideExports["ExternalLink"] = require("lucide-react-native/dist/cjs/icons/external-link.js");
 export const Eye: LucideExports["Eye"] = require("lucide-react-native/dist/cjs/icons/eye.js");
 export const EyeOff: LucideExports["EyeOff"] = require("lucide-react-native/dist/cjs/icons/eye-off.js");
@@ -34,12 +38,14 @@ export const LockKeyhole: LucideExports["LockKeyhole"] = require("lucide-react-n
 export const LogIn: LucideExports["LogIn"] = require("lucide-react-native/dist/cjs/icons/log-in.js");
 export const LogOut: LucideExports["LogOut"] = require("lucide-react-native/dist/cjs/icons/log-out.js");
 export const MessageCircle: LucideExports["MessageCircle"] = require("lucide-react-native/dist/cjs/icons/message-circle.js");
+export const MessageCircleMore: LucideExports["MessageCircleMore"] = require("lucide-react-native/dist/cjs/icons/message-circle-more.js");
 export const MessagesSquare: LucideExports["MessagesSquare"] = require("lucide-react-native/dist/cjs/icons/messages-square.js");
 export const Pencil: LucideExports["Pencil"] = require("lucide-react-native/dist/cjs/icons/pencil.js");
 export const Plus: LucideExports["Plus"] = require("lucide-react-native/dist/cjs/icons/plus.js");
 export const Quote: LucideExports["Quote"] = require("lucide-react-native/dist/cjs/icons/quote.js");
 export const RefreshCw: LucideExports["RefreshCw"] = require("lucide-react-native/dist/cjs/icons/refresh-cw.js");
 export const ShieldCheck: LucideExports["ShieldCheck"] = require("lucide-react-native/dist/cjs/icons/shield-check.js");
+export const Share2: LucideExports["Share2"] = require("lucide-react-native/dist/cjs/icons/share-2.js");
 export const Square: LucideExports["Square"] = require("lucide-react-native/dist/cjs/icons/square.js");
 export const Trash2: LucideExports["Trash2"] = require("lucide-react-native/dist/cjs/icons/trash-2.js");
 export const TrendingUp: LucideExports["TrendingUp"] = require("lucide-react-native/dist/cjs/icons/trending-up.js");

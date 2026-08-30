@@ -20,6 +20,7 @@
     "test:legal": "npm run test:legal-pages && npm run test:signup-legal-acceptance",
     "test:poll-question-length": "node --experimental-strip-types --disable-warning=MODULE_TYPELESS_PACKAGE_JSON scripts/verify-poll-question-length.mjs",
     "test:public-question-urls": "node --experimental-strip-types --disable-warning=MODULE_TYPELESS_PACKAGE_JSON scripts/verify-public-question-urls.mjs",
+    "test:question-sharing": "node --experimental-strip-types --disable-warning=MODULE_TYPELESS_PACKAGE_JSON scripts/verify-question-sharing.mjs",
     "test:passkey": "node scripts/verify-passkey-flow.mjs",
     "test:passkey-reliability": "node scripts/verify-passkey-reliability.mjs",
     "test:passkey-first-attempt": "node scripts/verify-passkey-first-attempt.mjs",

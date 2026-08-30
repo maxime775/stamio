@@ -18,6 +18,7 @@ import { SkeletonPoll } from "@/components/SkeletonPoll";
 import { DecisionTreePreview } from "@/components/decision-tree/DecisionTreePreview";
 import { IntrinsicEditorialSplit } from "@/components/IntrinsicEditorialSplit";
 import { NonBreakingFinalPunctuation } from "@/components/NonBreakingFinalPunctuation";
+import { QuestionShareMenu } from "@/components/QuestionShareMenu";
 import { siteContainerStyle } from "@/components/SiteContainer";
 import { useAuth } from "@/components/AuthProvider";
 import { fetchPoll, getCachedPoll, getCachedResults, getCachedResultsHistory, getResults, getResultsHistory, getUserPollParticipation, resolveLegacyPollUrl } from "@/lib/api";
@@ -273,9 +274,14 @@ export function PollScreen({
                     <PollTimer poll={poll} style={styles.timer} />
                   </View>
                 </View>
-                <Text style={StyleSheet.flatten([styles.title, compact && styles.titleCompact])}>
-                  <NonBreakingFinalPunctuation value={poll.question} />
-                </Text>
+                <View style={styles.questionHeading}>
+                  <Text style={StyleSheet.flatten([styles.title, compact && styles.titleCompact])}>
+                    <NonBreakingFinalPunctuation value={poll.question} />
+                  </Text>
+                  {!resultsOnly && poll.series_slug ? (
+                    <QuestionShareMenu question={poll.question} seriesSlug={poll.series_slug} />
+                  ) : null}
+                </View>
                 <View
                   onLayout={(event) => { overviewAnchorY.current = event.nativeEvent.layout.y; }}
                   style={StyleSheet.flatten([styles.overview, compact && styles.overviewCompact])}
@@ -366,6 +372,8 @@ export function PollScreen({
             pollId={poll.id}
             choiceId={selectedChoice.id}
             choiceLabel={selectedChoice.label}
+            question={poll.question}
+            seriesSlug={poll.series_slug ?? ""}
             platform={Platform.OS === "web" ? "web" : "native"}
             returnPath={canonicalPath ?? `/poll/${poll.id}`}
             onClose={() => setPanelVisible(false)}
@@ -620,6 +628,7 @@ const styles = StyleSheet.create({
     letterSpacing: 0
   },
   titleCompact: { fontSize: 34, lineHeight: 41, letterSpacing: 0 },
+  questionHeading: { alignItems: "flex-start", gap: 8 },
   overview: { flexDirection: "row", alignItems: "stretch", justifyContent: "space-between", gap: 24 },
   overviewCompact: { flexDirection: "column-reverse" },
   contextBlock: { flex: 1, minWidth: 280, borderLeftWidth: 2, borderLeftColor: palette.primary, paddingVertical: 12, paddingHorizontal: 16, alignSelf: "stretch", justifyContent: "center", gap: 7 },

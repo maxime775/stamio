@@ -1,3 +1,5 @@
+export { XBrandIcon } from "@/lib/XBrandIcon";
+
 export {
   Archive,
   ArrowRight,
@@ -11,6 +13,8 @@ export {
   ChevronDown,
   CircleUserRound,
   Code2,
+  Copy,
+  Ellipsis,
   ExternalLink,
   Eye,
   EyeOff,
@@ -33,12 +37,14 @@ export {
   LogIn,
   LogOut,
   MessageCircle,
+  MessageCircleMore,
   MessagesSquare,
   Pencil,
   Plus,
   Quote,
   RefreshCw,
   ShieldCheck,
+  Share2,
   Square,
   Trash2,
   TrendingUp,

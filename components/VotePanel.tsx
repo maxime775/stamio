@@ -1,8 +1,9 @@
-import { useEffect, useMemo, useRef, useState } from "react";
+import { useEffect, useMemo, useRef, useState, type Ref } from "react";
 import { ActivityIndicator, Animated, Easing, Modal, Pressable, StyleSheet, Text, View } from "react-native";
 import { useRouter, type Href } from "expo-router";
 import { useAuth } from "@/components/AuthProvider";
 import { ModalCloseButton } from "@/components/ModalCloseButton";
+import { QuestionShareMenu } from "@/components/QuestionShareMenu";
 import { getCurrentUserProfile, getResults, invalidatePollCaches, submitVote } from "@/lib/api";
 import type { PollResult, VoteStatus } from "@/lib/types";
 import { STAMIO_CORE_COLORS, authField, fontFamilyBold, fontFamilyMedium, fontFamilySemibold, palette, radius } from "@/lib/design";
@@ -19,6 +20,8 @@ type Props = {
   pollId: string;
   choiceId: string;
   choiceLabel: string;
+  question: string;
+  seriesSlug: string;
   platform: "web" | "native";
   returnPath: string;
   onClose: () => void;
@@ -27,7 +30,7 @@ type Props = {
   onJoinDiscussion: () => void;
 };
 
-export function VotePanel({ visible, pollId, choiceId, choiceLabel, platform, returnPath, onClose, onFinished, onExploreContext, onJoinDiscussion }: Props) {
+export function VotePanel({ visible, pollId, choiceId, choiceLabel, question, seriesSlug, platform, returnPath, onClose, onFinished, onExploreContext, onJoinDiscussion }: Props) {
   const router = useRouter();
   const { user, emailVerified } = useAuth();
   const running = useRef(false);
@@ -254,10 +257,28 @@ export function VotePanel({ visible, pollId, choiceId, choiceLabel, platform, re
                     </Text>
                   </View>
                 )}
-                <AnimatedPrimaryButton
-                  label="Découvrir les autres sujets"
-                  onPress={() => go("/themes" as Href)}
-                />
+                <View style={styles.successActions}>
+                  <AnimatedPrimaryButton
+                    label="Découvrir les autres sujets"
+                    onPress={() => go("/themes" as Href)}
+                  />
+                  <QuestionShareMenu
+                    question={question}
+                    seriesSlug={seriesSlug}
+                    renderTrigger={({ accessibilityLabel, expanded, onBlur, onFocus, onPress, triggerRef }) => (
+                      <AnimatedPrimaryButton
+                        accent="amber"
+                        accessibilityLabel={accessibilityLabel}
+                        buttonRef={triggerRef}
+                        expanded={expanded}
+                        label="Partager le sujet"
+                        onBlur={onBlur}
+                        onFocus={onFocus}
+                        onPress={onPress}
+                      />
+                    )}
+                  />
+                </View>
               </View>
             ) : null}
 
@@ -318,14 +339,26 @@ function ModalHeader({ title, choiceLabel }: { title: string; choiceLabel: strin
 }
 
 function AnimatedPrimaryButton({
+  accent = "cyan",
+  accessibilityLabel,
+  buttonRef,
+  expanded,
   label,
   loading,
   disabled,
+  onBlur,
+  onFocus,
   onPress
 }: {
+  accent?: "cyan" | "amber";
+  accessibilityLabel?: string;
+  buttonRef?: Ref<View>;
+  expanded?: boolean;
   label: string;
   loading?: boolean;
   disabled?: boolean;
+  onBlur?: () => void;
+  onFocus?: () => void;
   onPress: () => void;
 }) {
   const [hovered, setHovered] = useState(false);
@@ -333,6 +366,8 @@ function AnimatedPrimaryButton({
   const [pressed, setPressed] = useState(false);
   const fill = useMemo(() => new Animated.Value(0), []);
   const active = !disabled && (hovered || focused || pressed);
+  const accentColor = accent === "amber" ? EDITORIAL_AMBER : palette.primaryStrong;
+  const activeTextColor = accent === "amber" ? STAMIO_CORE_COLORS.background : palette.onPrimary;
 
   useEffect(() => {
     fill.stopAnimation(() => {
@@ -347,18 +382,27 @@ function AnimatedPrimaryButton({
 
   return (
     <Pressable
+      ref={buttonRef}
+      accessibilityLabel={accessibilityLabel}
       accessibilityRole="button"
-      accessibilityState={{ disabled: Boolean(disabled), busy: Boolean(loading) }}
+      accessibilityState={{ disabled: Boolean(disabled), busy: Boolean(loading), expanded }}
       disabled={disabled}
       onHoverIn={() => setHovered(true)}
       onHoverOut={() => setHovered(false)}
-      onFocus={() => setFocused(true)}
-      onBlur={() => setFocused(false)}
+      onFocus={() => {
+        setFocused(true);
+        onFocus?.();
+      }}
+      onBlur={() => {
+        setFocused(false);
+        onBlur?.();
+      }}
       onPressIn={() => setPressed(true)}
       onPressOut={() => setPressed(false)}
       onPress={onPress}
       style={StyleSheet.flatten([
         styles.primaryButton,
+        { borderColor: accentColor },
         disabled && styles.primaryButtonDisabled
       ])}
     >
@@ -366,16 +410,17 @@ function AnimatedPrimaryButton({
         pointerEvents="none"
         style={StyleSheet.flatten([
           styles.primaryFill,
+          { backgroundColor: accentColor },
           { transform: [{ translateY: fill.interpolate({ inputRange: [0, 1], outputRange: [52, 0] }) }] }
         ])}
       />
       {loading ? (
-        <ActivityIndicator color={active ? palette.onPrimary : palette.primaryStrong} />
+        <ActivityIndicator color={active ? activeTextColor : accentColor} />
       ) : (
         <Text
           style={StyleSheet.flatten([
             styles.primaryText,
-            active && styles.primaryTextActive
+            { color: active ? activeTextColor : accentColor }
           ])}
         >
           {label}
@@ -416,15 +461,15 @@ const styles = StyleSheet.create({
   editorialLink: { color: EDITORIAL_AMBER, cursor: "pointer", fontFamily: fontFamilySemibold, textDecorationLine: "none" },
   loadingState: { minHeight: 88, alignItems: "center", justifyContent: "center", gap: 10 },
   actions: { flexDirection: "row", justifyContent: "flex-end", alignItems: "center", gap: 10, flexWrap: "wrap" },
-  primaryButton: { width: "auto", maxWidth: "100%", alignSelf: "center", flexGrow: 0, minHeight: 44, borderRadius: radius.sm, borderWidth: 1, borderColor: palette.primaryStrong, backgroundColor: "transparent", alignItems: "center", justifyContent: "center", flexDirection: "row", overflow: "hidden", paddingHorizontal: 16 },
+  primaryButton: { width: "auto", maxWidth: "100%", alignSelf: "center", flexGrow: 0, minHeight: 44, borderRadius: radius.sm, borderWidth: 1, backgroundColor: "transparent", alignItems: "center", justifyContent: "center", flexDirection: "row", overflow: "hidden", paddingHorizontal: 16 },
   primaryButtonDisabled: { opacity: 0.48 },
-  primaryFill: { position: "absolute", left: 0, right: 0, bottom: 0, height: 52, backgroundColor: palette.primaryStrong },
-  primaryText: { zIndex: 1, color: palette.primaryStrong, fontFamily: fontFamilySemibold, fontSize: 14, textAlign: "center" },
-  primaryTextActive: { color: palette.onPrimary },
+  primaryFill: { position: "absolute", left: 0, right: 0, bottom: 0, height: 52 },
+  primaryText: { zIndex: 1, fontFamily: fontFamilySemibold, fontSize: 14, textAlign: "center" },
   secondaryButton: { width: "auto", maxWidth: "100%", alignSelf: "center", flexGrow: 0, minHeight: 44, borderRadius: radius.sm, paddingHorizontal: 14, alignItems: "center", justifyContent: "center", borderWidth: 1, borderColor: authField.separatorColor },
   secondaryText: { color: palette.inkSecondary, fontFamily: fontFamilySemibold, fontSize: 13 },
   errorBox: { color: palette.dangerText, backgroundColor: palette.dangerSoft, borderRadius: radius.sm, padding: 11, fontSize: 13, lineHeight: 19, fontFamily: fontFamilyMedium },
   noticeBox: { color: palette.inkSecondary, backgroundColor: palette.surfaceSubtle, borderWidth: 1, borderColor: palette.line, borderRadius: radius.sm, padding: 11, fontSize: 13, lineHeight: 19, fontFamily: fontFamilyMedium },
   successBody: { gap: 18 },
+  successActions: { flexDirection: "row", alignItems: "center", justifyContent: "center", flexWrap: "wrap", gap: 10 },
   successText: { color: palette.inkSecondary, fontSize: 14, lineHeight: 22 },
 });
