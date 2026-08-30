@@ -21,6 +21,7 @@ import { MAX_POLL_DESCRIPTION_LENGTH, validatePollDescription } from "@/lib/poll
 import type { AdminCreatePollInput, AdminPollSummary, AdminSeriesSummary, PollResourceInput, PollResourceType, ThemeSlug } from "@/lib/types";
 import { authField, fontFamilyBold, fontFamilyMedium, fontFamilySemibold, palette, radius } from "@/lib/design";
 import { createPollSeriesSlug, getPollPublicPath, getQuestionPath, validatePollSeriesSlug } from "@/lib/publicPollUrls";
+import { MAX_POLL_SUBTHEME_LENGTH, normalizePollSubtheme, validatePollSubtheme } from "@/lib/pollSubtheme";
 
 const DEFAULT_CHOICES = ["Oui", "Non", "Ne se prononce pas"];
 const RESOURCE_TYPES: Array<{ label: string; value: PollResourceType }> = [
@@ -55,6 +56,7 @@ export default function AdminPage() {
   const [editingPollId, setEditingPollId] = useState<string | null>(null);
   const [editingVotes, setEditingVotes] = useState(0);
   const [theme, setTheme] = useState<ThemeSlug>("politique");
+  const [subtheme, setSubtheme] = useState("");
   const [question, setQuestion] = useState("");
   const [slug, setSlug] = useState("");
   const [slugTouched, setSlugTouched] = useState(false);
@@ -166,6 +168,7 @@ export default function AdminPage() {
         question: question.trim(),
         description: description.trim(),
         theme,
+        trend_label: normalizePollSubtheme(subtheme),
         choices: cleanedChoices,
         choice_keys: deriveChoiceKeys(cleanedChoices),
         closes_at: closesAt,
@@ -191,6 +194,7 @@ export default function AdminPage() {
       question: question.trim(),
       description: description.trim(),
       theme,
+      trend_label: normalizePollSubtheme(subtheme),
       choices: cleanedChoices,
       choice_keys: deriveChoiceKeys(cleanedChoices),
       closes_at: closesAt,
@@ -221,6 +225,8 @@ export default function AdminPage() {
     if (!description.trim()) return "Le texte d'enjeux est obligatoire.";
     const descriptionError = validatePollDescription(description);
     if (descriptionError) return descriptionError;
+    const subthemeError = validatePollSubtheme(subtheme);
+    if (subthemeError) return subthemeError;
     if (cleanedChoices.length < 2) return "Ajoutez au moins deux choix.";
     if (cleanedChoices.length > 6) return "Limitez le sondage a six choix maximum.";
     if (new Set(cleanedChoices).size !== cleanedChoices.length) return "Les choix ne doivent pas contenir de doublon exact.";
@@ -250,6 +256,7 @@ export default function AdminPage() {
   function resetForm() {
     setEditingPollId(null);
     setEditingVotes(0);
+    setSubtheme("");
     setQuestion("");
     setSlug("");
     setSlugTouched(false);
@@ -282,6 +289,7 @@ export default function AdminPage() {
     setSlugTouched(true);
     setDescription(detail.poll.description ?? "");
     setTheme((detail.poll.theme ?? poll.theme) as ThemeSlug);
+    setSubtheme(detail.poll.trend_label ?? poll.trend_label ?? "");
     setChoices(detail.choices.length > 0 ? detail.choices.map((choice) => choice.label) : DEFAULT_CHOICES);
     setStatus(detail.poll.status);
     setFeatured(Boolean(detail.poll.featured));
@@ -467,6 +475,17 @@ export default function AdminPage() {
                   );
                 })}
               </View>
+            </Field>
+
+            <Field label="Sous-thème">
+              <TextInput
+                value={subtheme}
+                onChangeText={setSubtheme}
+                maxLength={MAX_POLL_SUBTHEME_LENGTH}
+                placeholder="Ex. Fiscalité"
+                placeholderTextColor={authField.placeholderColor}
+                style={styles.input}
+              />
             </Field>
 
             <Field label="Question">

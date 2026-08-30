@@ -182,6 +182,7 @@ export type AdminUpdatePollInput = {
   status: "open" | "closed";
   featured: boolean;
   show_in_results: boolean;
+  trend_label: string | null;
   resources?: PollResourceInput[];
 };
 

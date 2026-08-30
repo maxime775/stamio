@@ -474,6 +474,7 @@ export async function adminUpdatePoll(input: AdminUpdatePollInput): Promise<{ ok
     p_status: input.status,
     p_featured: input.featured,
     p_show_in_results: input.show_in_results,
+    p_trend_label: input.trend_label,
     p_choices: input.choices ?? null,
     p_choice_keys: input.choice_keys ?? null,
     p_resources: input.resources ?? null
