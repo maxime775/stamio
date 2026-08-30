@@ -296,8 +296,8 @@ function createUuid() {
   });
 }
 
-export async function getFeaturedPolls(): Promise<PollWithStats[]> {
-  return fetchPollCollection({ featuredOnly: true, limit: 10 });
+export async function getFeaturedPolls(options: CacheOptions = {}): Promise<PollWithStats[]> {
+  return fetchPollCollection({ featuredOnly: true, limit: 10 }, options);
 }
 
 export function getCachedFeaturedPolls(): PollWithStats[] | null {
@@ -709,7 +709,7 @@ async function fetchPollCollection(options: {
   includeResults?: boolean;
   status?: "open" | "closed";
   showInResultsOnly?: boolean;
-}) {
+}, cacheOptions: CacheOptions = {}) {
   return cached(cacheKeys.collection(options), async () => {
     const status = options.status ?? "open";
     let query = supabase
@@ -763,7 +763,7 @@ async function fetchPollCollection(options: {
     );
 
     return withStats;
-  }, { label: "fetchPollCollection" });
+  }, { ...cacheOptions, label: cacheOptions.label ?? "fetchPollCollection" });
 }
 
 function normalizePoll(data: Record<string, unknown>): Poll {

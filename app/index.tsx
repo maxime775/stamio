@@ -1,4 +1,5 @@
-import { useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
+import { useFocusEffect } from "expo-router";
 import { Animated, StyleSheet, Text, useWindowDimensions, View } from "react-native";
 import { PageShell } from "@/components/PageShell";
 import { HeroActionButton } from "@/components/HeroActionButton";
@@ -33,21 +34,26 @@ export default function Home() {
       .catch(() => {
         if (active) setOpenPollStats(null);
       });
-    getFeaturedPolls()
+    return () => {
+      active = false;
+    };
+  }, []);
+
+  useFocusEffect(useCallback(() => {
+    let active = true;
+    getFeaturedPolls({ force: true, label: "homeFeaturedRefresh" })
       .then((items) => {
         if (!active) return;
         setPolls(items);
       })
-      .catch(() => {
-        if (active) setPolls([]);
-      })
+      .catch(() => undefined)
       .finally(() => {
         if (active) setIsLoadingPolls(false);
       });
     return () => {
       active = false;
     };
-  }, []);
+  }, []));
 
   useEffect(() => {
     if (reducedMotion) {

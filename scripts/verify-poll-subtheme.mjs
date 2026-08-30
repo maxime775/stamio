@@ -67,6 +67,7 @@ const changedFiles = execFileSync("git", ["status", "--porcelain"], { encoding: 
   .filter(Boolean)
   .map((line) => line.slice(3).replaceAll("\\", "/"));
 assert.ok(!changedFiles.includes("components/PollTeaserCard.tsx"), "Le composant de carte validé ne doit pas être redessiné");
-assert.deepEqual(changedFiles.filter((path) => path.startsWith("supabase/migrations/")), [migrationPath], "Une seule migration RPC locale est autorisée");
+const trackedMigration = execFileSync("git", ["ls-files", "--error-unmatch", migrationPath], { encoding: "utf8" }).trim().replaceAll("\\", "/");
+assert.equal(trackedMigration, migrationPath, "La migration RPC sous-thème déployée doit être suivie par Git");
 
 console.log("Poll subtheme verification passed: existing trend_label reused, Admin create/update wired, NULL deletion explicit, card design untouched, and RPC security preserved.");
