@@ -112,7 +112,7 @@ const sameBrowserBranch = callback.slice(sameBrowserStart, sameBrowserEnd);
 assert.match(sameBrowserBranch, /clearSignupCredentials\(\)[\s\S]*?clearPendingSignupResumeToken\(\)[\s\S]*?router\.replace\("\/auth\/passkey-enrollment\?flow=signup"/, "Le fast path doit effacer password et token tout en conservant le marker d'onboarding");
 assert.doesNotMatch(sameBrowserBranch, /clearPendingSignup\(\)/, "Le marker d'onboarding doit survivre jusqu'à la fin de la Passkey");
 assert.match(callback, /signOut\(\{ scope: "local" \}\)[\s\S]*?setConfirmedElsewhere\(true\)/, "Le navigateur secondaire doit fermer seulement sa session locale temporaire");
-assert.match(callback, /Vous pouvez revenir sur l’appareil où vous avez commencé votre inscription\./);
+assert.match(callback, /Vous pouvez revenir au navigateur dans lequel vous avez commencé votre inscription\./);
 assert.doesNotMatch(callback, /BroadcastChannel|postMessage|localStorage\.setItem|sessionStorage\.setItem/, "Le navigateur secondaire ne doit transférer aucun token ou session");
 
 const resumeBranchStart = edge.indexOf("if (resumeToken)");

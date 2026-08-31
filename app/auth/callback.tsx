@@ -71,7 +71,7 @@ export default function AuthCallbackPage() {
       <View style={styles.content}>
         <Text style={styles.eyebrow}>INSCRIPTION</Text>
         <Text style={[styles.title, compact && styles.titleCompact]}>{confirmedElsewhere ? "Adresse email confirmée" : "Confirmez votre adresse email"}</Text>
-        <Text style={styles.text}>{confirmedElsewhere ? "Vous pouvez revenir sur l’appareil où vous avez commencé votre inscription." : "Pour terminer la confirmation, utilisez le bouton ci-dessous."}</Text>
+        <Text style={styles.text}>{confirmedElsewhere ? "Vous pouvez revenir au navigateur dans lequel vous avez commencé votre inscription." : "Pour terminer la confirmation, utilisez le bouton ci-dessous."}</Text>
         {!ready ? <ActivityIndicator color={palette.primaryStrong} /> : null}
         {error ? <Text accessibilityLiveRegion="polite" style={styles.error}>{error}</Text> : null}
         {ready && !error && !confirmedElsewhere ? (
