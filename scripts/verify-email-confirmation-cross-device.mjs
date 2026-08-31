@@ -165,7 +165,7 @@ for (const emailHtml of [template, preview]) {
   assert.doesNotMatch(emailHtml, /même navigateur/i, "L'ancienne contrainte même navigateur doit disparaître");
   assert.match(emailHtml, /Important\s*:\s*<\/strong>\s*ce lien est valable pendant 15 minutes\./, "La durée Email OTP vérifiée doit être annoncée exactement");
   assert.match(emailHtml, /Confirmer mon adresse email/);
-  assert.match(emailHtml, /v:roundrect[\s\S]*?height:52px;v-text-anchor:middle;width:260px;[\s\S]*?arcsize="17%"[\s\S]*?stroke="f"[\s\S]*?fillcolor="#1C6E8C"/, "Outlook desktop doit recevoir un bouton VML 260x52");
+  assert.match(emailHtml, /v:roundrect[\s\S]*?height:52px;v-text-anchor:middle;width:260px;[\s\S]*?arcsize="35%"[\s\S]*?stroke="f"[\s\S]*?fillcolor="#1C6E8C"/, "Outlook desktop doit recevoir un bouton VML 260x52 avec arcsize 35 %");
   assert.match(emailHtml, /\[if !mso\][\s\S]*?class="email-button-table"[\s\S]*?padding:16px 12px/, "Le bouton HTML original doit rester le fallback non-MSO");
 }
 assert.match(template, /\{\{ \.Email \}\}/, "Le footer du template doit conserver l'adresse destinataire Supabase");
