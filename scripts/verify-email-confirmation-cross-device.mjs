@@ -127,13 +127,39 @@ assert.doesNotMatch(resumeBranch, /body\?\.email|p_email|get_signup_email_status
 assert.doesNotMatch(resumeBranch, /access_token|refresh_token|session:/, "Le status ne doit jamais renvoyer une session");
 
 for (const emailHtml of [template, preview]) {
-  assert.doesNotMatch(emailHtml, /même navigateur|mÃªme navigateur/i, "L'ancienne contrainte même navigateur doit disparaître");
-  assert.match(emailHtml, /<strong[^>]*>Important :<\/strong> ce lien est valable pendant 15 minutes\./, "La durée Email OTP vérifiée doit être annoncée exactement");
+  assert.match(emailHtml, /max-width:\s*600px/, "La carte email doit conserver sa largeur maximale de 600 px");
+  assert.match(emailHtml, /border-radius:\s*18px/, "La carte email doit conserver son radius de 18 px");
+  assert.match(emailHtml, /@media screen and \(max-width: 620px\)[\s\S]*?\.email-content[\s\S]*?padding-left: 24px !important;[\s\S]*?padding-right: 24px !important;[\s\S]*?\.email-footer[\s\S]*?padding-left: 24px !important;[\s\S]*?padding-right: 24px !important;/, "Les paddings mobiles de 24 px doivent rester intacts");
+  assert.match(emailHtml, /stamio-logo-horizontal-email@4x\.png"[\s\S]*?width="235"[\s\S]*?height="53"/, "Le logo principal 235x53 @4x doit rester intact");
+  assert.match(emailHtml, /Là où l’opinion prend forme\./, "La tagline doit rester intacte");
+  assert.match(emailHtml, /margin-left:9px/, "L'alignement de la tagline doit rester intact");
+  assert.match(emailHtml, /<h1[\s\S]*?font-size:31px;line-height:38px;font-weight:800;/, "La typographie du titre doit rester intacte");
+  assert.match(emailHtml, /class="email-button-table"[\s\S]*?style="width:100%;max-width:260px;margin:0 auto;"/, "La table du CTA non-MSO doit rester intacte");
+  assert.match(emailHtml, /class="email-button-link"[\s\S]*?style="display:block;padding:16px 12px;box-sizing:border-box;color:#FBFCFF;text-align:center;text-decoration:none;font-size:15px;line-height:20px;font-weight:800;"/, "Le CTA HTML original doit conserver son padding et sa typographie");
+  assert.match(emailHtml, /stamio-logo-horizontal-email@4x\.png"[\s\S]*?width="160"[\s\S]*?height="36"/, "Le logo du footer 160x36 doit rester intact");
+  for (const socialAsset of ["social-x@4x.png", "social-instagram@4x.png", "social-tiktok@4x.png"]) {
+    assert.match(emailHtml, new RegExp(`${socialAsset.replace(".", "\\.")}\\"[\\s\\S]*?width=\\"24\\"[\\s\\S]*?height=\\"24\\"`), `${socialAsset} doit rester en 24x24`);
+  }
+  for (const socialUrl of ["https://x.com/Stamiofr", "https://www.instagram.com/stamiofr/", "https://www.tiktok.com/@stamiofr"]) {
+    assert.ok(emailHtml.includes(`href="${socialUrl}"`), `L'URL sociale ${socialUrl} doit rester intacte`);
+  }
+  assert.match(emailHtml, /mailto:contact@stamio\.fr/);
+  assert.match(emailHtml, /Là où/);
+  assert.match(emailHtml, /l’opinion/);
+  assert.match(emailHtml, /création/);
+  assert.match(emailHtml, /débats/);
+  assert.match(emailHtml, /N’hésitez/);
+  assert.match(emailHtml, /clé d’accès/);
+  assert.doesNotMatch(emailHtml, /Ã|Â|�/, "Le template email doit rester en UTF-8 sans mojibake");
+  assert.doesNotMatch(emailHtml, /même navigateur/i, "L'ancienne contrainte même navigateur doit disparaître");
+  assert.match(emailHtml, /Important\s*:\s*<\/strong>\s*ce lien est valable pendant 15 minutes\./, "La durée Email OTP vérifiée doit être annoncée exactement");
   assert.match(emailHtml, /Confirmer mon adresse email/);
-  assert.match(emailHtml, /v:roundrect[\s\S]*?height:48px[\s\S]*?v-text-anchor:middle[\s\S]*?fillcolor="#1C6E8C"/, "Outlook desktop doit recevoir un bouton VML de 48 px");
-  assert.match(emailHtml, /\[if !mso\][\s\S]*?padding:16px 0/, "Le fallback Gmail et Apple Mail validé doit rester intact");
+  assert.match(emailHtml, /v:roundrect[\s\S]*?height:52px;v-text-anchor:middle;width:260px;[\s\S]*?arcsize="17%"[\s\S]*?stroke="f"[\s\S]*?fillcolor="#1C6E8C"/, "Outlook desktop doit recevoir un bouton VML 260x52");
+  assert.match(emailHtml, /\[if !mso\][\s\S]*?class="email-button-table"[\s\S]*?padding:16px 12px/, "Le bouton HTML original doit rester le fallback non-MSO");
 }
-assert.match(template, /\{\{ \.SiteURL \}\}\/auth\/callback\?token_hash=\{\{ \.TokenHash \}\}&amp;type=email/, "L'URL dynamique token_hash doit rester intacte");
+assert.match(template, /\{\{ \.Email \}\}/, "Le footer du template doit conserver l'adresse destinataire Supabase");
+assert.match(template, /\{\{ \.SiteURL \}\}\/auth\/callback\?token_hash=\{\{ \.TokenHash \}\}&type=email/, "L'URL dynamique token_hash du CTA original doit rester intacte");
+assert.match(template, /v:roundrect[\s\S]*?href="\{\{ \.SiteURL \}\}\/auth\/callback\?token_hash=\{\{ \.TokenHash \}\}&amp;type=email"/, "Le fallback VML doit conserver l'URL token_hash encodée pour le HTML");
 assert.doesNotMatch(template, /preview-token|token_hash=[A-Za-z0-9_-]{20,}/, "Aucun token réel ne doit être hardcodé");
 
 const changedFiles = execFileSync("git", ["status", "--porcelain"], { encoding: "utf8" })
