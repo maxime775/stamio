@@ -268,6 +268,7 @@ export type SignupPayload = {
 };
 
 export type SignupEmailStatus = "available" | "existing_confirmed" | "existing_unconfirmed";
+export type SignupConfirmationStatus = "pending" | "confirmed" | "expired" | "invalid";
 
 export type VoteStatus =
   | { status: "accepted"; results?: PollResult[]; results_unavailable?: boolean }

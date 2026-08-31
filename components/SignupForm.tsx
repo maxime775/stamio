@@ -11,6 +11,7 @@ import { REGIONS_FR } from "@/lib/product";
 import { Check } from "@/lib/icons";
 import { checkSignupEmail, checkUsernameAvailability, resendSignupConfirmation, signUpUser } from "@/lib/api";
 import { markPendingSignup } from "@/lib/auth/pendingSignup";
+import { createSignupResumeChallenge, createSignupResumeToken, rememberSignupCredentials } from "@/lib/auth/signupResume";
 import { getVisibleSignupError, isValidSignupUsername, normalizeSignupEmail, normalizeSignupUsername, touchAllSignupFields, validateSignup, type SignupField, type SignupTouched, type SignupValues } from "@/lib/signupValidation";
 import type { Sex } from "@/lib/types";
 import { authField, fontFamilyMedium, fontFamilySemibold, palette, radius } from "@/lib/design";
@@ -150,7 +151,8 @@ export function SignupForm() {
         : "Impossible de vérifier cette adresse pour le moment. Réessayez dans quelques instants.");
       return;
     }
-    const { error: signupError } = await signUpUser({
+    const resumeChallenge = await createSignupResumeChallenge();
+    const { data: signupData, error: signupError } = await signUpUser({
       email: normalizedEmail,
       password,
       username: username.trim(),
@@ -159,7 +161,7 @@ export function SignupForm() {
       profession,
       region,
       termsAccepted: true
-    });
+    }, resumeChallenge);
     setLoading(false);
 
     if (signupError) {
@@ -173,7 +175,11 @@ export function SignupForm() {
       return;
     }
 
-    markPendingSignup();
+    const resumeToken = signupData.user?.id && resumeChallenge
+      ? createSignupResumeToken(signupData.user.id, resumeChallenge.secret)
+      : null;
+    rememberSignupCredentials(normalizedEmail, password);
+    markPendingSignup(resumeToken);
     router.replace({ pathname: "/auth/verify-email", params: { email: normalizedEmail } } as Href);
   }
 

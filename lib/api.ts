@@ -19,12 +19,14 @@ import type {
   AdminUpdatePollInput,
   SignupPayload,
   SignupEmailStatus,
+  SignupConfirmationStatus,
   ThemeSlug,
   OpenPollStats,
   UserPollParticipation,
   VoteStatus
 } from "@/lib/types";
 import { clearPendingSignup } from "@/lib/auth/pendingSignup";
+import type { SignupResumeChallenge } from "@/lib/auth/signupResume";
 import { CGU_VERSION, PRIVACY_VERSION } from "@/lib/legalVersions";
 
 type SubmitPayload = {
@@ -639,7 +641,7 @@ export async function checkUsernameAvailability(username: string): Promise<{ ava
   return { available: data === true };
 }
 
-export async function signUpUser(payload: SignupPayload) {
+export async function signUpUser(payload: SignupPayload, resumeChallenge?: SignupResumeChallenge | null) {
   return supabase.auth.signUp({
     email: payload.email,
     password: payload.password,
@@ -652,11 +654,24 @@ export async function signUpUser(payload: SignupPayload) {
         region: payload.region,
         legal_terms_accepted: payload.termsAccepted,
         legal_terms_version: CGU_VERSION,
-        legal_privacy_version: PRIVACY_VERSION
+        legal_privacy_version: PRIVACY_VERSION,
+        ...(resumeChallenge ? {
+          signup_resume_secret_hash: resumeChallenge.secretHash,
+          signup_resume_expires_at: new Date(resumeChallenge.expiresAt).toISOString()
+        } : {})
       },
       emailRedirectTo: getAuthRedirectUrl("/auth/callback")
     }
   });
+}
+
+export async function checkSignupConfirmation(resumeToken: string): Promise<{ status: SignupConfirmationStatus | "rate_limited" | "error" }> {
+  const { data, error } = await supabase.functions.invoke<{ status: SignupConfirmationStatus | "rate_limited" | "error" }>("check-signup-email", {
+    body: { resume_token: resumeToken }
+  });
+  if (data) return data;
+  const errorPayload = await readFunctionError<{ status: SignupConfirmationStatus | "rate_limited" | "error" }>(error);
+  return errorPayload ?? { status: "error" };
 }
 
 export async function checkSignupEmail(email: string): Promise<{ status: SignupEmailStatus | "rate_limited" | "error" }> {

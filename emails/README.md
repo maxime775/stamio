@@ -19,7 +19,8 @@ This folder contains pass-1 HTML templates and visual previews only. Real sendin
 
 Supabase Auth templates keep Supabase-compatible variables in the final HTML:
 
-- `{{ .ConfirmationURL }}` for confirmation, recovery, magic link, email change, invite, and reauthentication links.
+- `{{ .SiteURL }}/auth/callback?token_hash={{ .TokenHash }}&type=email` for signup confirmation without browser-bound PKCE state.
+- `{{ .ConfirmationURL }}` for recovery, magic link, email change, invite, and reauthentication links.
 - `{{ .Email }}` where the recipient address is useful in account-context copy.
 - `{{ .SiteURL }}` for the password-changed source template CTA/fallback.
 
@@ -37,6 +38,8 @@ Copy the final HTML body from each `auth/*.html` file into the corresponding Sup
 This pass does not configure SMTP. A custom SMTP/provider should be configured and verified before production email sending. The post-vote transactional email requires a later server-side sender/provider implementation and must not be sent from the client.
 
 TODO for the later Supabase/Auth integration pass: configure the actual password reset / recovery link expiry to 15 minutes in the authentication provider/Supabase settings so that the email copy matches the real behavior.
+
+The signup confirmation Email OTP expiration has been manually verified in Supabase Dashboard: its value is 900 seconds, or 15 minutes. The confirmation template can therefore announce a 15-minute lifetime. Its copy must not instruct recipients to reuse the browser that initiated signup.
 
 ## Logo Handling
 

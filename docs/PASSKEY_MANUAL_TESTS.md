@@ -7,8 +7,8 @@
 | Inscription Windows / Edge | Retour email puis Windows Hello | À exécuter |
 | Inscription Mac / Safari | Retour email puis Touch ID | À exécuter |
 | Ouvrir le lien dans le même navigateur | Page intermédiaire, vérification seulement après clic, session créée | À exécuter |
-| Ouvrir le lien dans un autre navigateur | Même résultat, sans dépendance PKCE | À exécuter |
-| Ouvrir le lien sur un autre appareil web | Même résultat, puis enrôlement web | À exécuter |
+| Ouvrir le lien dans un autre navigateur | Confirmation affichée dans le navigateur secondaire, reprise détectée dans le navigateur initiateur, sans transfert de session | À exécuter |
+| Ouvrir le lien sur un autre appareil web | Confirmation affichée sur l’autre appareil, reprise détectée sur l’appareil initiateur, puis enrôlement local | À exécuter |
 | Scanner/précharger le lien sans cliquer | Le token n’est pas consommé automatiquement | À exécuter |
 | Lien expiré ou déjà utilisé | Message générique, aucun détail technique | À exécuter |
 | Renvoyer plusieurs fois | Cooldown UI et limite Supabase Auth réelle | À exécuter |

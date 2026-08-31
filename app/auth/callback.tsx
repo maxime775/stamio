@@ -3,6 +3,8 @@ import { ActivityIndicator, StyleSheet, Text, useWindowDimensions, View } from "
 import { useRouter, type Href } from "expo-router";
 import { HeroActionButton } from "@/components/HeroActionButton";
 import { PageShell } from "@/components/PageShell";
+import { clearPendingSignupResumeToken, hasPendingSignupForUser } from "@/lib/auth/pendingSignup";
+import { clearSignupCredentials } from "@/lib/auth/signupResume";
 import { supabase } from "@/lib/supabase";
 import { fontFamilyBold, fontFamilyMedium, fontFamilySemibold, palette } from "@/lib/design";
 
@@ -18,6 +20,7 @@ export default function AuthCallbackPage() {
   const [ready, setReady] = useState(false);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [confirmedElsewhere, setConfirmedElsewhere] = useState(false);
 
   useEffect(() => {
     if (initialized.current) return;
@@ -47,7 +50,14 @@ export default function AuthCallbackPage() {
     try {
       const { data, error: verifyError } = await supabase.auth.verifyOtp({ token_hash: token, type: "email" });
       if (verifyError || !data.session || !data.user?.email_confirmed_at) throw new Error("confirmation_failed");
-      router.replace("/auth/passkey-enrollment?flow=signup" as Href);
+      if (hasPendingSignupForUser(data.user.id)) {
+        clearSignupCredentials();
+        clearPendingSignupResumeToken();
+        router.replace("/auth/passkey-enrollment?flow=signup" as Href);
+        return;
+      }
+      await supabase.auth.signOut({ scope: "local" });
+      setConfirmedElsewhere(true);
     } catch {
       consumed.current = false;
       setError(GENERIC_ERROR);
@@ -60,11 +70,11 @@ export default function AuthCallbackPage() {
     <PageShell compact>
       <View style={styles.content}>
         <Text style={styles.eyebrow}>INSCRIPTION</Text>
-        <Text style={[styles.title, compact && styles.titleCompact]}>Confirmez votre adresse email</Text>
-        <Text style={styles.text}>Pour terminer la confirmation, utilisez le bouton ci-dessous.</Text>
+        <Text style={[styles.title, compact && styles.titleCompact]}>{confirmedElsewhere ? "Adresse email confirmée" : "Confirmez votre adresse email"}</Text>
+        <Text style={styles.text}>{confirmedElsewhere ? "Vous pouvez revenir sur l’appareil où vous avez commencé votre inscription." : "Pour terminer la confirmation, utilisez le bouton ci-dessous."}</Text>
         {!ready ? <ActivityIndicator color={palette.primaryStrong} /> : null}
         {error ? <Text accessibilityLiveRegion="polite" style={styles.error}>{error}</Text> : null}
-        {ready && !error ? (
+        {ready && !error && !confirmedElsewhere ? (
           <HeroActionButton
             label="Confirmer mon adresse email"
             variant="primary"

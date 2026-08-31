@@ -12,6 +12,7 @@ export type PendingSignupMarker = {
   version: 1;
   flow: "pending-signup";
   startedAt: number;
+  resumeToken?: string;
 };
 
 export type SetupCompleteGuardState = {
@@ -61,6 +62,7 @@ export function isRecentPendingSignupMarker(
     || marker.flow !== "pending-signup"
     || typeof marker.startedAt !== "number"
     || !Number.isFinite(marker.startedAt)
+    || (marker.resumeToken !== undefined && typeof marker.resumeToken !== "string")
   ) {
     return false;
   }

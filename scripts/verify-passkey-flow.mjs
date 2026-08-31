@@ -60,14 +60,20 @@ for (const field of ["email", "confirmEmail", "password", "confirmPassword"]) {
 }
 if (!signup.includes("focusEmailAfterReturn.current = true") || !signup.includes("focus({ preventScroll: true })")) failures.push("existing-email return must focus email after render without scrolling");
 if (/params:\s*\{[^}]*existingEmailState/s.test(signup)) failures.push("existing email state must never be placed in the URL");
-if (!signup.includes("markPendingSignup()") || signup.indexOf("markPendingSignup()") < signup.indexOf("if (signupError)") || signup.indexOf("markPendingSignup()") > signup.indexOf('router.replace({ pathname: "/auth/verify-email"')) {
+if (!signup.includes("markPendingSignup(resumeToken)") || signup.indexOf("markPendingSignup(resumeToken)") < signup.indexOf("if (signupError)") || signup.indexOf("markPendingSignup(resumeToken)") > signup.indexOf('router.replace({ pathname: "/auth/verify-email"')) {
   failures.push("pending signup marker must be created only after accepted signup and immediately before verify-email");
 }
 if (!signupEmailCheck.includes("consume_rate_limit") || !signupEmailCheck.includes("EMAIL_LOOKUP_SECRET")) failures.push("signup email lookup must use persistent server-side rate limiting");
 if (!callback.includes("token_hash") || !callback.includes('type: "email"') || !callback.includes("onPress={confirmEmail}")) failures.push("email callback must verify token_hash only after a click");
 if (callback.includes("exchangeCodeForSession") || /useEffect[\s\S]{0,500}verifyOtp/.test(callback)) failures.push("email callback must not auto-consume or use PKCE");
 if (!callback.includes("/auth/passkey-enrollment?flow=signup")) failures.push("email callback must preserve the signup flow through passkey enrollment");
-if (verifyEmail.includes("/auth/login")) failures.push("verified-email action must not redirect to login");
+const remoteConfirmationStart = verifyEmail.indexOf("await checkSignupConfirmation(resumeToken)");
+const remoteConfirmationEnd = verifyEmail.indexOf("} catch", remoteConfirmationStart);
+const remoteConfirmation = verifyEmail.slice(remoteConfirmationStart, remoteConfirmationEnd);
+if (!remoteConfirmation.includes("signInUser(credentials.email, credentials.password)") || remoteConfirmation.indexOf("signInUser(credentials.email, credentials.password)") > remoteConfirmation.indexOf('router.replace("/auth/passkey-enrollment?flow=signup"')) {
+  failures.push("cross-device confirmation must establish a legitimate local session before passkey enrollment");
+}
+if (!verifyEmail.includes('router.replace("/auth/login"') || !verifyEmail.includes("requiresLogin")) failures.push("confirmed signup without volatile credentials must require a local login");
 for (const check of ["getSession()", "getUser()", "email_confirmed_at", "visibilitychange", "onAuthStateChange", "subscription.unsubscribe()", "/auth/passkey-enrollment?flow=signup"]) {
   if (!verifyEmail.includes(check)) failures.push(`verified-email session check missing: ${check}`);
 }
@@ -153,11 +159,11 @@ if (setupComplete.indexOf("if (!ready)") > setupComplete.indexOf("INSCRIPTION TE
 if (!signupCompletion.includes("sessionStorage") || !signupCompletion.includes("SHA-256") || !signupCompletion.includes("completedAt") || !signupCompletion.includes('flow: "signup"')) {
   failures.push("signup completion marker must be short-lived, account-bound, and signup-specific");
 }
-if (!pendingSignup.includes("localStorage") || !pendingSignup.includes('"stamio_pending_signup_v1"') || !pendingSignup.includes('flow: "pending-signup"') || !pendingSignup.includes("startedAt: Date.now()")) {
-  failures.push("pending signup marker must be a distinct local, timestamp-only marker");
+if (!pendingSignup.includes("localStorage") || !pendingSignup.includes('"stamio_pending_signup_v1"') || !pendingSignup.includes('flow: "pending-signup"') || !pendingSignup.includes("startedAt: Date.now()") || !pendingSignup.includes("resumeToken")) {
+  failures.push("pending signup marker must be a distinct local marker containing only timing and opaque resume state");
 }
 const pendingMarkerLiteral = /const marker:[\s\S]*?\n    \};/.exec(pendingSignup)?.[0]?.toLowerCase() ?? "";
-for (const forbidden of ["email", "password", "userid", "user_id", "token", "secret", "supabase", "credential", "challenge", "webauthn"]) {
+for (const forbidden of ["email", "password", "userid", "user_id", "secret", "supabase", "credential", "challenge", "webauthn"]) {
   if (pendingMarkerLiteral.includes(forbidden)) failures.push(`pending signup marker must not store ${forbidden}`);
 }
 if (!enrollment.includes("clearPendingSignup()") || !setupComplete.includes("clearPendingSignup()") || !api.includes("if (!result.error) clearPendingSignup()")) {
