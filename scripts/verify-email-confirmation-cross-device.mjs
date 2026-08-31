@@ -139,12 +139,14 @@ for (const emailHtml of [template, preview]) {
   assert.match(emailHtml, /<div\s+style="height:1px;background:#2A3848;margin-bottom:18px;"\s*><\/div>/, "Le séparateur du footer doit rester inchangé");
   assert.doesNotMatch(emailHtml, /style="width:100%;margin:30px 0 24px;"/, "La table extérieure du CTA ne doit plus porter l'espacement vertical");
   assert.match(emailHtml, /style="width:100%;margin:0;"[\s\S]*?<td align="center" style="text-align:center;padding:30px 0 24px;">/, "La cellule englobante du CTA doit porter les espacements 30 px et 24 px");
+  assert.match(emailHtml, /\[class~="x_outlook-modern-cta-cell"\]\s*\{\s*background: transparent !important;\s*background-color: transparent !important;\s*\}/, "Le fond carré doit être neutralisé uniquement après réécriture x_ par Outlook moderne");
+  assert.match(emailHtml, /\[class~="x_outlook-modern-cta-link"\]\s*\{\s*background-color: #1C6E8C !important;\s*border-radius: 9px !important;\s*\}/, "Le lien doit porter la surface arrondie uniquement dans Outlook moderne");
   assert.match(emailHtml, /class="email-button-table"[\s\S]*?style="width:100%;max-width:260px;margin:0 auto;"/, "La table du CTA non-MSO doit rester intacte");
   const nonMsoButtonStart = emailHtml.indexOf("<!--[if !mso]><!-->");
   const nonMsoButtonEnd = emailHtml.indexOf("<!--<![endif]-->", nonMsoButtonStart);
   const nonMsoButton = emailHtml.slice(nonMsoButtonStart, nonMsoButtonEnd);
-  assert.match(nonMsoButton, /<td[\s\S]*?align="center"[\s\S]*?height="52"[\s\S]*?valign="middle"[\s\S]*?bgcolor="#1C6E8C"[\s\S]*?style="height:52px;border-radius:9px;text-align:center;"/, "Le CTA HTML doit imposer une hauteur Outlook-safe de 52 px avec alignement vertical centré");
-  assert.match(nonMsoButton, /class="email-button-link"[\s\S]*?style="display:block;padding:16px 12px;box-sizing:border-box;background-color:#1C6E8C;border-radius:9px;color:#FBFCFF;text-align:center;text-decoration:none;font-size:15px;line-height:20px;font-weight:800;"/, "Le lien CTA doit conserver son padding et sa typographie tout en portant le fond et le radius Outlook-safe");
+  assert.match(nonMsoButton, /<td[\s\S]*?class="outlook-modern-cta-cell"[\s\S]*?align="center"[\s\S]*?height="52"[\s\S]*?valign="middle"[\s\S]*?bgcolor="#1C6E8C"[\s\S]*?style="height:52px;border-radius:9px;text-align:center;"/, "Le CTA HTML doit conserver ses styles communs et ajouter uniquement le hook Outlook moderne");
+  assert.match(nonMsoButton, /class="email-button-link outlook-modern-cta-link"[\s\S]*?style="display:block;padding:16px 12px;box-sizing:border-box;background-color:#1C6E8C;border-radius:9px;color:#FBFCFF;text-align:center;text-decoration:none;font-size:15px;line-height:20px;font-weight:800;"/, "Le lien CTA doit conserver tous ses styles communs et ajouter uniquement le hook Outlook moderne");
   assert.match(emailHtml, /stamio-logo-horizontal-email@4x\.png"[\s\S]*?width="160"[\s\S]*?height="36"/, "Le logo du footer 160x36 doit rester intact");
   for (const socialAsset of ["social-x@4x.png", "social-instagram@4x.png", "social-tiktok@4x.png"]) {
     assert.match(emailHtml, new RegExp(`${socialAsset.replace(".", "\\.")}\\"[\\s\\S]*?width=\\"24\\"[\\s\\S]*?height=\\"24\\"`), `${socialAsset} doit rester en 24x24`);
