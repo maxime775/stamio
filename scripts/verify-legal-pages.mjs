@@ -18,7 +18,11 @@ for (const expected of [
   "Le choix exprimé n’est pas enregistré avec le compte utilisateur",
   "1 compte vérifié = 1 vote par vague",
   "privacy@stamio.fr",
-  "maxime@stamio.fr"
+  "contact@stamio.fr",
+  "nouveaux sujets et les analyses publiées sur Stamio",
+  "Consentement de l’utilisateur — article 6(1)(a) du RGPD",
+  "retiré à tout moment depuis les préférences du compte",
+  "Cette information ne révèle pas le choix de vote"
 ]) {
   assert.ok(privacy.includes(expected), `Confidentialité : texte manquant : ${expected}`);
 }
@@ -31,7 +35,8 @@ for (const expected of [
   "Tout utilisateur ou tiers peut signaler un contenu",
   "Propriété intellectuelle de Stamio",
   "Droit applicable et règlement des différends",
-  "Les présentes CGU sont régies par le droit français"
+  "Les présentes CGU sont régies par le droit français",
+  "Le choix de recevoir par e-mail les nouveaux sujets et les analyses publiées sur Stamio est facultatif"
 ]) {
   assert.ok(terms.includes(expected), `CGU : texte manquant : ${expected}`);
 }
@@ -42,7 +47,8 @@ for (const expected of [
   "OVH SAS (OVHcloud)",
   "Supabase, Inc.",
   "Droit de réponse",
-  "Signalement d'un contenu illicite ou problématique"
+  "Signalement d'un contenu illicite ou problématique",
+  "contact@stamio.fr"
 ]) {
   assert.ok(notices.includes(expected), `Mentions légales : texte manquant : ${expected}`);
 }

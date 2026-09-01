@@ -130,7 +130,7 @@ export function LegalInlineLink({ href, children }: { href: Href; children: Reac
   return <Link href={href} style={styles.link}>{children}</Link>;
 }
 
-export function LegalEmailLink({ email }: { email: "maxime@stamio.fr" | "privacy@stamio.fr" }) {
+export function LegalEmailLink({ email }: { email: "contact@stamio.fr" | "maxime@stamio.fr" | "privacy@stamio.fr" }) {
   return <Link href={`mailto:${email}` as Href} style={styles.link}>{email}</Link>;
 }
 

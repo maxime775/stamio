@@ -217,6 +217,10 @@ export type Profile = {
   updated_at: string;
   passkey_required_at?: string | null;
   passkey_enrolled_at?: string | null;
+  communications_email_opt_in?: boolean;
+  communications_email_opted_in_at?: string | null;
+  communications_email_consent_version?: string | null;
+  communications_email_preference_updated_at?: string | null;
 };
 
 export type ProfileUpdateField = "username" | "sex" | "age" | "profession" | "region";
@@ -265,6 +269,7 @@ export type SignupPayload = {
   profession: string;
   region: string;
   termsAccepted: true;
+  communicationsEmailOptIn: boolean;
 };
 
 export type SignupEmailStatus = "available" | "existing_confirmed" | "existing_unconfirmed";

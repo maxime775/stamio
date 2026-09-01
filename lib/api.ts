@@ -524,7 +524,7 @@ export async function getCurrentUserProfile(): Promise<Profile | null> {
 
   const { data, error } = await supabase
     .from("profiles")
-    .select("id, email, username, username_normalized, sex, age, profession, region, reputation_score, created_at, updated_at, passkey_required_at, passkey_enrolled_at")
+    .select("id, email, username, username_normalized, sex, age, profession, region, reputation_score, created_at, updated_at, passkey_required_at, passkey_enrolled_at, communications_email_opt_in, communications_email_opted_in_at, communications_email_consent_version, communications_email_preference_updated_at")
     .eq("id", user.id)
     .maybeSingle();
 
@@ -545,6 +545,15 @@ export async function updateMyProfileField(field: ProfileUpdateField, value: str
   const { data, error } = await supabase.rpc("update_my_profile_field", {
     p_field: field,
     p_value: value
+  });
+  if (error) return { profile: null, error: error.message };
+  if (!data || typeof data !== "object") return { profile: await getCurrentUserProfile() };
+  return { profile: data as Profile };
+}
+
+export async function updateMyCommunicationsEmailPreference(optIn: boolean): Promise<{ profile: Profile | null; error?: string }> {
+  const { data, error } = await supabase.rpc("update_my_communications_email_preference", {
+    p_opt_in: optIn
   });
   if (error) return { profile: null, error: error.message };
   if (!data || typeof data !== "object") return { profile: await getCurrentUserProfile() };
@@ -655,6 +664,7 @@ export async function signUpUser(payload: SignupPayload, resumeChallenge?: Signu
         legal_terms_accepted: payload.termsAccepted,
         legal_terms_version: CGU_VERSION,
         legal_privacy_version: PRIVACY_VERSION,
+        communications_email_opt_in: payload.communicationsEmailOptIn,
         ...(resumeChallenge ? {
           signup_resume_secret_hash: resumeChallenge.secretHash,
           signup_resume_expires_at: new Date(resumeChallenge.expiresAt).toISOString()

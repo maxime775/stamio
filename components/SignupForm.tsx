@@ -42,6 +42,8 @@ export function SignupForm() {
   const [legalAccepted, setLegalAccepted] = useState(false);
   const [legalTouched, setLegalTouched] = useState(false);
   const [legalFocused, setLegalFocused] = useState(false);
+  const [communicationsEmailOptIn, setCommunicationsEmailOptIn] = useState(false);
+  const [communicationsFocused, setCommunicationsFocused] = useState(false);
 
   const values: SignupValues = { email, confirmEmail, password, confirmPassword, username, sex, age, profession, region };
   const validationErrors = validateSignup(values);
@@ -160,7 +162,8 @@ export function SignupForm() {
       age: parsedAge,
       profession,
       region,
-      termsAccepted: true
+      termsAccepted: true,
+      communicationsEmailOptIn
     }, resumeChallenge);
     setLoading(false);
 
@@ -298,6 +301,30 @@ export function SignupForm() {
         </Text>
       </View>
       {legalTouched && !legalAccepted ? <Text accessibilityLiveRegion="polite" style={styles.legalError}>Vous devez accepter les conditions d’utilisation pour vous inscrire.</Text> : null}
+      <View style={styles.legalAcceptanceRow}>
+        <Pressable
+          accessibilityHint="Cette préférence est facultative et peut être modifiée depuis votre compte."
+          accessibilityLabel="Je souhaite recevoir par e-mail les nouveaux sujets et les analyses publiées sur Stamio."
+          accessibilityLabelledBy="signup-communications-email-label"
+          accessibilityRole="checkbox"
+          accessibilityState={{ checked: communicationsEmailOptIn }}
+          onBlur={() => setCommunicationsFocused(false)}
+          onFocus={() => setCommunicationsFocused(true)}
+          onPress={() => setCommunicationsEmailOptIn((current) => !current)}
+          style={styles.checkboxHitTarget}
+        >
+          <View style={[
+            styles.checkbox,
+            communicationsEmailOptIn && styles.checkboxChecked,
+            communicationsFocused && styles.checkboxFocused
+          ]}>
+            {communicationsEmailOptIn ? <Check aria-hidden size={10} strokeWidth={3} color={palette.onPrimary} /> : null}
+          </View>
+        </Pressable>
+        <Text nativeID="signup-communications-email-label" style={styles.privacyText}>
+          Je souhaite recevoir par e-mail les nouveaux sujets et les analyses publiées sur Stamio.
+        </Text>
+      </View>
       <HeroActionButton
         compact
         disabled={loading || !legalAccepted}

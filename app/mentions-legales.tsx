@@ -23,7 +23,7 @@ const sections: LegalSection[] = [
       legalParagraph("Le site stamio.fr est édité à titre non professionnel par :"),
       legalCallout([
         "Maxime Opinel, personne physique",
-        <>E-mail : <LegalEmailLink email="maxime@stamio.fr" /></>
+        <>E-mail : <LegalEmailLink email="contact@stamio.fr" /></>
       ]),
       legalParagraph("Les informations d'immatriculation professionnelle éventuellement applicables devront être ajoutées si l'éditeur devient assujetti à une formalité d'immatriculation correspondante.")
     ]
@@ -32,7 +32,7 @@ const sections: LegalSection[] = [
     title: "3. Directeur de la publication",
     blocks: [
       legalParagraph("Directeur de la publication : Maxime Opinel"),
-      legalParagraph(<>Contact du directeur de la publication : <LegalEmailLink email="maxime@stamio.fr" /></>)
+      legalParagraph(<>Contact du directeur de la publication : <LegalEmailLink email="contact@stamio.fr" /></>)
     ]
   },
   {
@@ -60,7 +60,7 @@ const sections: LegalSection[] = [
   {
     title: "6. Contact",
     blocks: [
-      legalParagraph(<>Pour toute question générale relative au site : <LegalEmailLink email="maxime@stamio.fr" /></>),
+      legalParagraph(<>Pour toute question générale relative au site : <LegalEmailLink email="contact@stamio.fr" /></>),
       legalParagraph(<>Pour toute question relative aux données personnelles ou à l'exercice des droits RGPD : <LegalEmailLink email="privacy@stamio.fr" /></>)
     ]
   },
@@ -68,14 +68,14 @@ const sections: LegalSection[] = [
     title: "7. Droit de réponse",
     blocks: [
       legalParagraph("Toute personne nommée ou désignée dans un contenu mis à disposition sur Stamio peut exercer le droit de réponse prévu par la législation applicable aux services de communication au public en ligne."),
-      legalParagraph(<>Les demandes de droit de réponse doivent être adressées au directeur de la publication à <LegalEmailLink email="maxime@stamio.fr" />, en identifiant précisément le contenu concerné et en fournissant les éléments nécessaires au traitement de la demande.</>)
+      legalParagraph(<>Les demandes de droit de réponse doivent être adressées au directeur de la publication à <LegalEmailLink email="contact@stamio.fr" />, en identifiant précisément le contenu concerné et en fournissant les éléments nécessaires au traitement de la demande.</>)
     ]
   },
   {
     title: "8. Signalement d'un contenu illicite ou problématique",
     blocks: [
       legalParagraph("Stamio permet aux utilisateurs et aux tiers de signaler un contenu qu'ils estiment illicite ou contraire aux règles d'utilisation du service."),
-      legalParagraph(<>Le signalement peut être adressé par voie électronique à <LegalEmailLink email="maxime@stamio.fr" />.</>),
+      legalParagraph(<>Le signalement peut être adressé par voie électronique à <LegalEmailLink email="contact@stamio.fr" />.</>),
       legalParagraph("Afin de permettre un traitement efficace, le signalement doit, dans la mesure du possible, préciser :"),
       legalList([
         "le contenu concerné et son emplacement ou son URL ;",
@@ -152,7 +152,7 @@ export default function LegalNoticesPage() {
     <LegalPage
       eyebrow="Informations légales"
       title="Mentions légales"
-      updatedAt="Dernière mise à jour : 27 août 2026"
+      updatedAt="Dernière mise à jour : 31 août 2026"
       intro="Informations relatives à l'édition, à l'hébergement et à l'utilisation de stamio.fr"
       sections={sections}
     />

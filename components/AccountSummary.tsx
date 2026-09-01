@@ -9,12 +9,16 @@ type Props = {
   profile: Profile | null;
   email?: string | null;
   onEdit?: (field: ProfileUpdateField | "email") => void;
+  communicationsPreferenceSaving?: boolean;
+  onToggleCommunications?: () => void;
 };
 
 export function AccountSummary({
   profile,
   email,
-  onEdit
+  onEdit,
+  communicationsPreferenceSaving = false,
+  onToggleCommunications
 }: Props) {
   return (
     <View style={styles.wrap}>
@@ -26,6 +30,13 @@ export function AccountSummary({
         <Field label="Âge" value={profile?.age ? `${profile.age} ans` : "Non renseigné"} onEdit={onEdit ? () => onEdit("age") : undefined} />
         <Field label="Profession" value={profile?.profession ?? "Non renseigné"} onEdit={onEdit ? () => onEdit("profession") : undefined} />
         <Field label="Région" value={profile?.region ?? "Non renseigné"} onEdit={onEdit ? () => onEdit("region") : undefined} />
+        <Field
+          label="Communications par e-mail"
+          value="Recevoir par e-mail les nouveaux sujets et les analyses publiées sur Stamio"
+          actionLabel={communicationsPreferenceSaving ? "Enregistrement…" : profile?.communications_email_opt_in ? "Désactiver" : "Activer"}
+          actionDisabled={communicationsPreferenceSaving}
+          onEdit={onToggleCommunications}
+        />
       </View>
     </View>
   );

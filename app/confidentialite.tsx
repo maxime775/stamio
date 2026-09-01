@@ -25,7 +25,7 @@ const sections: LegalSection[] = [
       legalParagraph("Le responsable des traitements de données personnelles réalisés dans le cadre de Stamio est :"),
       legalCallout([
         "Responsable du traitement : Maxime Opinel — Stamio",
-        <>E-mail professionnel : <LegalEmailLink email="maxime@stamio.fr" /></>,
+        <>E-mail professionnel : <LegalEmailLink email="privacy@stamio.fr" /></>,
         <>Protection des données et exercice des droits : <LegalEmailLink email="privacy@stamio.fr" /></>
       ]),
       legalParagraph(<>Toute question relative à la protection des données personnelles ou toute demande d’exercice de vos droits peut être adressée à <LegalEmailLink email="privacy@stamio.fr" />.</>)
@@ -108,7 +108,15 @@ const sections: LegalSection[] = [
         "des données permettant d’appliquer des limitations de requêtes ;",
         "des informations nécessaires à la prévention des abus, du spam, des attaques et des tentatives de contournement du système de vote."
       ]),
-      legalParagraph("Lorsque cela est approprié, certaines informations peuvent être transformées au moyen de fonctions cryptographiques afin de réduire leur exposition directe.")
+      legalParagraph("Lorsque cela est approprié, certaines informations peuvent être transformées au moyen de fonctions cryptographiques afin de réduire leur exposition directe."),
+      legalSubheading("4.8. Préférence de communications par e-mail"),
+      legalParagraph("Lorsqu’un utilisateur choisit de recevoir les nouveaux sujets et les analyses publiées sur Stamio, Stamio traite uniquement les informations nécessaires à cette finalité, notamment :"),
+      legalList([
+        "l’adresse e-mail associée au compte ;",
+        "l’état actuel de la préférence de communications par e-mail ;",
+        "la date du consentement positif lorsqu’elle est conservée ;",
+        "la date du dernier changement de cette préférence."
+      ])
     ]
   },
   {
@@ -136,6 +144,7 @@ const sections: LegalSection[] = [
         "la publication de commentaires ou de contributions lorsque l’authentification est requise."
       ]),
       legalParagraph("La participation à une question et la publication de commentaires restent facultatives."),
+      legalParagraph("Le choix de recevoir par e-mail les nouveaux sujets et les analyses publiées sur Stamio est également facultatif. Son refus ou son retrait n’empêche ni la création d’un compte, ni l’utilisation de Stamio, ni la participation aux sujets et n’affecte aucune fonctionnalité essentielle."),
       legalParagraph("Les parties publiques de Stamio peuvent être consultées sans création de compte lorsqu’elles ont été conçues à cet effet.")
     ]
   },
@@ -146,6 +155,7 @@ const sections: LegalSection[] = [
       legalTable("Finalités et bases légales des traitements", ["Finalité", "Base légale"], [
         ["Création et gestion du compte", "Exécution du service demandé — article 6(1)(b) du RGPD"],
         ["Confirmation de l’adresse e-mail", "Exécution du service demandé — article 6(1)(b)"],
+        ["Envoi aux utilisateurs ayant choisi cette option de communications par e-mail concernant notamment les nouveaux sujets et les analyses publiées sur Stamio", "Consentement de l’utilisateur — article 6(1)(a) du RGPD"],
         ["Authentification par mot de passe ou Passkey", "Exécution du service demandé — article 6(1)(b)"],
         ["Récupération et sécurisation du compte", "Exécution du service demandé — article 6(1)(b)"],
         ["Enregistrement du fait qu’un compte a participé à une question", "Exécution du service demandé — article 6(1)(b)"],
@@ -160,6 +170,8 @@ const sections: LegalSection[] = [
         ["Réponse à une autorité compétente lorsqu’elle est légalement requise", "Respect d’une obligation légale — article 6(1)(c)"],
         ["Gestion des autres demandes adressées à Stamio", "Intérêt légitime à assurer le fonctionnement et le suivi du service, ou exécution du service selon la nature de la demande"]
       ]),
+      legalParagraph("Le consentement aux communications par e-mail peut être retiré à tout moment depuis les préférences du compte, sans remettre en cause la licéité des traitements effectués avant ce retrait."),
+      legalParagraph("Lorsqu’une communication concerne l’analyse d’un sujet auquel l’utilisateur a participé, Stamio peut utiliser l’information séparée selon laquelle le compte a participé à ce sujet. Cette information ne révèle pas le choix de vote : aucun bulletin n’est relié durablement au compte."),
       legalParagraph("Lorsque Stamio fonde un traitement sur son intérêt légitime, cet intérêt consiste notamment à assurer la sécurité du service, prévenir les abus et la fraude, protéger la plateforme et ses utilisateurs et préserver l’intégrité du système de participation."),
       legalParagraph("Ces intérêts sont mis en balance avec les droits et libertés des utilisateurs et les traitements concernés sont limités à ce qui est nécessaire à ces finalités.")
     ]
@@ -243,7 +255,9 @@ const sections: LegalSection[] = [
       legalParagraph("En cas d’incident ou de litige, les éléments strictement nécessaires peuvent être conservés pendant la durée requise pour traiter cet incident ou assurer la défense d’un droit."),
       legalSubheading("11.7. Demandes adressées à Stamio"),
       legalParagraph("Les échanges avec Stamio sont conservés pendant la durée nécessaire au traitement de la demande."),
-      legalParagraph("Ils peuvent ensuite être conservés pendant une durée limitée lorsqu’il est nécessaire de conserver une preuve de la demande, de son traitement ou de l’exercice d’un droit.")
+      legalParagraph("Ils peuvent ensuite être conservés pendant une durée limitée lorsqu’il est nécessaire de conserver une preuve de la demande, de son traitement ou de l’exercice d’un droit."),
+      legalSubheading("11.8. Préférence de communications par e-mail"),
+      legalParagraph("L’état de la préférence de communications par e-mail et les dates associées sont conservés pendant la durée d’existence du compte et, lorsqu’une preuve du consentement ou de son retrait reste nécessaire, pendant la durée strictement requise à cette fin.")
     ]
   },
   {
@@ -296,6 +310,7 @@ const sections: LegalSection[] = [
         "d’un droit à la portabilité lorsque les conditions légales de ce droit sont remplies ;",
         "du droit de retirer votre consentement à tout moment lorsqu’un traitement est fondé sur le consentement, sans remettre en cause la licéité du traitement effectué avant ce retrait."
       ]),
+      legalParagraph("Lorsque le traitement concerne les communications par e-mail, le retrait peut être effectué directement depuis les préférences du compte."),
       legalSubheading("Comment exercer vos droits ?"),
       legalParagraph(<>Vous pouvez adresser votre demande à : <LegalEmailLink email="privacy@stamio.fr" /></>),
       legalParagraph("Afin de protéger vos données et votre compte, Stamio peut demander les informations strictement nécessaires pour vérifier votre identité lorsque celle-ci ne peut raisonnablement être établie autrement."),
@@ -382,7 +397,7 @@ const sections: LegalSection[] = [
     blocks: [
       legalSubheading("Questions générales concernant Stamio"),
       legalParagraph("Maxime Opinel — Stamio"),
-      legalParagraph(<LegalEmailLink email="maxime@stamio.fr" />),
+      legalParagraph(<LegalEmailLink email="contact@stamio.fr" />),
       legalSubheading("Protection des données personnelles et exercice des droits"),
       legalParagraph(<LegalEmailLink email="privacy@stamio.fr" />)
     ]
@@ -394,10 +409,10 @@ export default function PrivacyPage() {
     <LegalPage
       eyebrow="Données personnelles"
       title="Politique de confidentialité et de protection des données personnelles"
-      updatedAt="Dernière mise à jour : 27 août 2026"
+      updatedAt="Dernière mise à jour : 31 août 2026"
       intro="La présente politique explique de manière transparente quelles données Stamio traite, pourquoi elles sont utilisées, comment les votes sont rendus anonymes dans le système, et comment exercer vos droits."
       sections={sections}
-      footerNote="Document de référence — version du 27 août 2026. Toute évolution substantielle du fonctionnement de Stamio ou de ses prestataires doit conduire à réexaminer la présente politique."
+      footerNote="Document de référence — version du 31 août 2026. Toute évolution substantielle du fonctionnement de Stamio ou de ses prestataires doit conduire à réexaminer la présente politique."
     />
   );
 }

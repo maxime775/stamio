@@ -9,6 +9,7 @@ const signup = read("components/SignupForm.tsx");
 const api = read("lib/api.ts");
 const versions = read("lib/legalVersions.ts");
 const migration = read("supabase/migrations/20260827120000_user_legal_acceptances.sql");
+const currentLegalMigration = read("supabase/migrations/20260831120000_communications_email_consent.sql");
 
 assert.match(signup, /const \[legalAccepted, setLegalAccepted\] = useState\(false\)/, "Signup : la checkbox doit être false par défaut");
 assert.match(signup, /accessibilityRole="checkbox"/, "Signup : le contrôle doit exposer le rôle checkbox");
@@ -24,8 +25,8 @@ assert.ok(signup.includes(exactText), "Signup : le texte juridique exact doit se
 assert.ok(signup.includes('router.push("/conditions-utilisation" as Href)') && signup.includes('router.push("/confidentialite" as Href)'), "Signup : les deux liens juridiques doivent être fonctionnels");
 assert.ok(!/consent(?:ement|ir)[^\n]{0,80}politique de confidentialité/i.test(signup), "Signup : la politique doit être portée à connaissance, sans consentement RGPD général");
 
-assert.match(versions, /CGU_VERSION = "2026-08-27"/, "Version CGU incorrecte");
-assert.match(versions, /PRIVACY_VERSION = "2026-08-27"/, "Version privacy incorrecte");
+assert.match(versions, /CGU_VERSION = "2026-08-31"/, "Version CGU incorrecte");
+assert.match(versions, /PRIVACY_VERSION = "2026-08-31"/, "Version privacy incorrecte");
 for (const expected of [
   "legal_terms_accepted: payload.termsAccepted",
   "legal_terms_version: CGU_VERSION",
@@ -48,7 +49,7 @@ for (const expected of [
 ]) {
   assert.ok(migration.includes(expected), `Migration juridique : garantie manquante : ${expected}`);
 }
-const triggerBody = migration.match(/create or replace function public\.handle_new_user_legal_acceptance\(\)[\s\S]*?as \$\$([\s\S]*?)\$\$;/i)?.[1];
+const triggerBody = currentLegalMigration.match(/create or replace function public\.handle_new_user_legal_acceptance\(\)[\s\S]*?as \$\$([\s\S]*?)\$\$;/i)?.[1];
 assert.ok(triggerBody, "Migration juridique : fonction de preuve d'acceptation introuvable");
 assert.doesNotMatch(
   triggerBody,
@@ -60,8 +61,8 @@ assert.match(
   /if\s+coalesce\(new\.raw_user_meta_data->>'legal_terms_accepted',\s*'false'\)\s*<>\s*'true'\s+then\s+raise exception 'legal_terms_acceptance_required'/i,
   "Migration juridique : une acceptation absente ou fausse doit lever une exception explicite"
 );
-assert.match(triggerBody, /v_expected_terms_version constant text := '2026-08-27'/i, "Migration juridique : la version CGU attendue doit être fixée côté serveur");
-assert.match(triggerBody, /v_expected_privacy_version constant text := '2026-08-27'/i, "Migration juridique : la version privacy attendue doit être fixée côté serveur");
+assert.match(triggerBody, /v_expected_terms_version constant text := '2026-08-31'/i, "Migration juridique : la version CGU attendue doit être fixée côté serveur");
+assert.match(triggerBody, /v_expected_privacy_version constant text := '2026-08-31'/i, "Migration juridique : la version privacy attendue doit être fixée côté serveur");
 assert.match(
   triggerBody,
   /if\s+v_terms_version\s+is distinct from\s+v_expected_terms_version\s+or\s+v_privacy_version\s+is distinct from\s+v_expected_privacy_version\s+then\s+raise exception 'legal_acceptance_version_mismatch'/i,
@@ -79,6 +80,7 @@ assert.doesNotMatch(
 );
 assert.doesNotMatch(triggerBody, /accepted_at/i, "Migration juridique : accepted_at doit rester omis de l'INSERT et utiliser son default serveur");
 assert.doesNotMatch(migration, /insert into public\.user_legal_acceptances[\s\S]*?select[\s\S]*?from auth\.users/i, "Migration juridique : aucun backfill des comptes existants ne doit être ajouté");
+assert.doesNotMatch(currentLegalMigration, /insert into public\.user_legal_acceptances[\s\S]*?select[\s\S]*?from auth\.users/i, "Migration juridique actuelle : aucun backfill des comptes existants ne doit être ajouté");
 assert.ok(!/\b(?:ip(?:_address)?|fingerprint|credential(?:_id)?|passkey|choice_id|poll_id|vote(?:_id)?)\b/i.test(migration), "Migration juridique : donnée non nécessaire détectée");
 assert.ok(!/grant\s+(?:all|update)[^;]*user_legal_acceptances[^;]*authenticated/is.test(migration), "Migration juridique : l'utilisateur ne doit pas pouvoir modifier la preuve");
 

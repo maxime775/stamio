@@ -177,7 +177,8 @@ const changedFiles = execFileSync("git", ["status", "--porcelain"], { encoding: 
   .split(/\r?\n/)
   .filter(Boolean)
   .map((line) => line.slice(3).replaceAll("\\", "/"));
-assert.ok(!changedFiles.some((path) => path.startsWith("supabase/migrations/")), "Aucune migration n'est nécessaire");
+const unrelatedMigrations = changedFiles.filter((path) => path.startsWith("supabase/migrations/") && path !== "supabase/migrations/20260831120000_communications_email_consent.sql");
+assert.deepEqual(unrelatedMigrations, [], "Aucune migration Auth email ou cross-device ne doit être ajoutée");
 assert.ok(!changedFiles.some((path) => /(?:Vote|Poll|Discussion|Home|Hero|admin)/i.test(path)), "Le correctif doit rester strictement Auth/email");
 
 console.log("Cross-device email confirmation verification passed: opaque resume status, bounded polling, local-session gate, secondary callback, and Outlook-safe email are preserved.");

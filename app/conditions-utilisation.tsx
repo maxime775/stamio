@@ -35,6 +35,7 @@ const sections: LegalSection[] = [
     blocks: [
       legalParagraph("La consultation des contenus publics de Stamio est accessible sans création de compte, sauf lorsque des contraintes techniques, juridiques ou de sécurité imposent une restriction particulière."),
       legalParagraph("L'utilisation des fonctionnalités réservées aux comptes, notamment le vote ou la publication d'une contribution lorsqu'une authentification est requise, suppose la prise de connaissance et l'acceptation des présentes CGU."),
+      legalParagraph("Le choix de recevoir par e-mail les nouveaux sujets et les analyses publiées sur Stamio est facultatif, distinct de l’acceptation des présentes CGU et modifiable à tout moment depuis les préférences du compte."),
       legalParagraph("L'utilisateur qui n'accepte pas les CGU doit s'abstenir d'utiliser les fonctionnalités nécessitant un compte."),
       legalParagraph("Stamio peut faire évoluer les modalités d'accès au service, notamment pour des raisons de sécurité, de conformité, de maintenance ou d'amélioration du produit.")
     ]
@@ -116,7 +117,7 @@ const sections: LegalSection[] = [
       legalParagraph("Stamio peut modérer les contributions afin d'assurer la sécurité du service, le respect de la loi et des présentes CGU. La modération peut être réalisée après publication et, le cas échéant, avec l'aide de mécanismes techniques."),
       legalParagraph("Selon la gravité et le contexte, Stamio peut notamment limiter la visibilité d'un contenu, le retirer, fermer un fil de discussion, limiter temporairement certaines fonctionnalités, suspendre un compte ou mettre fin à son accès au service."),
       legalParagraph("Lorsqu'une décision de modération concerne directement un contenu ou un compte et que la réglementation l'exige, Stamio fournit à l'utilisateur concerné les motifs principaux de la décision et les possibilités de contestation, sauf lorsque la loi, une injonction d'une autorité ou un impératif de sécurité interdit ou limite cette information."),
-      legalParagraph(<>Tout utilisateur ou tiers peut signaler un contenu qu'il estime illicite ou contraire aux présentes CGU en écrivant à <LegalEmailLink email="maxime@stamio.fr" />. Le signalement doit, dans la mesure du possible, identifier précisément le contenu concerné, indiquer son emplacement ou son URL, expliquer les raisons du signalement et fournir une adresse de contact permettant à Stamio d'en assurer le suivi.</>),
+      legalParagraph(<>Tout utilisateur ou tiers peut signaler un contenu qu'il estime illicite ou contraire aux présentes CGU en écrivant à <LegalEmailLink email="contact@stamio.fr" />. Le signalement doit, dans la mesure du possible, identifier précisément le contenu concerné, indiquer son emplacement ou son URL, expliquer les raisons du signalement et fournir une adresse de contact permettant à Stamio d'en assurer le suivi.</>),
       legalParagraph(<>Les décisions de modération peuvent être contestées à la même adresse en précisant le contenu ou le compte concerné et les raisons de la contestation.</>)
     ]
   },
@@ -209,7 +210,7 @@ const sections: LegalSection[] = [
   {
     title: "22. Contact",
     blocks: [
-      legalParagraph(<>Questions générales, signalement d'un contenu ou contestation d'une décision de modération : <LegalEmailLink email="maxime@stamio.fr" /></>),
+      legalParagraph(<>Questions générales, signalement d'un contenu ou contestation d'une décision de modération : <LegalEmailLink email="contact@stamio.fr" /></>),
       legalParagraph(<>Protection des données personnelles et exercice des droits : <LegalEmailLink email="privacy@stamio.fr" /></>)
     ]
   }
@@ -220,7 +221,7 @@ export default function TermsPage() {
     <LegalPage
       eyebrow="Cadre d'utilisation"
       title="Conditions générales d'utilisation"
-      updatedAt="Dernière mise à jour : 27 août 2026"
+      updatedAt="Dernière mise à jour : 31 août 2026"
       intro="Règles applicables à l'accès et à l'utilisation de Stamio"
       summary={[
         "En bref",

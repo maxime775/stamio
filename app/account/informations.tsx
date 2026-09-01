@@ -8,7 +8,7 @@ import { PasskeyManagementSection } from "@/components/PasskeyManagementSection"
 import { ProfessionSelect } from "@/components/ProfessionSelect";
 import { RegionSelect } from "@/components/RegionSelect";
 import { useAuth } from "@/components/AuthProvider";
-import { checkUsernameAvailability, getCurrentUserProfile, updateCurrentUserEmail, updateMyProfileField } from "@/lib/api";
+import { checkUsernameAvailability, getCurrentUserProfile, updateCurrentUserEmail, updateMyCommunicationsEmailPreference, updateMyProfileField } from "@/lib/api";
 import { isValidEmail, normalizeAuthEmail } from "@/lib/authValidation";
 import { CSP_PROFESSIONS, REGIONS_FR } from "@/lib/product";
 import { isValidSignupUsername, normalizeSignupUsername } from "@/lib/signupValidation";
@@ -33,6 +33,7 @@ export default function AccountInformationsPage() {
   const [editingField, setEditingField] = useState<EditableField | null>(null);
   const [loading, setLoading] = useState(true);
   const [notice, setNotice] = useState<string | null>(null);
+  const [communicationsPreferenceSaving, setCommunicationsPreferenceSaving] = useState(false);
 
   useEffect(() => {
     if (authLoading) return;
@@ -58,6 +59,21 @@ export default function AccountInformationsPage() {
       active = false;
     };
   }, [authLoading, emailVerified, router, user?.email, user?.id]);
+
+  async function toggleCommunicationsPreference() {
+    if (communicationsPreferenceSaving) return;
+    const nextOptIn = profile?.communications_email_opt_in !== true;
+    setCommunicationsPreferenceSaving(true);
+    setNotice(null);
+    const result = await updateMyCommunicationsEmailPreference(nextOptIn);
+    setCommunicationsPreferenceSaving(false);
+    if (result.error || !result.profile) {
+      setNotice("La préférence de communications n’a pas pu être enregistrée.");
+      return;
+    }
+    setProfile(result.profile);
+    setNotice(nextOptIn ? "Les communications par e-mail sont activées." : "Les communications par e-mail sont désactivées.");
+  }
 
   if (authLoading || loading) {
     return (
@@ -86,6 +102,8 @@ export default function AccountInformationsPage() {
             setNotice(null);
             setEditingField(field);
           }}
+          communicationsPreferenceSaving={communicationsPreferenceSaving}
+          onToggleCommunications={toggleCommunicationsPreference}
         />
       </View>
       <PasskeyManagementSection />
