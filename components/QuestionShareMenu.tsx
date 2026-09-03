@@ -223,7 +223,7 @@ export function QuestionShareMenu({ question, seriesSlug, renderTrigger }: Props
   }, [reducedMotion, triggerActive, underlineProgress]);
 
   useEffect(() => {
-    if (!menuMounted || Platform.OS !== "web" || typeof document === "undefined") return;
+    if (!menuMounted || mobileSheet || Platform.OS !== "web" || typeof document === "undefined") return;
 
     function closeFromOutsidePointer(event: PointerEvent) {
       if (containsShareTarget(event.target)) {
@@ -262,7 +262,7 @@ export function QuestionShareMenu({ question, seriesSlug, renderTrigger }: Props
       document.removeEventListener("focusin", closeFromOutsideFocus);
       window.removeEventListener("keydown", closeFromEscape, true);
     };
-  }, [menuMounted]);
+  }, [menuMounted, mobileSheet]);
 
   useEffect(() => {
     if (!menuMounted || mobileSheet || menuSize.width === 0 || menuSize.height === 0) return;
