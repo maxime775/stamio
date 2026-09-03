@@ -79,7 +79,6 @@ export function QuestionShareMenu({ question, seriesSlug, renderTrigger }: Props
   const [hoverCapable, setHoverCapable] = useState(false);
   const [triggerSize, setTriggerSize] = useState({ width: 0, height: 0 });
   const [menuSize, setMenuSize] = useState({ width: 0, height: 0 });
-  const [triggerFrame, setTriggerFrame] = useState({ x: 0, y: 0, width: 0, height: 0 });
   const [placement, setPlacement] = useState<MenuPlacement>({ alignRight: false, openAbove: false, railLeft: null });
   const [webShareAvailable, setWebShareAvailable] = useState(false);
   const horizontalRail = !renderTrigger && Platform.OS === "web" && viewportWidth >= DESKTOP_RAIL_MIN_WIDTH;
@@ -99,10 +98,6 @@ export function QuestionShareMenu({ question, seriesSlug, renderTrigger }: Props
 
   function openMenu() {
     clearCloseTimer();
-    if (open && !hoverCapable) {
-      closeMenu();
-      return;
-    }
     setMenuMounted(true);
     setOpen(true);
   }
@@ -110,6 +105,7 @@ export function QuestionShareMenu({ question, seriesSlug, renderTrigger }: Props
   function closeMenu() {
     clearCloseTimer();
     setOpen(false);
+    if (mobileSheet) setMenuMounted(false);
   }
 
   function openMenuFromPointer(event: ReactNativePointerEvent) {
@@ -129,7 +125,7 @@ export function QuestionShareMenu({ question, seriesSlug, renderTrigger }: Props
 
   function handleTriggerFocus() {
     setInlineFocused(true);
-    if (suppressFocusOpenRef.current) return;
+    if (mobileSheet || suppressFocusOpenRef.current) return;
     openMenu();
   }
 
@@ -166,6 +162,10 @@ export function QuestionShareMenu({ question, seriesSlug, renderTrigger }: Props
 
   useEffect(() => {
     if (!menuMounted) return;
+    if (mobileSheet) {
+      if (!open) setMenuMounted(false);
+      return;
+    }
     railOpacity.stopAnimation();
     itemAnimations.forEach((animation) => animation.stopAnimation());
 
@@ -210,7 +210,7 @@ export function QuestionShareMenu({ question, seriesSlug, renderTrigger }: Props
     ]).start(({ finished }) => {
       if (finished) setMenuMounted(false);
     });
-  }, [itemAnimations, menuMounted, open, railOpacity, reducedMotion]);
+  }, [itemAnimations, menuMounted, mobileSheet, open, railOpacity, reducedMotion]);
 
   useEffect(() => {
     underlineProgress.stopAnimation();
@@ -265,10 +265,8 @@ export function QuestionShareMenu({ question, seriesSlug, renderTrigger }: Props
   }, [menuMounted]);
 
   useEffect(() => {
-    if (!menuMounted || menuSize.width === 0 || menuSize.height === 0) return;
+    if (!menuMounted || mobileSheet || menuSize.width === 0 || menuSize.height === 0) return;
     wrapperRef.current?.measureInWindow((x, y, width, height) => {
-      setTriggerFrame({ x, y, width, height });
-      if (mobileSheet) return;
       if (horizontalRail) {
         const preferredLeft = width + RAIL_TRIGGER_GAP;
         const leftFallback = -menuSize.width - RAIL_TRIGGER_GAP;
@@ -375,6 +373,7 @@ export function QuestionShareMenu({ question, seriesSlug, renderTrigger }: Props
       <ShareMenuItem
         animation={itemAnimations[0]}
         compact={!horizontalRail}
+        immediate={mobileSheet}
         label={copied ? "Lien copié" : "Copier le lien"}
         icon={<Copy size={18} color={palette.inkSecondary} strokeWidth={1.8} />}
         active={activeItem === "copy"}
@@ -384,6 +383,7 @@ export function QuestionShareMenu({ question, seriesSlug, renderTrigger }: Props
       <ShareMenuItem
         animation={itemAnimations[1]}
         compact={!horizontalRail}
+        immediate={mobileSheet}
         label="X"
         icon={<XBrandIcon size={16} color={palette.inkSecondary} />}
         active={activeItem === "x"}
@@ -393,6 +393,7 @@ export function QuestionShareMenu({ question, seriesSlug, renderTrigger }: Props
       <ShareMenuItem
         animation={itemAnimations[2]}
         compact={!horizontalRail}
+        immediate={mobileSheet}
         label="WhatsApp"
         icon={<MessageCircleMore size={18} color={palette.inkSecondary} strokeWidth={1.8} />}
         active={activeItem === "whatsapp"}
@@ -403,6 +404,7 @@ export function QuestionShareMenu({ question, seriesSlug, renderTrigger }: Props
         <ShareMenuItem
           animation={itemAnimations[3]}
           compact={!horizontalRail}
+          immediate={mobileSheet}
           label="Plus d'options"
           icon={<Ellipsis size={18} color={palette.inkSecondary} strokeWidth={1.8} />}
           active={activeItem === "more"}
@@ -478,18 +480,6 @@ export function QuestionShareMenu({ question, seriesSlug, renderTrigger }: Props
               onPress={closeMenu}
               style={styles.mobileBackdrop}
             />
-            {triggerFrame.width > 0 ? (
-              <Pressable
-                accessible={false}
-                onPress={closeMenu}
-                style={StyleSheet.flatten([styles.mobileTriggerProxy, {
-                  left: triggerFrame.x,
-                  top: triggerFrame.y,
-                  width: triggerFrame.width,
-                  height: triggerFrame.height
-                }])}
-              />
-            ) : null}
             <Animated.View
               ref={menuRef}
               accessibilityLabel="Options de partage"
@@ -503,7 +493,7 @@ export function QuestionShareMenu({ question, seriesSlug, renderTrigger }: Props
                 {
                   bottom: MOBILE_NAV_HEIGHT + MOBILE_SHEET_GAP + safeAreaInsets.bottom,
                   left: Math.round((viewportWidth - mobileSheetWidth) / 2),
-                  opacity: railOpacity,
+                  opacity: 1,
                   width: mobileSheetWidth
                 }
               ])}
@@ -517,9 +507,10 @@ export function QuestionShareMenu({ question, seriesSlug, renderTrigger }: Props
   );
 }
 
-function ShareMenuItem({ animation, compact, label, icon, active, onActiveChange, onPress }: {
+function ShareMenuItem({ animation, compact, immediate = false, label, icon, active, onActiveChange, onPress }: {
   animation: Animated.Value;
   compact: boolean;
+  immediate?: boolean;
   label: string;
   icon: ReactNode;
   active: boolean;
@@ -527,7 +518,7 @@ function ShareMenuItem({ animation, compact, label, icon, active, onActiveChange
   onPress: () => void;
 }) {
   return (
-    <Animated.View style={{
+    <Animated.View style={immediate ? styles.menuItemImmediate : {
       opacity: animation,
       transform: [{ translateX: animation.interpolate({ inputRange: [0, 1], outputRange: [-6, 0] }) }]
     }}>
@@ -618,7 +609,6 @@ const styles = StyleSheet.create({
   },
   mobileOverlay: { flex: 1 },
   mobileBackdrop: { ...StyleSheet.absoluteFillObject, backgroundColor: "rgba(2, 6, 15, 0.62)", zIndex: 1 },
-  mobileTriggerProxy: { position: "absolute", zIndex: 2 },
   mobileSheet: {
     position: "absolute",
     alignSelf: "center",
@@ -626,6 +616,7 @@ const styles = StyleSheet.create({
     borderColor: palette.lineStrong,
     zIndex: 3
   },
+  menuItemImmediate: { opacity: 1 },
   menuItem: {
     minHeight: 40,
     flexDirection: "row",
