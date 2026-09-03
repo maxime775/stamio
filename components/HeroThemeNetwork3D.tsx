@@ -36,6 +36,8 @@ type FallbackNode = {
 
 const THEME_ORDER: ThemeSlug[] = ["politique", "economie", "societe", "sport"];
 const HERO_BASE_ROTATION = { x: -0.24, y: 0.36, z: 0 };
+const HERO_MOBILE_SCENE_SCALE = 0.76;
+const HERO_MOBILE_SCENE_OFFSET_X = -0.21;
 const HERO_IDLE_ROTATION = {
   xAmplitude: 0.105,
   yAmplitude: 0.205,
@@ -145,6 +147,10 @@ function HeroThemeNetworkWeb({ stats }: { stats: OpenPollStats | null }) {
       root.rotation.x = HERO_BASE_ROTATION.x;
       root.rotation.y = HERO_BASE_ROTATION.y;
       root.rotation.z = HERO_BASE_ROTATION.z;
+      if (compact) {
+        root.scale.setScalar(HERO_MOBILE_SCENE_SCALE);
+        root.position.x = HERO_MOBILE_SCENE_OFFSET_X;
+      }
       scene.add(root);
 
       const light = new THREE.PointLight(0xffffff, 0.85, 14);

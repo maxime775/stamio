@@ -515,7 +515,7 @@ const styles = StyleSheet.create({
     shadowRadius: 20,
     shadowOffset: { width: 0, height: 10 }
   },
-  bottomItem: { alignItems: "center", justifyContent: "center", gap: 3, flex: 1 },
-  bottomLabel: { color: palette.muted, fontFamily: fontFamilyMedium, fontSize: 9 },
+  bottomItem: { alignItems: "center", justifyContent: "center", gap: 3, flex: 1, minWidth: 0 },
+  bottomLabel: { width: "100%", color: palette.muted, fontFamily: fontFamilyMedium, fontSize: 9, textAlign: "center", flexShrink: 1 },
   bottomLabelActive: { color: palette.primaryStrong }
 });

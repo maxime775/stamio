@@ -75,6 +75,8 @@ export function QuestionShareMenu({ question, seriesSlug, renderTrigger }: Props
   const [placement, setPlacement] = useState<MenuPlacement>({ alignRight: false, openAbove: false, railLeft: null });
   const [webShareAvailable, setWebShareAvailable] = useState(false);
   const horizontalRail = !renderTrigger && Platform.OS === "web" && viewportWidth >= DESKTOP_RAIL_MIN_WIDTH;
+  const mobileInlineRail = !renderTrigger && Platform.OS === "web" && viewportWidth < DESKTOP_RAIL_MIN_WIDTH;
+  const sideRail = horizontalRail || mobileInlineRail;
   const triggerActive = menuMounted || inlineHovered || inlineFocused;
 
   function clearCloseTimer() {
@@ -253,7 +255,7 @@ export function QuestionShareMenu({ question, seriesSlug, renderTrigger }: Props
   useEffect(() => {
     if (!menuMounted || menuSize.width === 0 || menuSize.height === 0) return;
     wrapperRef.current?.measureInWindow((x, y, width, height) => {
-      if (horizontalRail) {
+      if (sideRail) {
         const preferredLeft = width + RAIL_TRIGGER_GAP;
         const leftFallback = -menuSize.width - RAIL_TRIGGER_GAP;
         const fitsRight = x + preferredLeft + menuSize.width <= viewportWidth - VIEWPORT_MARGIN;
@@ -279,7 +281,7 @@ export function QuestionShareMenu({ question, seriesSlug, renderTrigger }: Props
         railLeft: null
       });
     });
-  }, [horizontalRail, menuMounted, menuSize.height, menuSize.width, viewportHeight, viewportWidth]);
+  }, [menuMounted, menuSize.height, menuSize.width, sideRail, viewportHeight, viewportWidth]);
 
   if (!payload) return null;
 
@@ -318,9 +320,9 @@ export function QuestionShareMenu({ question, seriesSlug, renderTrigger }: Props
     }
   }
 
-  const menuPosition: ViewStyle = horizontalRail ? {
+  const menuPosition: ViewStyle = sideRail ? {
     left: placement.railLeft ?? triggerSize.width + RAIL_TRIGGER_GAP,
-    top: Math.round((triggerSize.height - menuSize.height) / 2),
+    top: horizontalRail ? Math.round((triggerSize.height - menuSize.height) / 2) : 0,
     maxWidth: viewportWidth - VIEWPORT_MARGIN * 2
   } : {
     left: placement.alignRight ? undefined : 0,
@@ -329,7 +331,7 @@ export function QuestionShareMenu({ question, seriesSlug, renderTrigger }: Props
     bottom: placement.openAbove ? triggerSize.height + COMPACT_MENU_GAP : undefined,
     maxWidth: viewportWidth - VIEWPORT_MARGIN * 2
   };
-  const bridgePosition: ViewStyle = horizontalRail ? {
+  const bridgePosition: ViewStyle = sideRail ? {
     left: (placement.railLeft ?? triggerSize.width + RAIL_TRIGGER_GAP) < 0 ? -RAIL_TRIGGER_GAP : triggerSize.width,
     top: 0,
     width: RAIL_TRIGGER_GAP,
