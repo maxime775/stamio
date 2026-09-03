@@ -58,16 +58,16 @@ jobs:
             pwd;
             cls -la \"$OVH_REMOTE_PATH\";
 
-            echo "=== _EXPO RECURSIF ===";
+            echo ===_EXPO_RECURSIF===;
             cls -laR "$OVH_REMOTE_PATH/_expo";
 
-            echo "=== ASSETS RECURSIF ===";
+            echo ===_ASSETS_RECURSIF===;
             cls -laR "$OVH_REMOTE_PATH/assets";
 
-            echo "=== FONTS RECURSIF ===";
+            echo ===_FONTS_RECURSIF===;
             cls -laR "$OVH_REMOTE_PATH/fonts";
 
-            echo "=== EMAIL-ASSETS RECURSIF ===";
+            echo ===_EMAIL_ASSETS_RECURSIF===;
             cls -laR "$OVH_REMOTE_PATH/email-assets";
             bye;
           "
