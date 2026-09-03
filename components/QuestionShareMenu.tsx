@@ -98,6 +98,7 @@ export function QuestionShareMenu({ question, seriesSlug, renderTrigger }: Props
 
   function openMenu() {
     clearCloseTimer();
+    if (mobileSheet) setActiveItem(null);
     setMenuMounted(true);
     setOpen(true);
   }
@@ -373,6 +374,7 @@ export function QuestionShareMenu({ question, seriesSlug, renderTrigger }: Props
       <ShareMenuItem
         animation={itemAnimations[0]}
         compact={!horizontalRail}
+        centerLabel={mobileSheet}
         immediate={mobileSheet}
         label={copied ? "Lien copié" : "Copier le lien"}
         icon={<Copy size={18} color={palette.inkSecondary} strokeWidth={1.8} />}
@@ -383,6 +385,7 @@ export function QuestionShareMenu({ question, seriesSlug, renderTrigger }: Props
       <ShareMenuItem
         animation={itemAnimations[1]}
         compact={!horizontalRail}
+        centerLabel={mobileSheet}
         immediate={mobileSheet}
         label="X"
         icon={<XBrandIcon size={16} color={palette.inkSecondary} />}
@@ -393,6 +396,7 @@ export function QuestionShareMenu({ question, seriesSlug, renderTrigger }: Props
       <ShareMenuItem
         animation={itemAnimations[2]}
         compact={!horizontalRail}
+        centerLabel={mobileSheet}
         immediate={mobileSheet}
         label="WhatsApp"
         icon={<MessageCircleMore size={18} color={palette.inkSecondary} strokeWidth={1.8} />}
@@ -404,6 +408,7 @@ export function QuestionShareMenu({ question, seriesSlug, renderTrigger }: Props
         <ShareMenuItem
           animation={itemAnimations[3]}
           compact={!horizontalRail}
+          centerLabel={mobileSheet}
           immediate={mobileSheet}
           label="Plus d'options"
           icon={<Ellipsis size={18} color={palette.inkSecondary} strokeWidth={1.8} />}
@@ -507,9 +512,10 @@ export function QuestionShareMenu({ question, seriesSlug, renderTrigger }: Props
   );
 }
 
-function ShareMenuItem({ animation, compact, immediate = false, label, icon, active, onActiveChange, onPress }: {
+function ShareMenuItem({ animation, compact, centerLabel = false, immediate = false, label, icon, active, onActiveChange, onPress }: {
   animation: Animated.Value;
   compact: boolean;
+  centerLabel?: boolean;
   immediate?: boolean;
   label: string;
   icon: ReactNode;
@@ -532,13 +538,18 @@ function ShareMenuItem({ animation, compact, immediate = false, label, icon, act
         style={({ pressed }) => StyleSheet.flatten([
           styles.menuItem,
           compact ? styles.compactMenuItem : styles.railItem,
+          centerLabel && styles.mobileMenuItem,
           !active && styles.menuItemResting,
           compact && active && styles.compactMenuItemActive,
           pressed && styles.menuItemPressed
         ])}
       >
         <View pointerEvents="none" style={styles.menuIcon}>{icon}</View>
-        <Text numberOfLines={1} style={styles.menuLabel}>{label}</Text>
+        {centerLabel ? (
+          <View pointerEvents="none" style={styles.mobileMenuLabelWrap}>
+            <Text numberOfLines={1} style={styles.menuLabel}>{label}</Text>
+          </View>
+        ) : <Text numberOfLines={1} style={styles.menuLabel}>{label}</Text>}
       </Pressable>
     </Animated.View>
   );
@@ -627,6 +638,8 @@ const styles = StyleSheet.create({
   },
   railItem: { paddingHorizontal: 0 },
   compactMenuItem: { alignSelf: "stretch", paddingHorizontal: 9, borderRadius: radius.xs },
+  mobileMenuItem: { position: "relative" },
+  mobileMenuLabelWrap: { ...StyleSheet.absoluteFillObject, alignItems: "center", justifyContent: "center" },
   compactMenuItemActive: { backgroundColor: palette.surfaceSubtle },
   menuItemResting: { opacity: 0.76 },
   menuItemPressed: { opacity: 0.6 },
