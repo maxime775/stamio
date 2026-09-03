@@ -1,0 +1,83 @@
+﻿name: Cleanup OVH storage
+
+on:
+  workflow_dispatch:
+    inputs:
+      confirmation:
+        description: Type CLEANUP to remove the two approved obsolete bundles
+        required: true
+        type: string
+
+permissions:
+  contents: read
+
+jobs:
+  cleanup:
+    name: Remove two approved obsolete bundles
+    runs-on: ubuntu-latest
+
+    environment:
+      name: production
+      url: https://stamio.fr
+
+    steps:
+      - name: Verify branch and confirmation
+        shell: bash
+        run: |
+          set -euo pipefail
+          if [ "${GITHUB_REF_NAME}" != "master" ]; then
+            echo "This workflow must run from master."
+            exit 1
+          fi
+          if [ "${{ inputs.confirmation }}" != "CLEANUP" ]; then
+            echo "Confirmation must be CLEANUP."
+            exit 1
+          fi
+
+      - name: Install lftp
+        shell: bash
+        run: |
+          sudo apt-get update
+          sudo apt-get install --yes lftp
+
+      - name: Remove approved obsolete bundles
+        shell: bash
+        env:
+          LFTP_PASSWORD: ${{ secrets.OVH_SFTP_PASSWORD }}
+          OVH_SFTP_HOST: ${{ secrets.OVH_SFTP_HOST }}
+          OVH_SFTP_PORT: ${{ secrets.OVH_SFTP_PORT }}
+          OVH_SFTP_USERNAME: ${{ secrets.OVH_SFTP_USERNAME }}
+          OVH_REMOTE_PATH: ${{ secrets.OVH_REMOTE_PATH }}
+        run: |
+          set -euo pipefail
+          lftp -c "
+            set cmd:fail-exit yes;
+            set net:max-retries 2;
+            set net:timeout 30;
+            set sftp:auto-confirm yes;
+
+            open \
+              --env-password \
+              --user \"$OVH_SFTP_USERNAME\" \
+              -p \"$OVH_SFTP_PORT\" \
+              sftp://$OVH_SFTP_HOST;
+
+            cd \"$OVH_REMOTE_PATH\";
+
+            cls -l _expo/static/js/web/entry-2d7474f2f0e18be18cce1b0b8cf5ed18.js;
+
+            rm _expo/static/js/web/entry-55d51ce683e44a7f44ae592e5e9a1ec5.js;
+            rm _expo/static/js/web/entry-dce910bc0d157da0f658371e5495b2ba.js;
+
+            cls -l _expo/static/js/web/entry-2d7474f2f0e18be18cce1b0b8cf5ed18.js;
+            du -b _expo;
+            bye;
+          "
+
+      - name: Verify public site
+        shell: bash
+        run: |
+          set -euo pipefail
+          curl --fail --silent --show-error https://stamio.fr/ > /tmp/stamio-index.html
+          grep -Fq "_expo/static/js/web/entry-2d7474f2f0e18be18cce1b0b8cf5ed18.js" /tmp/stamio-index.html
+          echo "Production still references the expected active entry."
