@@ -59,15 +59,15 @@ jobs:
             cls -la \"$OVH_REMOTE_PATH\";
 
             echo ===_EXPO_RECURSIF===;
-            cls -laR "$OVH_REMOTE_PATH/_expo";
+            find -l "$OVH_REMOTE_PATH/_expo"; du -a -b "$OVH_REMOTE_PATH/_expo";
 
             echo ===_ASSETS_RECURSIF===;
-            cls -laR "$OVH_REMOTE_PATH/assets";
+            find -l "$OVH_REMOTE_PATH/assets"; du -a -b "$OVH_REMOTE_PATH/assets";
 
             echo ===_FONTS_RECURSIF===;
-            cls -laR "$OVH_REMOTE_PATH/fonts";
+            find -l "$OVH_REMOTE_PATH/fonts"; du -a -b "$OVH_REMOTE_PATH/fonts";
 
             echo ===_EMAIL_ASSETS_RECURSIF===;
-            cls -laR "$OVH_REMOTE_PATH/email-assets";
+            find -l "$OVH_REMOTE_PATH/email-assets"; du -a -b "$OVH_REMOTE_PATH/email-assets";
             bye;
           "
