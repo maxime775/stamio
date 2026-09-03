@@ -250,3 +250,52 @@ jobs:
 
           echo "The live site does not reference the newly built bundle."
           exit 1
+
+      - name: Prune obsolete managed deployment files
+        shell: bash
+        env:
+          LFTP_PASSWORD: ${{ secrets.OVH_SFTP_PASSWORD }}
+          OVH_SFTP_HOST: ${{ secrets.OVH_SFTP_HOST }}
+          OVH_SFTP_PORT: ${{ secrets.OVH_SFTP_PORT }}
+          OVH_SFTP_USERNAME: ${{ secrets.OVH_SFTP_USERNAME }}
+          OVH_REMOTE_PATH: ${{ secrets.OVH_REMOTE_PATH }}
+        run: |
+          set -euo pipefail
+
+          lftp -c "
+            set cmd:fail-exit yes;
+            set net:max-retries 2;
+            set net:timeout 30;
+            set sftp:auto-confirm yes;
+
+            open \
+              --env-password \
+              --user \"$OVH_SFTP_USERNAME\" \
+              -p \"$OVH_SFTP_PORT\" \
+              sftp://$OVH_SFTP_HOST;
+
+            lcd \"$GITHUB_WORKSPACE\";
+            cd \"$OVH_REMOTE_PATH\";
+
+            mirror --reverse --delete --verbose --parallel=1 --no-perms dist/_expo/ _expo/;
+            mirror --reverse --delete --verbose --parallel=1 --no-perms dist/assets/ assets/;
+            mirror --reverse --delete --verbose --parallel=1 --no-perms dist/fonts/ fonts/;
+            mirror --reverse --delete --verbose --parallel=1 --no-perms dist/email-assets/ email-assets/;
+
+            bye;
+          "
+
+      - name: Verify live bundle after cleanup
+        shell: bash
+        run: |
+          set -euo pipefail
+
+          curl \
+            --fail \
+            --silent \
+            --show-error \
+            --header "Cache-Control: no-cache" \
+            "https://stamio.fr/$LOCAL_ENTRY?cleanup=${GITHUB_RUN_ID}-${GITHUB_RUN_ATTEMPT}" \
+            --output /dev/null
+
+          echo "The active Stamio bundle remains available after cleanup."
