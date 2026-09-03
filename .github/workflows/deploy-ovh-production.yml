@@ -179,7 +179,7 @@ jobs:
             mirror \
               --reverse \
               --verbose \
-              --parallel=2 \
+              --parallel=1 \
               --no-perms \
               --exclude-glob index.html \
               dist/ \
