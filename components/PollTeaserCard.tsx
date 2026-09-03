@@ -122,7 +122,14 @@ export const PollTeaserCard = memo(function PollTeaserCard({ poll, compact = fal
         ])}
       >
         <Animated.View style={StyleSheet.flatten([styles.topRule, { backgroundColor: theme.accent, opacity: topRuleOpacity }])} />
-        {showBottomHoverRule ? <Animated.View style={StyleSheet.flatten([styles.bottomRule, { backgroundColor: theme.accent, transform: [{ translateX: bottomRuleTranslateX }] }])} /> : null}
+        {showBottomHoverRule ? <Animated.View style={StyleSheet.flatten([
+          styles.bottomRule,
+          compact && styles.bottomRuleCompact,
+          {
+            backgroundColor: theme.accent,
+            transform: compact ? [{ scaleX: hover }] : [{ translateX: bottomRuleTranslateX }]
+          }
+        ])} /> : null}
       <View style={styles.top}>
         <Text style={StyleSheet.flatten([styles.theme, getThemeTagStyle(poll.theme)])}>{getThemeLabel(poll.theme)}</Text>
         {poll.trend_label ? (
@@ -208,6 +215,7 @@ const styles = StyleSheet.create({
     bottom: 0,
     height: 2
   },
+  bottomRuleCompact: { transformOrigin: "left center" },
   top: { flexDirection: "row", justifyContent: "space-between", alignItems: "flex-start", gap: 12 },
   theme: {
     color: palette.primaryStrong,

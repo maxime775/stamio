@@ -3,6 +3,7 @@ import {
   Animated,
   Easing,
   Linking,
+  Modal,
   Platform,
   Pressable,
   StyleSheet,
@@ -13,6 +14,7 @@ import {
   type PointerEvent as ReactNativePointerEvent,
   type ViewStyle
 } from "react-native";
+import { useSafeAreaInsets } from "react-native-safe-area-context";
 import * as Clipboard from "expo-clipboard";
 import { Copy, Ellipsis, MessageCircleMore, Share2, XBrandIcon } from "@/lib/icons";
 import { ACCOUNT_MENU_CLOSE_DELAY_MS, cancelAccountMenuClose, scheduleAccountMenuClose } from "@/lib/accountMenuHover";
@@ -46,6 +48,9 @@ const COMPACT_MENU_GAP = 6;
 const RAIL_TRIGGER_GAP = 14;
 const VIEWPORT_MARGIN = 8;
 const DESKTOP_RAIL_MIN_WIDTH = 760;
+const MOBILE_NAV_HEIGHT = 60;
+const MOBILE_SHEET_GAP = 12;
+const MOBILE_SHEET_MAX_WIDTH = 360;
 const COPY_FEEDBACK_MS = 1800;
 const RAIL_OPEN_DURATION_MS = 180;
 const RAIL_CLOSE_DURATION_MS = 140;
@@ -54,8 +59,10 @@ const RAIL_STAGGER_MS = 25;
 export function QuestionShareMenu({ question, seriesSlug, renderTrigger }: Props) {
   const payload = useMemo(() => getQuestionSharePayload(question, seriesSlug), [question, seriesSlug]);
   const { width: viewportWidth, height: viewportHeight } = useWindowDimensions();
+  const safeAreaInsets = useSafeAreaInsets();
   const reducedMotion = useReducedMotion();
   const wrapperRef = useRef<View | null>(null);
+  const menuRef = useRef<View | null>(null);
   const triggerRef = useRef<View | null>(null);
   const closeTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const feedbackTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
@@ -72,11 +79,11 @@ export function QuestionShareMenu({ question, seriesSlug, renderTrigger }: Props
   const [hoverCapable, setHoverCapable] = useState(false);
   const [triggerSize, setTriggerSize] = useState({ width: 0, height: 0 });
   const [menuSize, setMenuSize] = useState({ width: 0, height: 0 });
+  const [triggerFrame, setTriggerFrame] = useState({ x: 0, y: 0, width: 0, height: 0 });
   const [placement, setPlacement] = useState<MenuPlacement>({ alignRight: false, openAbove: false, railLeft: null });
   const [webShareAvailable, setWebShareAvailable] = useState(false);
   const horizontalRail = !renderTrigger && Platform.OS === "web" && viewportWidth >= DESKTOP_RAIL_MIN_WIDTH;
-  const mobileInlineRail = !renderTrigger && Platform.OS === "web" && viewportWidth < DESKTOP_RAIL_MIN_WIDTH;
-  const sideRail = horizontalRail || mobileInlineRail;
+  const mobileSheet = !renderTrigger && Platform.OS === "web" && !horizontalRail;
   const triggerActive = menuMounted || inlineHovered || inlineFocused;
 
   function clearCloseTimer() {
@@ -86,11 +93,16 @@ export function QuestionShareMenu({ question, seriesSlug, renderTrigger }: Props
   function containsShareTarget(target: EventTarget | null) {
     if (typeof Node === "undefined" || !(target instanceof Node)) return false;
     const wrapper = wrapperRef.current as unknown as { contains?: (node: Node) => boolean } | null;
-    return Boolean(wrapper?.contains?.(target));
+    const menu = menuRef.current as unknown as { contains?: (node: Node) => boolean } | null;
+    return Boolean(wrapper?.contains?.(target) || menu?.contains?.(target));
   }
 
   function openMenu() {
     clearCloseTimer();
+    if (open && !hoverCapable) {
+      closeMenu();
+      return;
+    }
     setMenuMounted(true);
     setOpen(true);
   }
@@ -255,7 +267,9 @@ export function QuestionShareMenu({ question, seriesSlug, renderTrigger }: Props
   useEffect(() => {
     if (!menuMounted || menuSize.width === 0 || menuSize.height === 0) return;
     wrapperRef.current?.measureInWindow((x, y, width, height) => {
-      if (sideRail) {
+      setTriggerFrame({ x, y, width, height });
+      if (mobileSheet) return;
+      if (horizontalRail) {
         const preferredLeft = width + RAIL_TRIGGER_GAP;
         const leftFallback = -menuSize.width - RAIL_TRIGGER_GAP;
         const fitsRight = x + preferredLeft + menuSize.width <= viewportWidth - VIEWPORT_MARGIN;
@@ -281,7 +295,7 @@ export function QuestionShareMenu({ question, seriesSlug, renderTrigger }: Props
         railLeft: null
       });
     });
-  }, [menuMounted, menuSize.height, menuSize.width, sideRail, viewportHeight, viewportWidth]);
+  }, [horizontalRail, menuMounted, menuSize.height, menuSize.width, mobileSheet, viewportHeight, viewportWidth]);
 
   if (!payload) return null;
 
@@ -291,6 +305,10 @@ export function QuestionShareMenu({ question, seriesSlug, renderTrigger }: Props
         await navigator.clipboard.writeText(payload!.url);
       } else {
         await Clipboard.setStringAsync(payload!.url);
+      }
+      if (mobileSheet) {
+        closeMenu();
+        return;
       }
       setCopied(true);
       if (feedbackTimerRef.current) clearTimeout(feedbackTimerRef.current);
@@ -320,9 +338,9 @@ export function QuestionShareMenu({ question, seriesSlug, renderTrigger }: Props
     }
   }
 
-  const menuPosition: ViewStyle = sideRail ? {
+  const menuPosition: ViewStyle = horizontalRail ? {
     left: placement.railLeft ?? triggerSize.width + RAIL_TRIGGER_GAP,
-    top: horizontalRail ? Math.round((triggerSize.height - menuSize.height) / 2) : 0,
+    top: Math.round((triggerSize.height - menuSize.height) / 2),
     maxWidth: viewportWidth - VIEWPORT_MARGIN * 2
   } : {
     left: placement.alignRight ? undefined : 0,
@@ -331,7 +349,7 @@ export function QuestionShareMenu({ question, seriesSlug, renderTrigger }: Props
     bottom: placement.openAbove ? triggerSize.height + COMPACT_MENU_GAP : undefined,
     maxWidth: viewportWidth - VIEWPORT_MARGIN * 2
   };
-  const bridgePosition: ViewStyle = sideRail ? {
+  const bridgePosition: ViewStyle = horizontalRail ? {
     left: (placement.railLeft ?? triggerSize.width + RAIL_TRIGGER_GAP) < 0 ? -RAIL_TRIGGER_GAP : triggerSize.width,
     top: 0,
     width: RAIL_TRIGGER_GAP,
@@ -351,6 +369,49 @@ export function QuestionShareMenu({ question, seriesSlug, renderTrigger }: Props
     onPress: openMenu,
     triggerRef
   };
+  const mobileSheetWidth = Math.min(MOBILE_SHEET_MAX_WIDTH, viewportWidth - VIEWPORT_MARGIN * 2);
+  const menuItems = (
+    <>
+      <ShareMenuItem
+        animation={itemAnimations[0]}
+        compact={!horizontalRail}
+        label={copied ? "Lien copié" : "Copier le lien"}
+        icon={<Copy size={18} color={palette.inkSecondary} strokeWidth={1.8} />}
+        active={activeItem === "copy"}
+        onActiveChange={(active) => setActiveItem(active ? "copy" : null)}
+        onPress={() => void copyLink()}
+      />
+      <ShareMenuItem
+        animation={itemAnimations[1]}
+        compact={!horizontalRail}
+        label="X"
+        icon={<XBrandIcon size={16} color={palette.inkSecondary} />}
+        active={activeItem === "x"}
+        onActiveChange={(active) => setActiveItem(active ? "x" : null)}
+        onPress={() => openExternalShare(getXShareUrl(payload))}
+      />
+      <ShareMenuItem
+        animation={itemAnimations[2]}
+        compact={!horizontalRail}
+        label="WhatsApp"
+        icon={<MessageCircleMore size={18} color={palette.inkSecondary} strokeWidth={1.8} />}
+        active={activeItem === "whatsapp"}
+        onActiveChange={(active) => setActiveItem(active ? "whatsapp" : null)}
+        onPress={() => openExternalShare(getWhatsAppShareUrl(payload))}
+      />
+      {webShareAvailable ? (
+        <ShareMenuItem
+          animation={itemAnimations[3]}
+          compact={!horizontalRail}
+          label="Plus d'options"
+          icon={<Ellipsis size={18} color={palette.inkSecondary} strokeWidth={1.8} />}
+          active={activeItem === "more"}
+          onActiveChange={(active) => setActiveItem(active ? "more" : null)}
+          onPress={() => void openNativeShare()}
+        />
+      ) : null}
+    </>
+  );
 
   return (
     <View
@@ -387,10 +448,11 @@ export function QuestionShareMenu({ question, seriesSlug, renderTrigger }: Props
         </Pressable>
       )}
 
-      {menuMounted ? <View pointerEvents="box-only" style={StyleSheet.flatten([styles.hoverBridge, bridgePosition])} /> : null}
+      {menuMounted && !mobileSheet ? <View pointerEvents="box-only" style={StyleSheet.flatten([styles.hoverBridge, bridgePosition])} /> : null}
 
-      {menuMounted ? (
+      {menuMounted && !mobileSheet ? (
         <Animated.View
+          ref={menuRef}
           accessibilityLabel="Options de partage"
           accessibilityRole="menu"
           onLayout={updateSize(setMenuSize)}
@@ -403,45 +465,53 @@ export function QuestionShareMenu({ question, seriesSlug, renderTrigger }: Props
             { opacity: railOpacity }
           ])}
         >
-          <ShareMenuItem
-            animation={itemAnimations[0]}
-            compact={!horizontalRail}
-            label={copied ? "Lien copié" : "Copier le lien"}
-            icon={<Copy size={18} color={palette.inkSecondary} strokeWidth={1.8} />}
-            active={activeItem === "copy"}
-            onActiveChange={(active) => setActiveItem(active ? "copy" : null)}
-            onPress={() => void copyLink()}
-          />
-          <ShareMenuItem
-            animation={itemAnimations[1]}
-            compact={!horizontalRail}
-            label="X"
-            icon={<XBrandIcon size={16} color={palette.inkSecondary} />}
-            active={activeItem === "x"}
-            onActiveChange={(active) => setActiveItem(active ? "x" : null)}
-            onPress={() => openExternalShare(getXShareUrl(payload))}
-          />
-          <ShareMenuItem
-            animation={itemAnimations[2]}
-            compact={!horizontalRail}
-            label="WhatsApp"
-            icon={<MessageCircleMore size={18} color={palette.inkSecondary} strokeWidth={1.8} />}
-            active={activeItem === "whatsapp"}
-            onActiveChange={(active) => setActiveItem(active ? "whatsapp" : null)}
-            onPress={() => openExternalShare(getWhatsAppShareUrl(payload))}
-          />
-          {webShareAvailable ? (
-            <ShareMenuItem
-              animation={itemAnimations[3]}
-              compact={!horizontalRail}
-              label="Plus d'options"
-              icon={<Ellipsis size={18} color={palette.inkSecondary} strokeWidth={1.8} />}
-              active={activeItem === "more"}
-              onActiveChange={(active) => setActiveItem(active ? "more" : null)}
-              onPress={() => void openNativeShare()}
-            />
-          ) : null}
+          {menuItems}
         </Animated.View>
+      ) : null}
+
+      {mobileSheet && menuMounted ? (
+        <Modal transparent visible onRequestClose={closeMenu} statusBarTranslucent>
+          <View style={styles.mobileOverlay}>
+            <Pressable
+              accessibilityLabel="Fermer les options de partage"
+              accessibilityRole="button"
+              onPress={closeMenu}
+              style={styles.mobileBackdrop}
+            />
+            {triggerFrame.width > 0 ? (
+              <Pressable
+                accessible={false}
+                onPress={closeMenu}
+                style={StyleSheet.flatten([styles.mobileTriggerProxy, {
+                  left: triggerFrame.x,
+                  top: triggerFrame.y,
+                  width: triggerFrame.width,
+                  height: triggerFrame.height
+                }])}
+              />
+            ) : null}
+            <Animated.View
+              ref={menuRef}
+              accessibilityLabel="Options de partage"
+              accessibilityRole="menu"
+              accessibilityViewIsModal
+              onLayout={updateSize(setMenuSize)}
+              pointerEvents={open ? "auto" : "none"}
+              style={StyleSheet.flatten([
+                styles.compactMenu,
+                styles.mobileSheet,
+                {
+                  bottom: MOBILE_NAV_HEIGHT + MOBILE_SHEET_GAP + safeAreaInsets.bottom,
+                  left: Math.round((viewportWidth - mobileSheetWidth) / 2),
+                  opacity: railOpacity,
+                  width: mobileSheetWidth
+                }
+              ])}
+            >
+              {menuItems}
+            </Animated.View>
+          </View>
+        </Modal>
       ) : null}
     </View>
   );
@@ -545,6 +615,16 @@ const styles = StyleSheet.create({
     shadowOffset: { width: 0, height: 7 },
     elevation: 10,
     zIndex: 50
+  },
+  mobileOverlay: { flex: 1 },
+  mobileBackdrop: { ...StyleSheet.absoluteFillObject, backgroundColor: "rgba(2, 6, 15, 0.62)", zIndex: 1 },
+  mobileTriggerProxy: { position: "absolute", zIndex: 2 },
+  mobileSheet: {
+    position: "absolute",
+    alignSelf: "center",
+    borderWidth: 1,
+    borderColor: palette.lineStrong,
+    zIndex: 3
   },
   menuItem: {
     minHeight: 40,
