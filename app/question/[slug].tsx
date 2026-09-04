@@ -2,24 +2,33 @@ import { useEffect, useState } from "react";
 import { useLocalSearchParams, useRouter, type Href } from "expo-router";
 import Head from "expo-router/head";
 import { PollScreen } from "@/app/poll/[pollId]";
-import { resolvePublicQuestion, type PublicPollResolution } from "@/lib/api";
+import { getCachedPublicQuestionResolution, resolvePublicQuestion, type PublicPollResolution } from "@/lib/api";
 import { getHistoricalResultPath, getQuestionPath, validatePollSeriesSlug } from "@/lib/publicPollUrls";
 
 export default function PublicQuestionRoute() {
   const { slug } = useLocalSearchParams<{ slug: string }>();
   const router = useRouter();
-  const [resolution, setResolution] = useState<PublicPollResolution | null>(null);
-  const [resolving, setResolving] = useState(true);
+  const cachedResolution = slug ? getCachedPublicQuestionResolution(slug) : null;
+  const [resolution, setResolution] = useState<PublicPollResolution | null>(cachedResolution);
+  const [resolving, setResolving] = useState(!cachedResolution);
 
   useEffect(() => {
     let active = true;
-    setResolution(null);
-    setResolving(true);
-
     if (!slug || validatePollSeriesSlug(slug)) {
+      setResolution(null);
       setResolving(false);
       return () => { active = false; };
     }
+
+    const nextCachedResolution = getCachedPublicQuestionResolution(slug);
+    if (nextCachedResolution) {
+      setResolution(nextCachedResolution);
+      setResolving(false);
+      return () => { active = false; };
+    }
+
+    setResolution(null);
+    setResolving(true);
 
     resolvePublicQuestion(slug).then((nextResolution) => {
       if (!active) return;

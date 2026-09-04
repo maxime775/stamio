@@ -79,23 +79,39 @@ export function PollScreen({
   const { width } = useWindowDimensions();
   const compact = width < 760;
   const previewStacked = width < 1040;
-  const [poll, setPoll] = useState<Poll | null>(null);
+  const initialPoll = pollId ? getCachedPoll(pollId) : null;
+  const initialResults = pollId ? getCachedResults(pollId) : null;
+  const initialHistory = pollId ? getCachedResultsHistory(pollId) : null;
+  const [poll, setPoll] = useState<Poll | null>(initialPoll);
   const [selectedChoiceId, setSelectedChoiceId] = useState<string | null>(null);
   const [serverParticipation, setServerParticipation] = useState(false);
   const [serverAnswerLoading, setServerAnswerLoading] = useState(false);
-  const [results, setResults] = useState<PollResult[]>([]);
-  const [resultsSnapshotAt, setResultsSnapshotAt] = useState<string | null>(null);
-  const [history, setHistory] = useState<PollHistoryPoint[]>([]);
-  const [loading, setLoading] = useState(true);
+  const [results, setResults] = useState<PollResult[]>(initialResults ?? []);
+  const [resultsSnapshotAt, setResultsSnapshotAt] = useState<string | null>(initialResults ? new Date().toISOString() : null);
+  const [history, setHistory] = useState<PollHistoryPoint[]>(initialHistory ?? []);
+  const [loading, setLoading] = useState(Boolean(resolving || (pollId && !initialPoll)));
   const [panelVisible, setPanelVisible] = useState(false);
   const [voteState, setVoteState] = useState<VoteStatus | null>(null);
   const [voteColumnHeight, setVoteColumnHeight] = useState(0);
   const [themeLinkHovered, setThemeLinkHovered] = useState(false);
+  const [detailsVisible, setDetailsVisible] = useState(Platform.OS !== "web" || !initialPoll);
   const scrollRef = useRef<ScrollView>(null);
   const overviewAnchorY = useRef(0);
   const contextOffsetY = useRef(0);
   const discussionAnchorY = useRef(0);
-  const fade = useMemo(() => new Animated.Value(0), []);
+  const fade = useMemo(() => new Animated.Value(initialPoll ? 1 : 0), []);
+
+  useEffect(() => {
+    if (detailsVisible || !poll || Platform.OS !== "web") return;
+    let secondFrame = 0;
+    const firstFrame = requestAnimationFrame(() => {
+      secondFrame = requestAnimationFrame(() => setDetailsVisible(true));
+    });
+    return () => {
+      cancelAnimationFrame(firstFrame);
+      if (secondFrame) cancelAnimationFrame(secondFrame);
+    };
+  }, [detailsVisible, poll]);
 
   useEffect(() => {
     let active = true;
@@ -282,6 +298,7 @@ export function PollScreen({
                     <QuestionShareMenu question={poll.question} seriesSlug={poll.series_slug} />
                   ) : null}
                 </View>
+                {detailsVisible ? <>
                 <View
                   onLayout={(event) => { overviewAnchorY.current = event.nativeEvent.layout.y; }}
                   style={StyleSheet.flatten([styles.overview, compact && styles.overviewCompact])}
@@ -299,7 +316,9 @@ export function PollScreen({
                 {(poll.resources && poll.resources.length > 0) || decisionTreePreviewByPollId[poll.id]
                   ? <ResourceBand pollId={poll.id} resources={poll.resources ?? []} compact={compact} previewStacked={previewStacked} />
                   : null}
+                </> : null}
               </View>
+              {detailsVisible ? <>
               <View style={styles.contentGrid}>
                 <View
                   onLayout={(event) => setVoteColumnHeight(event.nativeEvent.layout.height)}
@@ -356,6 +375,7 @@ export function PollScreen({
               <View nativeID="poll-discussion" onLayout={(event) => { discussionAnchorY.current = event.nativeEvent.layout.y; }} style={styles.discussionColumn}>
                 <PollDiscussion pollId={poll.id} />
               </View>
+              </> : null}
             </Animated.View>
           ) : (
             <View style={styles.emptyState}>
@@ -363,7 +383,7 @@ export function PollScreen({
               <Text style={styles.emptyText}>La question demandée n'est pas ouverte ou n'existe pas.</Text>
             </View>
           )}
-          <AppFooter />
+          {!poll || detailsVisible ? <AppFooter /> : null}
         </ScrollView>
 
         {poll && selectedChoice && isPollOpen ? (

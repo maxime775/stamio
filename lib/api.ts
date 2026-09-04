@@ -551,6 +551,21 @@ export async function updateMyProfileField(field: ProfileUpdateField, value: str
   return { profile: data as Profile };
 }
 
+export function getCachedPublicQuestionResolution(slug: string): PublicPollResolution | null {
+  return readCache<PublicPollResolution | null>(cacheKeys.questionRoute(slug));
+}
+
+export function primePublicQuestionResolution(poll: Pick<Poll, "id" | "series_id" | "series_slug" | "wave_number">) {
+  if (!poll.series_id || !poll.series_slug || typeof poll.wave_number !== "number") return;
+  writeCache(cacheKeys.questionRoute(poll.series_slug), {
+    poll_id: poll.id,
+    series_id: poll.series_id,
+    series_slug: poll.series_slug,
+    wave_number: poll.wave_number,
+    route_kind: "question"
+  });
+}
+
 export async function updateMyCommunicationsEmailPreference(optIn: boolean): Promise<{ profile: Profile | null; error?: string }> {
   const { data, error } = await supabase.rpc("update_my_communications_email_preference", {
     p_opt_in: optIn
@@ -774,6 +789,9 @@ async function fetchPollCollection(options: {
     if (error || !rows) return [];
 
     const polls = rows.map(normalizePoll) as PollWithStats[];
+    if (status === "open") {
+      for (const poll of polls) primePublicQuestionResolution(poll);
+    }
     const withStats = await Promise.all(
       polls.map(async (poll) => {
         writeCache(cacheKeys.poll(poll.id), poll);

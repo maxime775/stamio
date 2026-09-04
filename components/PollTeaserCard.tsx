@@ -5,9 +5,12 @@ import { ArrowRight, TrendingUp } from "@/lib/icons";
 import { getThemeLabel } from "@/lib/product";
 import { getThemeTagStyle, getThemeVisual, fontFamilyBold, fontFamilyMedium, fontFamilySemibold, palette, radius } from "@/lib/design";
 import { PollTimer } from "@/components/PollTimer";
-import { prefetchPollDetail } from "@/lib/api";
+import { prefetchPollDetail, primePublicQuestionResolution } from "@/lib/api";
 import type { PollWithStats } from "@/lib/types";
 import { getQuestionPath } from "@/lib/publicPollUrls";
+import { prefetchQuestionRoute } from "@/lib/questionRoutePrefetch";
+
+prefetchQuestionRoute();
 
 type Props = {
   poll: PollWithStats;
@@ -30,9 +33,13 @@ export const PollTeaserCard = memo(function PollTeaserCard({ poll, compact = fal
   const theme = getThemeVisual(poll.theme);
   const pollHref = poll.series_slug ? getQuestionPath(poll.series_slug) : `/poll/${poll.id}`;
   const warmPoll = useCallback(() => {
+    primePublicQuestionResolution(poll);
     prefetchPollDetail(poll.id);
-  }, [poll.id]);
-  const openPoll = useCallback(() => router.push(pollHref as Href), [pollHref, router]);
+  }, [poll]);
+  const openPoll = useCallback(() => {
+    warmPoll();
+    router.push(pollHref as Href);
+  }, [pollHref, router, warmPoll]);
   const startHoverPause = useCallback(() => {
     if (!cardHoveredRef.current && !ctaHoveredRef.current) onHoverStart?.();
   }, [onHoverStart]);
@@ -148,7 +155,10 @@ export const PollTeaserCard = memo(function PollTeaserCard({ poll, compact = fal
         <Link href={pollHref as Href} asChild>
           <Pressable
             accessibilityRole="link"
-            onPress={(event) => event.stopPropagation()}
+            onPress={(event) => {
+              event.stopPropagation();
+              warmPoll();
+            }}
             onPressIn={() => {
               setCtaPressed(true);
               warmPoll();
