@@ -145,7 +145,7 @@ export const ApproachSection = memo(function ApproachSection() {
       <View style={StyleSheet.flatten([styles.body, compact && styles.bodyCompact])}>
         <View style={StyleSheet.flatten([styles.heading, compact && styles.headingCompact])}>
           <Text style={styles.kicker}>Nos engagements</Text>
-          <View accessible accessibilityRole="header" accessibilityLabel={SECTION_TITLE} style={styles.titleFrame}>
+          <View accessible accessibilityRole="header" aria-level={2} accessibilityLabel={SECTION_TITLE} style={styles.titleFrame}>
             <Text accessibilityElementsHidden importantForAccessibility="no-hide-descendants" style={StyleSheet.flatten([styles.title, compact && styles.titleCompact, styles.titleMeasure])}>{SECTION_TITLE}</Text>
             <Text accessibilityElementsHidden importantForAccessibility="no-hide-descendants" style={StyleSheet.flatten([styles.title, compact && styles.titleCompact, styles.typedTitle])}>{typedTitle}</Text>
           </View>

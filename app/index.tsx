@@ -85,7 +85,7 @@ export default function Home() {
       <View style={StyleSheet.flatten([styles.hero, compact && styles.heroCompact, compact && { maxWidth: Math.max(280, width - 40) }])}>
         <View style={styles.heroCopy}>
           <Text style={styles.kicker}>Là où l’opinion prend forme</Text>
-          <View accessible accessibilityRole="header" accessibilityLabel={HERO_TITLE} style={styles.titleFrame}>
+          <View accessible accessibilityRole="header" aria-level={1} accessibilityLabel={HERO_TITLE} style={styles.titleFrame}>
             <Text accessibilityElementsHidden importantForAccessibility="no-hide-descendants" style={StyleSheet.flatten([styles.title, compact && styles.titleCompact, styles.titleMeasure])}>{HERO_TITLE}</Text>
             <Text accessibilityElementsHidden importantForAccessibility="no-hide-descendants" style={StyleSheet.flatten([styles.title, compact && styles.titleCompact, styles.typedTitle])}>{typedTitle}</Text>
           </View>

@@ -129,7 +129,7 @@ export const TrendingPollsCarousel = memo(function TrendingPollsCarousel({ polls
     <View style={styles.wrap}>
       <View style={styles.header}>
         <View style={styles.headerCopy}>
-          <Text style={styles.title}>Les sujets qui font l’actu</Text>
+          <Text accessibilityRole="header" aria-level={2} style={styles.title}>Les sujets qui font l’actu</Text>
           <Text style={styles.subtitle}>Découvrez les questions ouvertes du moment, donnez votre avis et suivez l’évolution des réponses.</Text>
         </View>
         <Text style={styles.counter}>{countLabel}</Text>
