@@ -27,7 +27,7 @@ import { getPollDescription, getThemeLabel, getThemeRoute } from "@/lib/product"
 import { STAMIO_CORE_COLORS, fontFamilyBold, fontFamilyMedium, fontFamilySemibold, getColorWithOpacity, getThemeTagStyle, palette, radius } from "@/lib/design";
 import type { Poll, PollHistoryPoint, PollResource, PollResult, VoteStatus } from "@/lib/types";
 import { getHistoricalResultPath, getQuestionPath } from "@/lib/publicPollUrls";
-import { getTotalVotes } from "@/lib/publicResults";
+import { canShowPublicResults, getTotalVotes } from "@/lib/publicResults";
 
 export default function LegacyPollRoute() {
   const { pollId } = useLocalSearchParams<{ pollId: string }>();
@@ -96,6 +96,7 @@ export function PollScreen({
   const [voteColumnHeight, setVoteColumnHeight] = useState(0);
   const [themeLinkHovered, setThemeLinkHovered] = useState(false);
   const [detailsVisible, setDetailsVisible] = useState(Platform.OS !== "web" || !initialPoll);
+  const resultsTotalRef = useRef(getTotalVotes(initialResults ?? []));
   const scrollRef = useRef<ScrollView>(null);
   const overviewAnchorY = useRef(0);
   const contextOffsetY = useRef(0);
@@ -130,6 +131,7 @@ export function PollScreen({
       const cachedPoll = getCachedPoll(pollId);
       const cachedResults = getCachedResults(pollId);
       const cachedHistory = getCachedResultsHistory(pollId);
+      resultsTotalRef.current = getTotalVotes(cachedResults ?? []);
       fade.stopAnimation();
       if (cachedPoll) {
         setPoll(cachedPoll);
@@ -153,6 +155,7 @@ export function PollScreen({
       const [pollData, resultData, historyData] = await Promise.all([fetchPoll(pollId), getResults(pollId), getResultsHistory(pollId)]);
       if (!active) return;
       setPoll(pollData);
+      resultsTotalRef.current = getTotalVotes(resultData);
       setResults(resultData);
       setResultsSnapshotAt(new Date().toISOString());
       setHistory(historyData);
@@ -162,8 +165,17 @@ export function PollScreen({
     load();
     const timer = setInterval(async () => {
       if (pollId) {
-        setResults(await getResults(pollId, { force: true, label: "pollResultsRefresh" }));
+        const nextResults = await getResults(pollId, { force: true, label: "pollResultsRefresh" });
+        if (!active) return;
+        const previousTotal = resultsTotalRef.current;
+        const nextTotal = getTotalVotes(nextResults);
+        resultsTotalRef.current = nextTotal;
+        setResults(nextResults);
         setResultsSnapshotAt(new Date().toISOString());
+        if (!canShowPublicResults(previousTotal) && canShowPublicResults(nextTotal)) {
+          const nextHistory = await getResultsHistory(pollId, { force: true, label: "getResultsHistoryAfterThreshold" });
+          if (active) setHistory(nextHistory);
+        }
       }
     }, 4500);
     return () => {
@@ -232,6 +244,7 @@ export function PollScreen({
   async function handleVoteFinished(status: VoteStatus, nextResults?: PollResult[]) {
     setVoteState(status);
     if (nextResults) {
+      resultsTotalRef.current = getTotalVotes(nextResults);
       setResults(nextResults);
       setResultsSnapshotAt(new Date().toISOString());
     }

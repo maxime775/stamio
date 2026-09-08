@@ -22,6 +22,7 @@ const { chromium } = require(process.env.STAMIO_PLAYWRIGHT_PATH || "playwright")
 const { PNG } = require("pngjs");
 const [referenceDir, currentDir] = process.argv.slice(2).map((path) => resolve(path));
 assert.ok(referenceDir && currentDir, "Supply both production export directories");
+const targetedExternalPolling = process.env.STAMIO_PUBLIC_RESULTS_TARGET === "external-polling";
 const outputDir = resolve(".expo/results-gate-evidence");
 mkdirSync(outputDir, { recursive: true });
 const pollId = "11111111-1111-4111-8111-111111111111";
@@ -35,7 +36,7 @@ const history = (total) => timestamps.slice(0, Math.min(total, 10)).flatMap((cap
 const env = readFileSync(".env", "utf8");
 const supabaseUrl = new URL(env.match(/^EXPO_PUBLIC_SUPABASE_URL\s*=\s*["']?([^\s"']+)/m)[1]);
 const browser = await chromium.launch({ headless: true, executablePath: process.env.STAMIO_CHROME_PATH || "C:/Program Files/Google/Chrome/Application/chrome.exe" });
-const report = { responsive: [], cases: [], errors: [], transition: null, animation: null, bundle: null };
+const report = { responsive: [], cases: [], errors: [], transition: null, externalTransition: null, animation: null, bundle: null };
 
 async function openFixture(directory, width, total, motion = "reduce", authenticated = false) {
   const context = await browser.newContext({ viewport: { width, height: width < 760 ? 1800 : 1100 }, reducedMotion: motion, deviceScaleFactor: 1, timezoneId: "Europe/Paris", hasTouch: width < 760, serviceWorkers: "block" });
@@ -209,7 +210,69 @@ function getLegendGeometry(metrics) {
   };
 }
 
+async function waitForCallCount(state, name, expected) {
+  for (let attempt = 0; attempt < 100; attempt++) {
+    if (state.calls.filter((call) => call === name).length >= expected) return;
+    await state.page.waitForTimeout(100);
+  }
+  assert.fail(`Timed out waiting for ${expected} ${name} calls`);
+}
+
 try {
+  const belowThreshold = await openFixture(currentDir, 393, 8);
+  await belowThreshold.page.clock.resume();
+  const belowInitialResultsCalls = belowThreshold.calls.filter((name) => name === "get-results").length;
+  const belowInitialHistoryCalls = belowThreshold.calls.filter((name) => name === "get-results-history").length;
+  belowThreshold.total = 9;
+  await waitForCallCount(belowThreshold, "get-results", belowInitialResultsCalls + 1);
+  await checkState(belowThreshold, 9);
+  assert.equal(belowThreshold.calls.filter((name) => name === "get-results-history").length, belowInitialHistoryCalls, "8 to 9 does not refresh history");
+  await belowThreshold.context.close();
+
+  const externalTransition = await openFixture(currentDir, 393, 9);
+  await externalTransition.page.clock.resume();
+  const initialResultsCalls = externalTransition.calls.filter((name) => name === "get-results").length;
+  const initialHistoryCalls = externalTransition.calls.filter((name) => name === "get-results-history").length;
+  externalTransition.total = 10;
+  await waitForCallCount(externalTransition, "get-results", initialResultsCalls + 1);
+  await waitForCallCount(externalTransition, "get-results-history", initialHistoryCalls + 1);
+  await externalTransition.page.getByText("Signal en construction", { exact: true }).waitFor({ state: "hidden" });
+  const externallyRevealed = await checkState(externalTransition, 10);
+  assert.equal(externalTransition.navigations, 1, "No page reload after external threshold crossing");
+  assert.equal(externalTransition.calls.filter((name) => name === "get-results-history").length, initialHistoryCalls + 1, "9 to 10 externally forces history exactly once");
+  assert.match(externallyRevealed.dates[0], /09/, "External transition preserves the first history date");
+
+  await waitForCallCount(externalTransition, "get-results", initialResultsCalls + 2);
+  assert.equal(externalTransition.calls.filter((name) => name === "get-results-history").length, initialHistoryCalls + 1, "Following poll at 10 does not refresh history again");
+  externalTransition.total = 11;
+  await waitForCallCount(externalTransition, "get-results", initialResultsCalls + 3);
+  await checkState(externalTransition, 11);
+  assert.equal(externalTransition.calls.filter((name) => name === "get-results-history").length, initialHistoryCalls + 1, "10 to 11 does not refresh history");
+  externalTransition.total = 9;
+  await waitForCallCount(externalTransition, "get-results", initialResultsCalls + 4);
+  await externalTransition.page.getByText("Signal en construction", { exact: true }).waitFor();
+  assert.equal(externalTransition.calls.filter((name) => name === "get-results-history").length, initialHistoryCalls + 1, "10 to 9 does not refresh history");
+  externalTransition.total = 10;
+  await waitForCallCount(externalTransition, "get-results", initialResultsCalls + 5);
+  await waitForCallCount(externalTransition, "get-results-history", initialHistoryCalls + 2);
+  await externalTransition.page.getByText("Signal en construction", { exact: true }).waitFor({ state: "hidden" });
+  assert.equal(externalTransition.calls.filter((name) => name === "get-results-history").length, initialHistoryCalls + 2, "A later 9 to 10 crossing refreshes history exactly once again");
+  report.externalTransition = {
+    withoutReload: true,
+    firstDate: timestamps[0],
+    historyCalls: {
+      initial: initialHistoryCalls,
+      afterCrossing: initialHistoryCalls + 1,
+      afterNextPoll: initialHistoryCalls + 1,
+      afterEleven: initialHistoryCalls + 1,
+      afterResetToNine: initialHistoryCalls + 1,
+      afterRecrossing: initialHistoryCalls + 2
+    }
+  };
+  await externalTransition.context.close();
+  console.log("PASS external polling: 8->9 no refresh; 9->10 one fresh history; stable above threshold; later recross refreshes once");
+
+  if (!targetedExternalPolling) {
   for (const width of [375, 393, 430, 1280]) {
     const baseline = await openFixture(referenceDir, width, 10);
     const before = await metrics(baseline.page);
@@ -248,6 +311,7 @@ try {
     report.cases.push({ total, metrics: await checkState(state, total) });
     console.log(`PASS ${total} votes`);
     await state.context.close();
+  }
   }
   const transition = await openFixture(currentDir, 393, 9, "reduce", true);
   const beforeVote = await checkState(transition, 9);
@@ -298,6 +362,7 @@ try {
   report.transition = { accepted: true, withoutReload: true, navigations: transition.navigations, firstDate: timestamps[0], lastDate: timestamps[9], resetToNine: true, mouse: true, touchAfterMouseMatchesReference: true, calls: transition.calls };
   await transition.context.close();
 
+  if (!targetedExternalPolling) {
   const animated = await openFixture(currentDir, 393, 9, "no-preference");
   const backgroundColor = "rgb(8, 11, 16)";
   const brightColor = "rgb(251, 252, 255)";
@@ -356,6 +421,7 @@ try {
   assert.equal(await animated.page.getByText("Votes en cours", { exact: true }).evaluate((el) => getComputedStyle(el).color), reducedColors);
   report.animation = { backgroundColor, brightColor, pageGradients, initialColors, pulseCadence, samples, donutSamples, reducedColors };
   await animated.context.close();
+  }
   assert.deepEqual(report.errors, []);
   function bundleSizes(dir) {
     const files = readdirSync(join(dir, "_expo/static/js/web"));
@@ -363,7 +429,9 @@ try {
     return { raw: sizes.reduce((sum, s) => sum + s.raw, 0), gzip: sizes.reduce((sum, s) => sum + s.gzip, 0), entry: sizes.find((s) => s.name.startsWith("entry-")) };
   }
   report.bundle = { before: bundleSizes(referenceDir), after: bundleSizes(currentDir) };
-  console.log("PASS public results: 0/1/9/10/11, 9→10→9, full history, responsive/raster, animation, accessibility, network parity");
+  console.log(targetedExternalPolling
+    ? "PASS public results targeted external polling"
+    : "PASS public results: 0/1/9/10/11, external and own-vote transitions, full history, responsive/raster, animation, accessibility, network parity");
 } finally {
   if (!report.animation) for (const context of browser.contexts()) for (const page of context.pages()) {
     writeFileSync(join(outputDir, "failure-dom.html"), await page.content());
