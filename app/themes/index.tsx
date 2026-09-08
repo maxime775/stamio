@@ -6,6 +6,7 @@ import { PageShell } from "@/components/PageShell";
 import { PollTeaserCard } from "@/components/PollTeaserCard";
 import { ThemeTabs } from "@/components/ThemeTabs";
 import { VotesMetric } from "@/components/VotesMetric";
+import { aggregateVotesByTheme } from "@/lib/aggregatedVotes";
 import { getOpenPolls } from "@/lib/api";
 import type { PollWithStats } from "@/lib/types";
 import { fontFamilyBold, fontFamilySemibold, palette, radius } from "@/lib/design";
@@ -37,6 +38,7 @@ export default function ThemesIndex() {
   }, []));
 
   const totalVotes = useMemo(() => polls.reduce((sum, poll) => sum + poll.totalVotes, 0), [polls]);
+  const themeVotes = useMemo(() => aggregateVotesByTheme(polls), [polls]);
 
   return (
     <PageShell>
@@ -47,7 +49,14 @@ export default function ThemesIndex() {
             <Text style={styles.title}>Choisissez un sujet, puis donnez votre avis</Text>
             <Text style={styles.intro}>Politique, économie, société ou sport : parcourez nos différents sujets et prenez part aux débats.</Text>
           </View>
-          {isLoading ? <View style={styles.metricPlaceholder} /> : <VotesMetric value={totalVotes} animationKey="all" />}
+          {isLoading ? <View style={styles.metricPlaceholder} /> : (
+            <VotesMetric
+              value={totalVotes}
+              animationKey="all"
+              themeVotes={themeVotes}
+              hideExactValueBelowPublicThreshold
+            />
+          )}
         </View>
         <ThemeTabs active="all" />
         <View style={styles.grid}>
