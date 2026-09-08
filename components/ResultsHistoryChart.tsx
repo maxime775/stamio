@@ -4,8 +4,10 @@ import Svg, { Circle, G, Line, Path, Text as SvgText } from "react-native-svg";
 import { fontFamily, fontFamilyMedium, fontFamilySemibold, getAnswerColor, palette, radius } from "@/lib/design";
 import type { PollHistoryPoint } from "@/lib/types";
 import { useReducedMotion } from "@/lib/useReducedMotion";
+import { canShowPublicResults } from "@/lib/publicResults";
+import { ResultsConstructionText } from "@/components/ResultsConstructionText";
 
-type Props = { history: PollHistoryPoint[]; containerHeight?: number };
+type Props = { history: PollHistoryPoint[]; totalVotes: number; containerHeight?: number };
 type WebMouseEvent = {
   nativeEvent?: { offsetX?: number; offsetY?: number };
   clientX?: number;
@@ -21,7 +23,8 @@ const WEB_HIT_DISTANCE = 18;
 const TOUCH_HIT_DISTANCE = 30;
 const AnimatedCircle = Animated.createAnimatedComponent(Circle);
 
-export const ResultsHistoryChart = memo(function ResultsHistoryChart({ history, containerHeight }: Props) {
+export const ResultsHistoryChart = memo(function ResultsHistoryChart({ history, totalVotes, containerHeight }: Props) {
+  const showResults = canShowPublicResults(totalVotes);
   const [width, setWidth] = useState(720);
   const [headingHeight, setHeadingHeight] = useState(0);
   const [legendHeight, setLegendHeight] = useState(0);
@@ -45,13 +48,18 @@ export const ResultsHistoryChart = memo(function ResultsHistoryChart({ history, 
   const xForIndex = (index: number) => pad.left + (index / Math.max(1, timestamps.length - 1)) * plotWidth;
   const xFor = (date: string) => xForIndex(Math.max(0, timestamps.indexOf(date)));
   const yFor = (value: number) => pad.top + plotHeight - (Math.min(100, Math.max(0, value)) / 100) * plotHeight;
-  const selectedTimestamp = activeIndex === null ? null : timestamps[activeIndex];
+  const selectedTimestamp = !showResults || activeIndex === null ? null : timestamps[activeIndex];
   const selectedPoints = selectedTimestamp ? byTimestamp.get(selectedTimestamp) ?? [] : [];
-  const activeX = activeIndex === null ? null : xForIndex(activeIndex);
+  const activeX = !showResults || activeIndex === null ? null : xForIndex(activeIndex);
   const xTickIndexes = [...new Set([0, Math.floor((timestamps.length - 1) / 2), timestamps.length - 1])].filter((index) => index >= 0 && index < timestamps.length);
 
   useEffect(() => {
+    if (!showResults) setActiveIndex(null);
+  }, [showResults]);
+
+  useEffect(() => {
     latestPulse.stopAnimation();
+    if (!showResults) return;
     if (reducedMotion) {
       latestPulse.setValue(0.42);
       return undefined;
@@ -73,10 +81,10 @@ export const ResultsHistoryChart = memo(function ResultsHistoryChart({ history, 
       running = false;
       latestPulse.stopAnimation();
     };
-  }, [latestPulse, reducedMotion]);
+  }, [latestPulse, reducedMotion, showResults]);
 
   function selectNear(locationX: number, locationY: number, threshold: number) {
-    if (timestamps.length === 0 || locationX < pad.left || locationX > width - pad.right || locationY < pad.top || locationY > chartHeight - pad.bottom) {
+    if (!showResults || timestamps.length === 0 || locationX < pad.left || locationX > width - pad.right || locationY < pad.top || locationY > chartHeight - pad.bottom) {
       setActiveIndex(null);
       return;
     }
@@ -143,12 +151,12 @@ export const ResultsHistoryChart = memo(function ResultsHistoryChart({ history, 
             })}
             {[0, 50, 100].map((tick) => <SvgText key={tick} x={4} y={yFor(tick) + 4} fill="#718096" fontFamily={fontFamily} fontSize={11}>{tick}%</SvgText>)}
             {xTickIndexes.map((index) => <SvgText key={timestamps[index]} x={xForIndex(index)} y={chartHeight - 9} textAnchor={index === 0 ? "start" : index === timestamps.length - 1 ? "end" : "middle"} fill={palette.muted} fontFamily={fontFamily} fontSize={10}>{new Date(timestamps[index]).toLocaleDateString("fr-FR", { day: "2-digit", month: "short" })}</SvgText>)}
-            {series.map((points, index) => {
+            {showResults && series.map((points, index) => {
               const color = getAnswerColor(index, points[0]?.label);
               const path = points.map((point, pointIndex) => `${pointIndex === 0 ? "M" : "L"}${xFor(point.captured_at)},${yFor(point.percentage)}`).join(" ");
               return <Path key={points[0]?.choice_id} d={path} fill="none" stroke={color} strokeWidth={2.2} strokeLinecap="round" strokeLinejoin="round" />;
             })}
-            {series.map((points, index) => {
+            {showResults && series.map((points, index) => {
               const latest = points[points.length - 1];
               if (!latest) return null;
               const color = getAnswerColor(index, latest.label);
@@ -173,13 +181,19 @@ export const ResultsHistoryChart = memo(function ResultsHistoryChart({ history, 
               return <Circle key={point.choice_id} cx={activeX ?? 0} cy={yFor(point.percentage)} r={3.5} fill={getAnswerColor(Math.max(0, seriesIndex), point.label)} stroke={palette.surface} strokeWidth={1.5} />;
             })}
           </Svg>
-          {history.length === 0 ? <View pointerEvents="none" style={styles.emptyOverlay}><Text style={styles.emptyText}>L'historique apparaitra apres les premiers votes.</Text></View> : null}
-          <View
+          {!showResults ? <View pointerEvents="none" style={StyleSheet.flatten([styles.constructionOverlay, {
+            left: pad.left,
+            width: plotWidth,
+            // Centre of the 50–75% band, clear of the middle grid line.
+            top: yFor(75),
+            height: yFor(50) - yFor(75)
+          }])}><ResultsConstructionText>{"Signal en construction"}</ResultsConstructionText></View> : history.length === 0 ? <View pointerEvents="none" style={styles.emptyOverlay}><Text style={styles.emptyText}>L'historique apparaitra apres les premiers votes.</Text></View> : null}
+          {showResults ? <View
             {...webPointerProps}
             onTouchStart={handleTouch}
             onTouchMove={handleTouch}
             style={styles.pointerLayer}
-          />
+          /> : null}
           {selectedTimestamp && activeX !== null ? (
             <View pointerEvents="none" style={StyleSheet.flatten([styles.tooltip, {
               left: Math.min(
@@ -236,6 +250,7 @@ const styles = StyleSheet.create({
   chartBlock: { flex: 1, gap: 0 },
   chartShell: { position: "relative", width: "100%", overflow: "hidden" },
   pointerLayer: { ...StyleSheet.absoluteFillObject, backgroundColor: "transparent" },
+  constructionOverlay: { position: "absolute", alignItems: "center", justifyContent: "center" },
   emptyOverlay: { ...StyleSheet.absoluteFillObject, alignItems: "center", justifyContent: "center", paddingHorizontal: 16 },
   emptyText: { color: palette.muted, fontFamily, fontSize: 12, textAlign: "center" },
   tooltip: {

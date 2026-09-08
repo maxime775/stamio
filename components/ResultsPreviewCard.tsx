@@ -9,6 +9,7 @@ import { PollTimer } from "@/components/PollTimer";
 import { prefetchPollDetail } from "@/lib/api";
 import type { PollWithStats } from "@/lib/types";
 import { getHistoricalResultPath } from "@/lib/publicPollUrls";
+import { canShowPublicResults, getTotalVotes } from "@/lib/publicResults";
 
 type Props = {
   poll: PollWithStats;
@@ -68,7 +69,7 @@ export const ResultsPreviewCard = memo(function ResultsPreviewCard({ poll }: Pro
               <Text style={styles.emptyDonutText}>Aucun résultat disponible</Text>
             </View>
           )}
-          {tooltipVisible && hasResults ? (
+          {tooltipVisible && hasResults && canShowPublicResults(getTotalVotes(poll.results ?? [])) ? (
             <View pointerEvents="none" style={styles.tooltip}>
               <Text style={styles.tooltipDate}>Répartition</Text>
               <View style={styles.tooltipRule} />

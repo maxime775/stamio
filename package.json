@@ -9,6 +9,7 @@
     "ios": "expo start --ios",
     "android": "expo start --android",
     "typecheck": "tsc --noEmit",
+    "test:public-results": "node scripts/verify-public-results.mjs",
     "security:static": "node scripts/static-security-check.mjs",
     "security:concurrency": "node scripts/verify-anonymous-voting-recovery.mjs",
     "security:rls": "node scripts/verify-rls-lockdown.mjs",

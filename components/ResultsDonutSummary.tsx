@@ -4,6 +4,8 @@ import Svg, { Circle, Defs, G, Mask } from "react-native-svg";
 import { fontFamilyBold, fontFamilyMedium, fontFamilySemibold, getAnswerColor, palette } from "@/lib/design";
 import { useReducedMotion } from "@/lib/useReducedMotion";
 import type { Choice, PollResult } from "@/lib/types";
+import { canShowPublicResults, getTotalVotes } from "@/lib/publicResults";
+import { ResultsConstructionText } from "@/components/ResultsConstructionText";
 
 type Props = {
   choices: Choice[];
@@ -27,7 +29,8 @@ export const ResultsDonutSummary = memo(function ResultsDonutSummary({ choices, 
       votes: resultByChoice.get(choice.id)?.votes ?? 0
     })) : results).map((item, index) => ({ ...item, color: getAnswerColor(index, item.label) }));
   }, [choices, results]);
-  const total = useMemo(() => items.reduce((sum, item) => sum + item.votes, 0), [items]);
+  const total = useMemo(() => getTotalVotes(items), [items]);
+  const showResults = canShowPublicResults(total);
   const draw = useMemo(() => new Animated.Value(0), []);
   const reveal = useMemo(() => new Animated.Value(0), []);
   const counter = useMemo(() => new Animated.Value(0), []);
@@ -101,7 +104,7 @@ export const ResultsDonutSummary = memo(function ResultsDonutSummary({ choices, 
   }, [items, total]);
 
   return (
-    <View accessibilityLabel={`${total} votes. ${items.map((item) => `${item.label} ${Math.round((item.votes / Math.max(total, 1)) * 100)} pour cent`).join(", ")}`} style={styles.card}>
+    <View accessibilityLabel={showResults ? `${total} votes. ${items.map((item) => `${item.label} ${Math.round((item.votes / Math.max(total, 1)) * 100)} pour cent`).join(", ")}` : "Votes en cours"} style={styles.card}>
       <View style={styles.content}>
         <View style={styles.donutFrame}>
           <Svg width={SIZE} height={SIZE} viewBox={`0 0 ${SIZE} ${SIZE}`}>
@@ -123,7 +126,7 @@ export const ResultsDonutSummary = memo(function ResultsDonutSummary({ choices, 
               </Mask>
             </Defs>
             <G mask={drawComplete ? undefined : `url(#${maskId})`}>
-              {segments.map((segment, index) => {
+              {showResults && segments.map((segment, index) => {
                 if (segment.length <= 0) return null;
                 const highlighted = hoveredIndex === index;
                 const dimmed = hoveredIndex !== null && !highlighted;
@@ -144,16 +147,18 @@ export const ResultsDonutSummary = memo(function ResultsDonutSummary({ choices, 
               })}
             </G>
           </Svg>
-          <Animated.View pointerEvents="none" style={StyleSheet.flatten([styles.donutCenter, {
+          {!showResults ? <View pointerEvents="none" style={styles.donutCenter}>
+            <ResultsConstructionText style={styles.constructionText}>{"Votes en cours"}</ResultsConstructionText>
+          </View> : <Animated.View pointerEvents="none" style={StyleSheet.flatten([styles.donutCenter, {
             opacity: reveal,
             transform: [{ scale: reveal.interpolate({ inputRange: [0, 1], outputRange: [0.96, 1] }) }]
           }])}>
             <Text style={styles.total}>{total}</Text>
             <Text style={styles.totalLabel}>votes</Text>
-          </Animated.View>
+          </Animated.View>}
         </View>
-        <Animated.View style={StyleSheet.flatten([styles.legend, {
-          opacity: reveal,
+        <Animated.View accessibilityElementsHidden={!showResults} importantForAccessibility={showResults ? "auto" : "no-hide-descendants"} aria-hidden={!showResults} pointerEvents={showResults ? "auto" : "none"} style={StyleSheet.flatten([styles.legend, {
+          opacity: showResults ? reveal : 0,
           transform: [{ translateX: reveal.interpolate({ inputRange: [0, 1], outputRange: [5, 0] }) }]
         }])}>
           {items.map((item, index) => {
@@ -182,6 +187,7 @@ const styles = StyleSheet.create({
   content: { flexDirection: "row", alignItems: "center", gap: 16 },
   donutFrame: { width: SIZE, height: SIZE, alignItems: "center", justifyContent: "center", position: "relative" },
   donutCenter: { ...StyleSheet.absoluteFillObject, alignItems: "center", justifyContent: "center", paddingTop: 1 },
+  constructionText: { width: 64, fontSize: 12, lineHeight: 16 },
   total: { color: palette.ink, fontFamily: fontFamilyBold, fontSize: 22, lineHeight: 24, fontVariant: ["tabular-nums"] },
   totalLabel: { color: palette.muted, fontFamily: fontFamilyMedium, fontSize: 8, textTransform: "uppercase", letterSpacing: 0.7 },
   legend: { flex: 1, alignItems: "flex-start", gap: 8 },

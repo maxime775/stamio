@@ -27,6 +27,7 @@ import { getPollDescription, getThemeLabel, getThemeRoute } from "@/lib/product"
 import { STAMIO_CORE_COLORS, fontFamilyBold, fontFamilyMedium, fontFamilySemibold, getColorWithOpacity, getThemeTagStyle, palette, radius } from "@/lib/design";
 import type { Poll, PollHistoryPoint, PollResource, PollResult, VoteStatus } from "@/lib/types";
 import { getHistoricalResultPath, getQuestionPath } from "@/lib/publicPollUrls";
+import { getTotalVotes } from "@/lib/publicResults";
 
 export default function LegacyPollRoute() {
   const { pollId } = useLocalSearchParams<{ pollId: string }>();
@@ -352,7 +353,7 @@ export function PollScreen({
                 {!compact ? <View style={styles.columnDivider} /> : null}
 
                 <View style={StyleSheet.flatten([styles.analyticsColumn, compact && styles.analyticsColumnCompact])}>
-                  <ResultsHistoryChart history={displayedHistory} containerHeight={!compact && voteColumnHeight > 0 ? voteColumnHeight : undefined} />
+                  <ResultsHistoryChart history={displayedHistory} totalVotes={getTotalVotes(results)} containerHeight={!compact && voteColumnHeight > 0 ? voteColumnHeight : undefined} />
                 </View>
               </View>
               <View style={styles.discussionBreak}>
