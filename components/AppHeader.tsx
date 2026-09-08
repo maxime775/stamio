@@ -9,6 +9,7 @@ import { StamioLogo } from "@/components/StamioLogo";
 import { getAdminStatus, prefetchLatestResults, prefetchThemePolls, signOutUser } from "@/lib/api";
 import { ACCOUNT_MENU_CLOSE_DELAY_MS, cancelAccountMenuClose, scheduleAccountMenuClose as scheduleAccountMenuCloseTimer } from "@/lib/accountMenuHover";
 import { STAMIO_CORE_COLORS, fontFamilyMedium, fontFamilySemibold, palette, radius } from "@/lib/design";
+import { prefetchThemesRoute } from "@/lib/themesRoutePrefetch";
 
 const LOGO_VISUAL_LEFT_INSET_RATIO = (8 + (9 - 2.75) * 1.08) / 84;
 
@@ -165,6 +166,10 @@ export function AppHeader() {
   useEffect(() => {
     clearMenuCloseTimer();
     setAccountMenuOpen(false);
+  }, [pathname]);
+
+  useEffect(() => {
+    if (pathname !== "/themes") prefetchThemesRoute();
   }, [pathname]);
 
   useEffect(() => {
