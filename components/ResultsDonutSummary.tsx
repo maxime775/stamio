@@ -104,7 +104,7 @@ export const ResultsDonutSummary = memo(function ResultsDonutSummary({ choices, 
   }, [items, total]);
 
   return (
-    <View accessibilityLabel={showResults ? `${total} votes. ${items.map((item) => `${item.label} ${Math.round((item.votes / Math.max(total, 1)) * 100)} pour cent`).join(", ")}` : "Votes en cours"} style={styles.card}>
+    <View accessibilityLabel={showResults ? `${total} votes. ${items.map((item) => `${item.label} ${Math.round((item.votes / Math.max(total, 1)) * 100)} pour cent`).join(", ")}` : `Votes en cours. Réponses : ${items.map((item) => item.label).join(", ")}`} style={styles.card}>
       <View style={styles.content}>
         <View style={styles.donutFrame}>
           <Svg width={SIZE} height={SIZE} viewBox={`0 0 ${SIZE} ${SIZE}`}>
@@ -157,8 +157,8 @@ export const ResultsDonutSummary = memo(function ResultsDonutSummary({ choices, 
             <Text style={styles.totalLabel}>votes</Text>
           </Animated.View>}
         </View>
-        <Animated.View accessibilityElementsHidden={!showResults} importantForAccessibility={showResults ? "auto" : "no-hide-descendants"} aria-hidden={!showResults} pointerEvents={showResults ? "auto" : "none"} style={StyleSheet.flatten([styles.legend, {
-          opacity: showResults ? reveal : 0,
+        <Animated.View style={StyleSheet.flatten([styles.legend, {
+          opacity: reveal,
           transform: [{ translateX: reveal.interpolate({ inputRange: [0, 1], outputRange: [5, 0] }) }]
         }])}>
           {items.map((item, index) => {
@@ -173,7 +173,12 @@ export const ResultsDonutSummary = memo(function ResultsDonutSummary({ choices, 
             >
               <View style={StyleSheet.flatten([styles.swatch, { backgroundColor: item.color }])} />
               <Text numberOfLines={2} style={styles.label}>{item.label}</Text>
-              <Text style={styles.percentage}>{Math.round(percentage * counterProgress)}%</Text>
+              <Text
+                accessibilityElementsHidden={!showResults}
+                importantForAccessibility={showResults ? "auto" : "no-hide-descendants"}
+                aria-hidden={!showResults}
+                style={StyleSheet.flatten([styles.percentage, !showResults && styles.percentageHidden])}
+              >{Math.round(percentage * counterProgress)}%</Text>
             </Pressable>;
           })}
         </Animated.View>
@@ -195,5 +200,6 @@ const styles = StyleSheet.create({
   legendRowDimmed: { opacity: 0.54 },
   swatch: { width: 12, height: 2, flexShrink: 0 },
   label: { color: palette.inkSecondary, fontSize: 11, lineHeight: 14, flexShrink: 1 },
-  percentage: { color: palette.ink, fontFamily: fontFamilySemibold, fontSize: 11, lineHeight: 14, flexShrink: 0, fontVariant: ["tabular-nums"] }
+  percentage: { color: palette.ink, fontFamily: fontFamilySemibold, fontSize: 11, lineHeight: 14, flexShrink: 0, fontVariant: ["tabular-nums"] },
+  percentageHidden: { opacity: 0 }
 });

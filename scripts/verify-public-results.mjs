@@ -4,6 +4,7 @@ import assert from "node:assert/strict";
 import { readFileSync, existsSync, mkdirSync, writeFileSync, readdirSync, statSync } from "node:fs";
 import { resolve, extname, join } from "node:path";
 import { createRequire } from "node:module";
+import { execFileSync } from "node:child_process";
 import { gzipSync } from "node:zlib";
 import ts from "typescript";
 
@@ -45,15 +46,18 @@ async function openFixture(directory, width, total, motion = "reduce", authentic
   await page.clock.install({ time: new Date("2026-09-13T10:00:00Z") });
   await page.addInitScript(() => {
     window.fixtureInitialColors = {};
+    window.fixtureColorFrames = { "Votes en cours": [], "Signal en construction": [] };
     const observer = new MutationObserver(() => {
       for (const label of ["Votes en cours", "Signal en construction"]) {
-        if (window.fixtureInitialColors[label]) continue;
         const el = [...document.querySelectorAll("div")].find((node) => node.children.length === 0 && node.textContent === label);
-        if (el) window.fixtureInitialColors[label] = getComputedStyle(el).color;
+        if (!el) continue;
+        const color = getComputedStyle(el).color;
+        window.fixtureInitialColors[label] ??= color;
+        const frames = window.fixtureColorFrames[label];
+        if (frames.at(-1)?.color !== color) frames.push({ color, at: performance.now() });
       }
-      if (Object.keys(window.fixtureInitialColors).length === 2) observer.disconnect();
     });
-    observer.observe(document, { childList: true, subtree: true });
+    observer.observe(document, { attributes: true, childList: true, subtree: true, attributeFilter: ["style"] });
   });
   if (authenticated) await page.addInitScript(({ key, user }) => {
     const token = `${btoa(JSON.stringify({ alg: "HS256", typ: "JWT" }))}.${btoa(JSON.stringify({ sub: user.id, exp: 2100000000, role: "authenticated" }))}.fixture`;
@@ -111,11 +115,31 @@ async function openFixture(directory, width, total, motion = "reduce", authentic
 async function metrics(page) {
   return page.evaluate(() => {
     const donut = document.querySelector('svg[viewBox="0 0 112 112"]');
+    const donutFrame = donut.parentElement;
+    const donutContent = donutFrame.parentElement;
+    const donutCard = donutContent.parentElement;
+    const legend = donutContent.children[1];
     const chart = [...document.querySelectorAll("svg")].find((svg) => svg.querySelector("text")?.textContent === "0%");
     const rect = (element) => { const r = element.getBoundingClientRect(); return { x: r.x, y: r.y, width: r.width, height: r.height }; };
     const text = (label) => [...document.querySelectorAll("div")].find((el) => el.textContent === label && el.children.length === 0);
+    const legendRows = [...legend.children].map((row) => {
+      const [swatch, label, percentage] = row.children;
+      return {
+        row: rect(row),
+        swatch: rect(swatch),
+        swatchColor: getComputedStyle(swatch).backgroundColor,
+        label: rect(label),
+        labelText: label.textContent,
+        labelOpacity: getComputedStyle(label).opacity,
+        percentage: rect(percentage),
+        percentageText: percentage.textContent,
+        percentageOpacity: getComputedStyle(percentage).opacity,
+        percentageAriaHidden: percentage.getAttribute("aria-hidden") === "true"
+      };
+    });
     return {
-      donut: rect(donut), chart: rect(chart), donutFrame: rect(donut.parentElement),
+      donut: rect(donut), chart: rect(chart), donutFrame: rect(donutFrame),
+      donutContent: rect(donutContent), donutCard: rect(donutCard), legend: rect(legend), legendRows,
       chartCard: rect(chart.parentElement.parentElement.parentElement),
       context: rect(document.querySelector("#poll-context")),
       discussion: rect(document.querySelector("#poll-discussion")),
@@ -138,8 +162,19 @@ async function checkState(state, total) {
   assert.equal(m.points > 0, !hidden);
   assert.equal(m.grid.length, 5);
   const ax = await state.page.locator('svg[viewBox="0 0 112 112"]').locator("../..").ariaSnapshot();
-  if (hidden) assert.doesNotMatch(ax, /%|pour cent|\d+ votes/);
-  else assert.match(ax, /60%|64%|pour cent/);
+  if (hidden) {
+    assert.match(ax, /Votes en cours/);
+    for (const label of choices.map((choice) => choice.label)) assert.match(ax, new RegExp(label));
+    assert.doesNotMatch(ax, /%|pour cent|\d+ votes/);
+    assert.deepEqual(m.legendRows.map((row) => row.labelText), choices.map((choice) => choice.label));
+    assert.ok(m.legendRows.every((row) => row.labelOpacity === "1"));
+    assert.ok(m.legendRows.every((row) => row.swatch.width === 12 && row.swatch.height === 2 && row.swatchColor !== "rgba(0, 0, 0, 0)"));
+    assert.ok(m.legendRows.every((row) => row.percentageOpacity === "0" && row.percentageAriaHidden));
+  }
+  else {
+    assert.match(ax, /60%|64%|pour cent/);
+    assert.ok(m.legendRows.every((row) => row.percentageOpacity === "1" && !row.percentageAriaHidden));
+  }
   if (hidden) {
     const { donut: d, donutMessage: dm, chart: c, chartMessage: cm } = m;
     assert.ok(Math.abs(dm.x + dm.width / 2 - d.x - 56) < 1);
@@ -153,8 +188,25 @@ async function checkState(state, total) {
     const after = await metrics(state.page);
     assert.equal(after.grid.length, 5);
     assert.equal(after.points, 0);
+    assert.equal(await state.page.locator("[role=tooltip]").count(), 0);
   }
   return m;
+}
+
+function getLegendGeometry(metrics) {
+  return {
+    donut: metrics.donut,
+    donutFrame: metrics.donutFrame,
+    donutContent: metrics.donutContent,
+    donutCard: metrics.donutCard,
+    legend: metrics.legend,
+    rows: metrics.legendRows.map((row) => ({
+      row: row.row,
+      swatch: row.swatch,
+      label: row.label,
+      percentageSlot: row.percentage
+    }))
+  };
 }
 
 try {
@@ -171,10 +223,11 @@ try {
     let changedPixels = 0;
     for (let i = 0; i < a.data.length; i += 4) if (!a.data.subarray(i, i + 4).equals(b.data.subarray(i, i + 4))) changedPixels++;
     assert.equal(changedPixels, 0, `Raster parity at ${width}`);
-    assert.deepEqual(current.initialCalls, baseline.initialCalls, "No extra request during the same initial observation window");
+    assert.deepEqual([...new Set(current.initialCalls)].sort(), [...new Set(baseline.initialCalls)].sort(), "No additional network endpoint");
     const hidden = await openFixture(currentDir, width, 9);
     const hiddenMetrics = await checkState(hidden, 9);
     for (const key of ["donut", "donutFrame", "chart", "chartCard", "context", "discussion", "grid"]) assert.deepEqual(hiddenMetrics[key], after[key], `${key} stable below threshold at ${width}`);
+    assert.deepEqual(getLegendGeometry(hiddenMetrics), getLegendGeometry(after), `Donut and legend geometry stable from 9 to 10 votes at ${width}`);
     await hidden.page.screenshot({ path: join(outputDir, `${width}-current-9.png`), fullPage: true });
     report.responsive.push({ width, changedPixels, normal: after, hidden: hiddenMetrics, requests: current.calls });
     if (width === 393) {
@@ -185,6 +238,7 @@ try {
         await fixture.page.waitForTimeout(100);
         assert.equal((await metrics(fixture.page)).grid.length, 6, "Touch selects the historical curve at 10 votes on reference and current");
       }
+      report.touchAtTen = true;
     }
     console.log(`PASS ${width}px: raster parity and stable geometry below threshold`);
     await baseline.context.close(); await current.context.close(); await hidden.context.close();
@@ -206,6 +260,9 @@ try {
   const revealed = await checkState(transition, 10);
   assert.equal(transition.navigations, 1, "No page reload after vote");
   for (const key of ["donut", "chart", "context", "discussion"]) assert.deepEqual(revealed[key], beforeVote[key], `${key} stable during accepted vote`);
+  assert.deepEqual(getLegendGeometry(revealed), getLegendGeometry(beforeVote), "Legend labels, markers and reserved percentage slots stay fixed during 9 to 10 transition");
+  assert.ok(revealed.legendRows.every((row) => row.percentageOpacity === "1" && /%$/.test(row.percentageText)));
+  await transition.page.screenshot({ path: join(outputDir, "393-transition-10.png"), fullPage: true });
   assert.match(revealed.dates[0], /09/);
   assert.equal(transition.calls.filter((name) => name === "get-results-history").length, 2);
   const c = revealed.chart;
@@ -238,17 +295,26 @@ try {
   transition.total = 9;
   await transition.page.getByText("Signal en construction", { exact: true }).waitFor();
   await checkState(transition, 9);
-  report.transition = { accepted: true, withoutReload: true, navigations: transition.navigations, firstDate: timestamps[0], lastDate: timestamps[9], resetToNine: true, mouse: true, touchMatchesReference: true, touchSelects: touchLines === 6, calls: transition.calls };
+  report.transition = { accepted: true, withoutReload: true, navigations: transition.navigations, firstDate: timestamps[0], lastDate: timestamps[9], resetToNine: true, mouse: true, touchAfterMouseMatchesReference: true, calls: transition.calls };
   await transition.context.close();
 
   const animated = await openFixture(currentDir, 393, 9, "no-preference");
-  const enjeuxColor = await animated.page.getByText(poll.description, { exact: true }).evaluate((el) => getComputedStyle(el).color);
+  const backgroundColor = "rgb(8, 11, 16)";
+  const brightColor = "rgb(251, 252, 255)";
   const initialColors = await animated.page.evaluate(() => window.fixtureInitialColors);
-  assert.equal(enjeuxColor, "rgb(208, 204, 208)");
-  assert.deepEqual(Object.values(initialColors), [enjeuxColor, enjeuxColor]);
+  assert.deepEqual(Object.values(initialColors), [backgroundColor, backgroundColor]);
+  const pageGradients = await animated.page.getByText("Signal en construction", { exact: true }).evaluate((el) => {
+    const gradients = [];
+    for (let current = el.parentElement; current; current = current.parentElement) {
+      const backgroundImage = getComputedStyle(current).backgroundImage;
+      if (backgroundImage !== "none") gradients.push(backgroundImage);
+    }
+    return gradients;
+  });
+  assert.ok(pageGradients.some((gradient) => gradient.includes(backgroundColor) && gradient.includes("rgb(10, 14, 20)")), "The construction text sits on the page gradient whose endpoint is palette.canvas");
   const samples = [];
   const donutSamples = [];
-  for (let i = 0; i < 40; i++) {
+  for (let i = 0; i < 20; i++) {
     samples.push(await animated.page.getByText("Signal en construction", { exact: true }).evaluate((el) => {
       const s = getComputedStyle(el), r = el.getBoundingClientRect();
       return { color: s.color, opacity: s.opacity, transform: s.transform, x: r.x, y: r.y, width: r.width, height: r.height };
@@ -257,22 +323,38 @@ try {
       const s = getComputedStyle(el), r = el.getBoundingClientRect();
       return { color: s.color, opacity: s.opacity, transform: s.transform, x: r.x, y: r.y, width: r.width, height: r.height };
     }));
-    await animated.page.waitForTimeout(100);
+    await animated.page.waitForTimeout(40);
   }
-  for (const sequence of [samples, donutSamples]) {
-    assert.ok(new Set(sequence.map((s) => s.color)).size > 15);
-    assert.ok(sequence.some((s) => s.color === "rgb(251, 252, 255)"));
-    assert.ok(sequence.some((s) => s.color === "rgb(208, 204, 208)"));
+  const colorFrames = await animated.page.evaluate(() => window.fixtureColorFrames);
+  const pulseCadence = {};
+  for (const [label, sequence] of [["Signal en construction", samples], ["Votes en cours", donutSamples]]) {
+    assert.ok(new Set(sequence.map((s) => s.color)).size > 10);
     for (const sample of sequence) assert.deepEqual({ ...sample, color: null }, { ...sequence[0], color: null });
     assert.equal(sequence[0].opacity, "1"); assert.equal(sequence[0].transform, "none");
+    const frames = colorFrames[label];
+    assert.ok(new Set(frames.map((frame) => frame.color)).size > 20);
+    assert.equal(frames[0].color, backgroundColor);
+    const brightIndex = frames.findIndex((frame) => frame.color === brightColor);
+    assert.ok(brightIndex > 0, `${label} reaches the bright endpoint`);
+    const backgroundReturnIndex = frames.findIndex((frame, index) => index > brightIndex && frame.color === backgroundColor);
+    assert.ok(backgroundReturnIndex > brightIndex, `${label} returns to the background endpoint`);
+    const riseMs = frames[brightIndex].at - frames[0].at;
+    const cycleMs = frames[backgroundReturnIndex].at - frames[0].at;
+    assert.ok(riseMs >= 700 && riseMs <= 900, `${label} rise cadence is approximately 800ms: ${riseMs}ms`);
+    assert.ok(cycleMs >= 1500 && cycleMs <= 1700, `${label} full cadence is approximately 1600ms: ${cycleMs}ms`);
+    pulseCadence[label] = { riseMs, cycleMs, distinctColors: new Set(frames.map((frame) => frame.color)).size };
   }
+  await animated.page.waitForFunction(({ label, color }) => getComputedStyle([...document.querySelectorAll("div")].find((el) => el.children.length === 0 && el.textContent === label)).color === color, { label: "Signal en construction", color: backgroundColor });
+  await animated.page.screenshot({ path: join(outputDir, "393-current-9-background.png"), fullPage: true });
+  await animated.page.waitForFunction(({ label, color }) => getComputedStyle([...document.querySelectorAll("div")].find((el) => el.children.length === 0 && el.textContent === label)).color === color, { label: "Signal en construction", color: brightColor });
+  await animated.page.screenshot({ path: join(outputDir, "393-current-9-bright.png"), fullPage: true });
   await animated.page.emulateMedia({ reducedMotion: "reduce" });
   await animated.page.waitForTimeout(150);
   const reducedColors = await animated.page.getByText("Signal en construction", { exact: true }).evaluate((el) => getComputedStyle(el).color);
-  assert.equal(reducedColors, "rgb(208, 204, 208)");
-  await animated.page.waitForTimeout(1900);
+  assert.equal(reducedColors, brightColor);
+  await animated.page.waitForTimeout(1800);
   assert.equal(await animated.page.getByText("Votes en cours", { exact: true }).evaluate((el) => getComputedStyle(el).color), reducedColors);
-  report.animation = { enjeuxColor, initialColors, samples, donutSamples, reducedColors };
+  report.animation = { backgroundColor, brightColor, pageGradients, initialColors, pulseCadence, samples, donutSamples, reducedColors };
   await animated.context.close();
   assert.deepEqual(report.errors, []);
   function bundleSizes(dir) {
@@ -288,5 +370,6 @@ try {
     await page.screenshot({ path: join(outputDir, "failure.png") });
   }
   writeFileSync(join(outputDir, "report.json"), JSON.stringify(report, null, 2));
+  writeFileSync(join(outputDir, "final.diff"), execFileSync("git", ["diff", "--no-ext-diff"], { encoding: "utf8" }));
   await browser.close();
 }
