@@ -1,5 +1,6 @@
 import { Platform } from "react-native";
 import { supabase } from "@/lib/supabase";
+import { ensurePasskeyCeremonyAllowed } from "@/lib/auth/embeddedBrowser";
 
 export type PasskeyRecord = {
   id: string;
@@ -16,6 +17,7 @@ export function isPasskeySupported() {
 }
 
 export async function registerPasskey(signal?: AbortSignal) {
+  ensurePasskeyCeremonyAllowed();
   if (!isPasskeySupported()) throw new Error("passkey_unsupported");
   const { data, error } = await supabase.auth.registerPasskey({ options: { signal } });
   if (error) throw error;
@@ -24,6 +26,7 @@ export async function registerPasskey(signal?: AbortSignal) {
 }
 
 export async function signInWithPasskey(signal?: AbortSignal) {
+  ensurePasskeyCeremonyAllowed();
   if (!isPasskeySupported()) throw new Error("passkey_unsupported");
   const { data, error } = await supabase.auth.signInWithPasskey({ options: { signal } });
   if (error) throw error;

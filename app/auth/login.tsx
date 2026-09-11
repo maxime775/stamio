@@ -1,10 +1,13 @@
+import { AuthBrowserGate } from "@/components/AuthBrowserGate";
 import { PageShell } from "@/components/PageShell";
 import { LoginForm } from "@/components/LoginForm";
 
 export default function LoginPage() {
   return (
-    <PageShell compact>
-      <LoginForm />
-    </PageShell>
+    <AuthBrowserGate next="signin">
+      <PageShell compact>
+        <LoginForm />
+      </PageShell>
+    </AuthBrowserGate>
   );
 }

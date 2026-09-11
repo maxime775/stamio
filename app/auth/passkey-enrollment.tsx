@@ -2,10 +2,12 @@ import { useCallback, useEffect, useRef, useState } from "react";
 import { Platform, StyleSheet, Text, useWindowDimensions, View } from "react-native";
 import { useLocalSearchParams, useRouter, type Href } from "expo-router";
 import { HeroActionButton } from "@/components/HeroActionButton";
+import { AuthBrowserGate } from "@/components/AuthBrowserGate";
 import { PageShell } from "@/components/PageShell";
 import { useAuth } from "@/components/AuthProvider";
 import { verifyPasskeyEnrollment } from "@/lib/api";
 import { createPasskeyCeremonyController } from "@/lib/auth/passkeyCeremony";
+import { getPasskeyEnrollmentResumeHref } from "@/lib/auth/embeddedBrowser";
 import { clearPendingSignup } from "@/lib/auth/pendingSignup";
 import {
   createPasskeyEnrollmentTabId,
@@ -17,6 +19,18 @@ import { markSignupEnrollmentComplete } from "@/lib/auth/signupCompletion";
 import { fontFamilyBold, fontFamilyMedium, fontFamilySemibold, palette } from "@/lib/design";
 
 export default function PasskeyEnrollmentPage() {
+  const params = useLocalSearchParams<{ next?: string | string[]; flow?: string | string[] }>();
+  const next = Array.isArray(params.next) ? params.next[0] : params.next;
+  const flow = Array.isArray(params.flow) ? params.flow[0] : params.flow;
+
+  return (
+    <AuthBrowserGate resumeHref={getPasskeyEnrollmentResumeHref({ flow, next })}>
+      <PasskeyEnrollmentContent />
+    </AuthBrowserGate>
+  );
+}
+
+function PasskeyEnrollmentContent() {
   const router = useRouter();
   const { width } = useWindowDimensions();
   const compact = width < 600;
