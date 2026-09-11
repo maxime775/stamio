@@ -1,10 +1,8 @@
-import { useState, type ReactNode } from "react";
+import type { ReactNode } from "react";
 import { StyleSheet, Text } from "react-native";
 import { AuthForm } from "@/components/AuthForm";
-import { HeroActionButton } from "@/components/HeroActionButton";
 import { PageShell } from "@/components/PageShell";
 import {
-  getAuthContinueHref,
   detectCurrentEmbeddedBrowser,
   type AuthDestination,
   type EmbeddedBrowserApp
@@ -19,34 +17,20 @@ type GateProps = GateTarget & {
 
 type InterstitialProps = {
   app: EmbeddedBrowserApp | null;
-  href: string;
 };
 
 export function AuthBrowserGate(props: GateProps) {
   const detection = detectCurrentEmbeddedBrowser();
   if (!detection.isEmbedded) return <>{props.children}</>;
 
-  const href = "resumeHref" in props
-    ? props.resumeHref
-    : getAuthContinueHref(props.next);
-
   return (
     <PageShell compact>
-      <ExternalBrowserAuth app={detection.app} href={href} />
+      <ExternalBrowserAuth app={detection.app} />
     </PageShell>
   );
 }
 
-export function ExternalBrowserAuth({ app, href }: InterstitialProps) {
-  const [openAttempted, setOpenAttempted] = useState(false);
-
-  function openBrowser() {
-    setOpenAttempted(true);
-    if (typeof window === "undefined") return;
-    const url = new URL(href, window.location.href);
-    window.open(url.toString(), "_blank", "noopener,noreferrer");
-  }
-
+export function ExternalBrowserAuth({ app }: InterstitialProps) {
   return (
     <AuthForm
       title="Continuez dans votre navigateur"
@@ -54,30 +38,17 @@ export function ExternalBrowserAuth({ app, href }: InterstitialProps) {
       maxWidth={390}
       compact
     >
-      <HeroActionButton
-        compact
-        elevated={false}
-        fullWidth
-        label="Continuer dans mon navigateur"
-        onPress={openBrowser}
-        showArrow={false}
-        variant="primary"
-      />
-      <Text style={styles.help}>
-        {openAttempted
-          ? getPostOpenHelp(app)
-          : "Si rien ne s'ouvre, touchez ••• puis « Ouvrir dans le navigateur »."}
-      </Text>
+      <Text style={styles.help}>{getEmbeddedBrowserInstruction(app)}</Text>
     </AuthForm>
   );
 }
 
-function getPostOpenHelp(app: EmbeddedBrowserApp | null) {
-  if (app === "instagram") return "Si Stamio reste ouvert dans Instagram, touchez ••• puis « Ouvrir dans le navigateur ».";
-  if (app === "twitter") return "Si Stamio reste ouvert dans X, touchez ••• puis « Ouvrir dans le navigateur ».";
-  if (app === "tiktok") return "Si Stamio reste ouvert dans TikTok, touchez ••• puis « Ouvrir dans le navigateur ».";
-  if (app === "facebook") return "Si Stamio reste ouvert dans Facebook, touchez ••• puis « Ouvrir dans le navigateur ».";
-  return "Si Stamio reste ouvert dans cette application, touchez ••• puis « Ouvrir dans le navigateur ».";
+function getEmbeddedBrowserInstruction(app: EmbeddedBrowserApp | null) {
+  if (app === "instagram") return "Dans Instagram, touchez ••• puis choisissez l'option pour ouvrir la page dans votre navigateur.";
+  if (app === "tiktok") return "Dans TikTok, ouvrez le menu de la page puis choisissez l'option pour ouvrir Stamio dans votre navigateur.";
+  if (app === "twitter") return "Dans X, ouvrez le menu de la page puis choisissez l'option pour ouvrir Stamio dans votre navigateur.";
+  if (app === "facebook") return "Dans Facebook, ouvrez le menu de la page puis choisissez l'option pour ouvrir Stamio dans votre navigateur.";
+  return "Utilisez le menu de cette page pour l'ouvrir dans votre navigateur.";
 }
 
 const styles = StyleSheet.create({

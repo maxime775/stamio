@@ -33,6 +33,10 @@ const userAgents = {
   iosWebView: "Mozilla/5.0 (iPhone; CPU iPhone OS 18_6 like Mac OS X) AppleWebKit/605.1.15 (KHTML, like Gecko) Mobile/15E148",
   safariIos: "Mozilla/5.0 (iPhone; CPU iPhone OS 18_6 like Mac OS X) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/18.6 Mobile/15E148 Safari/604.1",
   chromeIos: "Mozilla/5.0 (iPhone; CPU iPhone OS 18_6 like Mac OS X) AppleWebKit/605.1.15 (KHTML, like Gecko) CriOS/138.0.7204.156 Mobile/15E148 Safari/604.1",
+  chromeAndroid: "Mozilla/5.0 (Linux; Android 15; Pixel 9 Build/AP3A) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/138.0.0.0 Mobile Safari/537.36",
+  firefoxAndroid: "Mozilla/5.0 (Android 15; Mobile; rv:141.0) Gecko/141.0 Firefox/141.0",
+  edgeAndroid: "Mozilla/5.0 (Linux; Android 15; Pixel 9 Build/AP3A) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/138.0.0.0 Mobile Safari/537.36 EdgA/138.0.0.0",
+  samsungAndroid: "Mozilla/5.0 (Linux; Android 15; SM-S938B) AppleWebKit/537.36 (KHTML, like Gecko) SamsungBrowser/28.0 Chrome/130.0.0.0 Mobile Safari/537.36",
   chromeDesktop: "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/138.0.0.0 Safari/537.36"
 };
 
@@ -50,7 +54,7 @@ for (const key of ["facebookIos", "facebookAndroid"]) {
 }
 assert.deepEqual(detectEmbeddedBrowser(userAgents.androidWebView), { isEmbedded: true, app: "android-webview" });
 assert.deepEqual(detectEmbeddedBrowser(userAgents.iosWebView), { isEmbedded: true, app: "ios-webview" });
-for (const key of ["safariIos", "chromeIos", "chromeDesktop"]) {
+for (const key of ["safariIos", "chromeIos", "chromeAndroid", "firefoxAndroid", "edgeAndroid", "samsungAndroid", "chromeDesktop"]) {
   assert.deepEqual(detectEmbeddedBrowser(userAgents[key]), { isEmbedded: false, app: null });
 }
 
@@ -97,19 +101,18 @@ assert.match(continueRoute, /normalizeAuthDestination\(rawNext\)[\s\S]*?<Redirec
 assert.match(enrollmentRoute, /<AuthBrowserGate resumeHref=\{getPasskeyEnrollmentResumeHref\(\{ flow, next \}\)\}>[\s\S]*?<PasskeyEnrollmentContent \/>/);
 assert.doesNotMatch(enrollmentRoute, /<AuthBrowserGate next="signin">/);
 assert.match(interstitial, /if \(!detection\.isEmbedded\) return <>\{props\.children\}<\/>;/);
-assert.match(interstitial, /"resumeHref" in props[\s\S]*?props\.resumeHref[\s\S]*?getAuthContinueHref\(props\.next\)/);
 for (const text of [
   "Continuez dans votre navigateur",
   "Pour créer votre clé d'accès avec Face ID ou votre appareil, ouvrez Stamio dans Safari, Chrome ou votre navigateur habituel.",
-  "Continuer dans mon navigateur",
-  "Si rien ne s'ouvre, touchez ••• puis « Ouvrir dans le navigateur ».",
-  "Si Stamio reste ouvert dans Instagram, touchez ••• puis « Ouvrir dans le navigateur »."
+  "Dans Instagram, touchez ••• puis choisissez l'option pour ouvrir la page dans votre navigateur.",
+  "Dans TikTok, ouvrez le menu de la page puis choisissez l'option pour ouvrir Stamio dans votre navigateur.",
+  "Dans X, ouvrez le menu de la page puis choisissez l'option pour ouvrir Stamio dans votre navigateur.",
+  "Dans Facebook, ouvrez le menu de la page puis choisissez l'option pour ouvrir Stamio dans votre navigateur.",
+  "Utilisez le menu de cette page pour l'ouvrir dans votre navigateur."
 ]) {
   assert.ok(interstitial.includes(text), `Texte interstitiel manquant : ${text}`);
 }
-assert.match(interstitial, /window\.open\(url\.toString\(\), "_blank", "noopener,noreferrer"\)/);
-assert.ok(interstitial.indexOf("setOpenAttempted(true)") < interstitial.indexOf("window.open("));
-assert.doesNotMatch(interstitial, /x-safari-https|custom scheme|location\.(?:assign|replace)|useEffect/);
+assert.doesNotMatch(interstitial, /HeroActionButton|Continuer dans mon navigateur|window\.open|intent:\/\/|x-safari-|location\.(?:assign|replace)|useEffect/);
 assert.doesNotMatch(signupRoute, /Redirect|getAuthContinueHref/);
 assert.doesNotMatch(loginRoute, /Redirect|getAuthContinueHref/);
 
