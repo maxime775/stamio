@@ -22,6 +22,7 @@ import type { AdminCreatePollInput, AdminPollSummary, AdminSeriesSummary, PollRe
 import { authField, fontFamilyBold, fontFamilyMedium, fontFamilySemibold, palette, radius } from "@/lib/design";
 import { createPollSeriesSlug, getPollPublicPath, getQuestionPath, validatePollSeriesSlug } from "@/lib/publicPollUrls";
 import { MAX_POLL_SUBTHEME_LENGTH, normalizePollSubtheme, validatePollSubtheme } from "@/lib/pollSubtheme";
+import { computeAdminPollClosesAt, resolveAdminPollClosesAt } from "@/lib/adminPollClosesAt";
 
 const DEFAULT_CHOICES = ["Oui", "Non", "Ne se prononce pas"];
 const RESOURCE_TYPES: Array<{ label: string; value: PollResourceType }> = [
@@ -66,6 +67,8 @@ export default function AdminPage() {
   const [resources, setResources] = useState<PollResourceInput[]>([]);
   const [duration, setDuration] = useState<(typeof DURATION_OPTIONS)[number]["value"]>("7");
   const [customDays, setCustomDays] = useState("10");
+  const [originalClosesAt, setOriginalClosesAt] = useState<string | null>(null);
+  const [closesAtTouched, setClosesAtTouched] = useState(false);
   const [status, setStatus] = useState<AdminCreatePollInput["status"]>("open");
   const [featured, setFeatured] = useState(false);
   const [showInResults, setShowInResults] = useState(false);
@@ -149,8 +152,14 @@ export default function AdminPage() {
       return;
     }
 
-    const closesAt = computeClosesAt();
-    if (!closesAt) {
+    const shouldComputeClosesAt = !editingPollId || closesAtTouched;
+    const closesAt = resolveAdminPollClosesAt({
+      editing: Boolean(editingPollId),
+      originalClosesAt,
+      closesAtTouched,
+      rawDays: duration === "custom" ? customDays : duration
+    });
+    if (shouldComputeClosesAt && !closesAt) {
       setFormError("Choisissez une duree valide.");
       setCreatedPollId(null);
       return;
@@ -186,6 +195,12 @@ export default function AdminPage() {
       resetForm();
       setTab("open");
       await reloadPolls();
+      return;
+    }
+
+    if (!closesAt) {
+      setSubmitting(false);
+      setFormError("Choisissez une duree valide.");
       return;
     }
 
@@ -230,7 +245,7 @@ export default function AdminPage() {
     if (cleanedChoices.length < 2) return "Ajoutez au moins deux choix.";
     if (cleanedChoices.length > 6) return "Limitez le sondage a six choix maximum.";
     if (new Set(cleanedChoices).size !== cleanedChoices.length) return "Les choix ne doivent pas contenir de doublon exact.";
-    if (!computeClosesAt()) return "Choisissez une duree valide.";
+    if ((!editingPollId || closesAtTouched) && !computeClosesAt()) return "Choisissez une duree valide.";
     if (includeResources) {
       const resourceError = validateResources(resources);
       if (resourceError) return resourceError;
@@ -240,9 +255,7 @@ export default function AdminPage() {
 
   function computeClosesAt(daysOverride?: string) {
     const rawDays = daysOverride ?? (duration === "custom" ? customDays : duration);
-    const days = Number(rawDays);
-    if (!Number.isFinite(days) || days < 1 || days > 90) return null;
-    return new Date(Date.now() + days * 24 * 60 * 60 * 1000).toISOString();
+    return computeAdminPollClosesAt(rawDays);
   }
 
   function updateChoice(index: number, value: string) {
@@ -266,6 +279,8 @@ export default function AdminPage() {
     setResources([]);
     setDuration("7");
     setCustomDays("10");
+    setOriginalClosesAt(null);
+    setClosesAtTouched(false);
     setStatus("open");
     setFeatured(false);
     setShowInResults(false);
@@ -304,6 +319,8 @@ export default function AdminPage() {
     setIncludeResources(loadedResources.length > 0);
     setDuration("7");
     setCustomDays("10");
+    setOriginalClosesAt(detail.poll.closes_at);
+    setClosesAtTouched(false);
     setTab("create");
   }
 
@@ -602,13 +619,19 @@ export default function AdminPage() {
                   {DURATION_OPTIONS.map((item) => {
                     const active = duration === item.value;
                     return (
-                      <Pressable key={item.value} onPress={() => setDuration(item.value)} style={StyleSheet.flatten([styles.segment, active && styles.segmentActive])}>
+                      <Pressable key={item.value} onPress={() => {
+                        setDuration(item.value);
+                        setClosesAtTouched(true);
+                      }} style={StyleSheet.flatten([styles.segment, active && styles.segmentActive])}>
                         <Text style={StyleSheet.flatten([styles.segmentText, active && styles.segmentTextActive])}>{item.label}</Text>
                       </Pressable>
                     );
                   })}
                 </View>
-                {duration === "custom" ? <TextInput value={customDays} onChangeText={setCustomDays} keyboardType="number-pad" placeholder="Nombre de jours" placeholderTextColor={authField.placeholderColor} style={styles.input} /> : null}
+                {duration === "custom" ? <TextInput value={customDays} onChangeText={(value) => {
+                  setCustomDays(value);
+                  setClosesAtTouched(true);
+                }} keyboardType="number-pad" placeholder="Nombre de jours" placeholderTextColor={authField.placeholderColor} style={styles.input} /> : null}
               </Field>
             </View>
 

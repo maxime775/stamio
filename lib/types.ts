@@ -178,7 +178,7 @@ export type AdminUpdatePollInput = {
   theme: ThemeSlug;
   choices?: string[];
   choice_keys?: string[];
-  closes_at: string;
+  closes_at: string | null;
   status: "open" | "closed";
   featured: boolean;
   show_in_results: boolean;
