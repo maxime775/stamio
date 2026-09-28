@@ -266,11 +266,16 @@ assert.match(migrationRelaunch, /v_series_id := v_source\.series_id/);
 assert.match(migrationRelaunch, /from public\.polls p where p\.series_id = v_series_id/);
 
 const sitemap = read("public/sitemap.xml");
+const sitemapEntries = [...sitemap.matchAll(/<loc>([^<]+)<\/loc>/g)].map((match) => match[1]);
 const questionEntries = [...sitemap.matchAll(/<loc>https:\/\/stamio\.fr(\/question\/[^<]+)<\/loc>/g)].map((match) => match[1]);
 assert.deepEqual(questionEntries, [
   "/question/taxe-zucman",
-  "/question/peine-ineligibilite-entrave-democratie"
+  "/question/peine-ineligibilite-entrave-democratie",
+  "/question/la-fifa-est-elle-corrompue",
+  "/question/pensez-vous-que-lintelligence-artificielle-menace-votre-emploi"
 ]);
+assert.equal(new Set(sitemapEntries).size, sitemapEntries.length, "the sitemap must not contain duplicate URLs");
+assert.ok(sitemapEntries.every((url) => url.startsWith("https://stamio.fr/")), "all sitemap URLs must use the canonical Stamio origin");
 assert.ok(!sitemap.includes("/poll/"), "the sitemap must not expose poll UUID URLs");
 assert.ok(!sitemap.includes("/resultats/"), "no historical result is currently published");
 
