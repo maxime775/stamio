@@ -2,7 +2,8 @@ import assert from "node:assert/strict";
 import { readFileSync } from "node:fs";
 import ts from "typescript";
 
-const read = (path) => readFileSync(new URL(`../${path}`, import.meta.url), "utf8");
+const read = (path) => readFileSync(new URL(`../${path}`, import.meta.url), "utf8")
+  .replace(/\r\n?/g, "\n");
 const page = read("app/poll/[pollId].tsx");
 const questionRoute = read("app/question/[slug].tsx");
 const layout = read("app/_layout.tsx");
