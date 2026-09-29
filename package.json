@@ -27,6 +27,7 @@
     "test:home-featured-refresh": "node scripts/verify-home-featured-refresh.mjs",
     "test:theme-votes-metric": "node scripts/verify-theme-votes-metric.mjs",
     "test:public-question-urls": "node --experimental-strip-types --disable-warning=MODULE_TYPELESS_PACKAGE_JSON scripts/verify-public-question-urls.mjs",
+    "test:question-seo": "node scripts/verify-question-seo.mjs",
     "test:question-sharing": "node --experimental-strip-types --disable-warning=MODULE_TYPELESS_PACKAGE_JSON scripts/verify-question-sharing.mjs",
     "test:passkey": "node scripts/verify-passkey-flow.mjs",
     "test:passkey-reliability": "node scripts/verify-passkey-reliability.mjs",

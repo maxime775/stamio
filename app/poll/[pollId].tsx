@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useRef, useState } from "react";
+import { useEffect, useMemo, useRef, useState, type CSSProperties } from "react";
 import { ActivityIndicator, Animated, Easing, Linking, Platform, Pressable, ScrollView, StyleSheet, Text, useWindowDimensions, View } from "react-native";
 import { LinearGradient } from "expo-linear-gradient";
 import { Check, ChevronDown, ExternalLink, MessagesSquare } from "@/lib/icons";
@@ -28,6 +28,7 @@ import { STAMIO_CORE_COLORS, fontFamilyBold, fontFamilyMedium, fontFamilySemibol
 import type { Poll, PollHistoryPoint, PollResource, PollResult, VoteStatus } from "@/lib/types";
 import { getHistoricalResultPath, getQuestionPath } from "@/lib/publicPollUrls";
 import { canShowPublicResults, getTotalVotes } from "@/lib/publicResults";
+import { splitFinalFrenchPunctuation } from "@/lib/typography";
 
 export default function LegacyPollRoute() {
   const { pollId } = useLocalSearchParams<{ pollId: string }>();
@@ -266,6 +267,9 @@ export function PollScreen({
   }
 
   const canonicalUrl = canonicalPath ? `https://stamio.fr${canonicalPath}` : null;
+  const metaDescription = poll && !resultsOnly
+    ? `${poll.question} Comprenez les enjeux, donnez votre avis anonymement et consultez les résultats agrégés sur Stamio.`
+    : null;
 
   return (
     <>
@@ -273,6 +277,7 @@ export function PollScreen({
         <Head>
           <title>{poll.question} — Stamio</title>
           <link rel="canonical" href={canonicalUrl} />
+          {metaDescription ? <meta name="description" content={metaDescription} /> : null}
           <meta property="og:title" content={poll.question} />
           <meta property="og:url" content={canonicalUrl} />
           <meta property="og:type" content="article" />
@@ -305,9 +310,7 @@ export function PollScreen({
                   </View>
                 </View>
                 <View style={styles.questionHeading}>
-                  <Text style={StyleSheet.flatten([styles.title, compact && styles.titleCompact])}>
-                    <NonBreakingFinalPunctuation value={poll.question} />
-                  </Text>
+                  <QuestionTitle question={poll.question} compact={compact} />
                   {!resultsOnly && poll.series_slug ? (
                     <QuestionShareMenu question={poll.question} seriesSlug={poll.series_slug} />
                   ) : null}
@@ -419,6 +422,48 @@ export function PollScreen({
       </SafeAreaView>
       </LinearGradient>
     </>
+  );
+}
+
+const WEB_H1_RESET: CSSProperties = {
+  backgroundColor: "transparent",
+  border: "0 solid black",
+  boxSizing: "border-box",
+  display: "inline",
+  font: "inherit",
+  fontWeight: "normal",
+  listStyle: "none",
+  margin: 0,
+  padding: 0,
+  position: "relative",
+  textAlign: "start",
+  textDecoration: "none",
+  whiteSpace: "pre-wrap",
+  overflowWrap: "break-word"
+};
+
+function QuestionTitle({ question, compact }: { question: string; compact: boolean }) {
+  const titleStyle = StyleSheet.flatten([styles.title, compact && styles.titleCompact]);
+
+  if (Platform.OS !== "web") {
+    return (
+      <Text style={titleStyle}>
+        <NonBreakingFinalPunctuation value={question} />
+      </Text>
+    );
+  }
+
+  const parts = splitFinalFrenchPunctuation(question);
+  const webTitleStyle = {
+    ...WEB_H1_RESET,
+    ...(titleStyle as unknown as CSSProperties),
+    lineHeight: typeof titleStyle.lineHeight === "number" ? `${titleStyle.lineHeight}px` : titleStyle.lineHeight
+  };
+
+  return (
+    <h1 style={webTitleStyle}>
+      {parts ? <>{parts.leadingText}<span style={{ whiteSpace: "nowrap" }}>{parts.nonBreakingTail}</span></> : question}
+    </h1>
   );
 }
 
