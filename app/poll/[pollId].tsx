@@ -224,6 +224,7 @@ export function PollScreen({
   const answerColumnWidth = compact ? undefined : estimateAnswerColumnWidth(poll?.choices ?? []);
   const briefAnswerColumnWidth = compact ? undefined : Math.min(answerColumnWidth ?? 384, 384);
   const questionBrief = !resultsOnly ? getQuestionBrief(poll?.series_slug) : null;
+  const hasDecisionTreePreview = Boolean(poll && decisionTreePreviewByPollId[poll.id]);
   const editorial = poll ? poll.description ?? getPollDescription(poll.id) : "";
   const displayedHistory = useMemo(
     () => mergeCurrentResultsIntoHistory(history, results, resultsSnapshotAt),
@@ -422,13 +423,13 @@ export function PollScreen({
                       compact && styles.mainColumnCompact
                     ])}
                   >
-                    {(poll.resources && poll.resources.length > 0) || decisionTreePreviewByPollId[poll.id]
+                    {poll.resources && poll.resources.length > 0
                       ? <ResourceBand pollId={poll.id} resources={poll.resources ?? []} compact previewStacked inGridColumn />
                       : null}
                     <View style={StyleSheet.flatten([
                       styles.resultsSummarySlot,
                       !compact && styles.resultsSummarySlotDesktop,
-                      !((poll.resources && poll.resources.length > 0) || decisionTreePreviewByPollId[poll.id]) && styles.resultsSummarySlotFirst
+                      !(poll.resources && poll.resources.length > 0) && styles.resultsSummarySlotFirst
                     ])}>
                       <ResultsDonutSummary choices={poll.choices} results={results} />
                     </View>
@@ -456,6 +457,9 @@ export function PollScreen({
                   />
                 </View>
               </View>
+              {questionBrief && hasDecisionTreePreview
+                ? <DecisionTreePreview pollId={poll.id} embedded borderless />
+                : null}
               <View style={StyleSheet.flatten([styles.discussionBreak, questionBrief && styles.discussionBreakWithBrief])}>
                 <View style={styles.discussionAccent} />
                 <View style={styles.discussionIcon}><MessagesSquare size={18} color={palette.primaryStrong} /></View>
@@ -576,19 +580,7 @@ function ResourceBand({ pollId, resources, compact, previewStacked, inGridColumn
 
   const resourceList = resources.length > 0 ? renderResourceList(resources) : null;
 
-  if (hasPreview) {
-    if (inGridColumn) {
-      return (
-        <View style={styles.resourceColumnGroup}>
-          <View style={styles.previewResources}>
-            <Text style={styles.resourcesTitle}>Les ressources utiles</Text>
-            {resourceList}
-          </View>
-          <DecisionTreePreview pollId={pollId} embedded borderless />
-        </View>
-      );
-    }
-
+  if (hasPreview && !inGridColumn) {
     return (
       <IntrinsicEditorialSplit
         primary={
@@ -830,7 +822,6 @@ const styles = StyleSheet.create({
   contextText: { color: palette.inkSecondary, fontSize: 14, lineHeight: 22, maxWidth: 720 },
   resourcesBand: { width: "100%", paddingTop: 14, borderTopWidth: 1, borderTopColor: palette.line, gap: 11 },
   resourcesBandColumn: { paddingTop: 2, borderTopWidth: 0 },
-  resourceColumnGroup: { width: "100%", minWidth: 0, gap: 18, paddingHorizontal: 4, paddingVertical: 2 },
   previewResources: { width: "100%", minWidth: 0, gap: 9 },
   resourcesTitle: { color: palette.ink, fontFamily: fontFamilySemibold, fontSize: 14, lineHeight: 20 },
   resourceList: { width: "100%", borderTopWidth: 1, borderTopColor: palette.line, marginTop: 2 },
