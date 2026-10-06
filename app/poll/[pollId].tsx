@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useRef, useState, type CSSProperties } from "react";
-import { ActivityIndicator, Animated, Easing, Linking, Platform, Pressable, ScrollView, StyleSheet, Text, useWindowDimensions, View } from "react-native";
+import { ActivityIndicator, Animated, Easing, Linking, Platform, Pressable, ScrollView, StyleSheet, Text, useWindowDimensions, View, type ViewStyle } from "react-native";
 import { LinearGradient } from "expo-linear-gradient";
 import { Check, ChevronDown, ExternalLink, MessagesSquare } from "@/lib/icons";
 import { Link, useLocalSearchParams, useRouter, type Href } from "expo-router";
@@ -19,6 +19,7 @@ import { DecisionTreePreview } from "@/components/decision-tree/DecisionTreePrev
 import { IntrinsicEditorialSplit } from "@/components/IntrinsicEditorialSplit";
 import { NonBreakingFinalPunctuation } from "@/components/NonBreakingFinalPunctuation";
 import { QuestionShareMenu } from "@/components/QuestionShareMenu";
+import { QuestionBrief } from "@/components/QuestionBrief";
 import { siteContainerStyle } from "@/components/SiteContainer";
 import { useAuth } from "@/components/AuthProvider";
 import { fetchPoll, getCachedPoll, getCachedResults, getCachedResultsHistory, getResults, getResultsHistory, getUserPollParticipation, resolveLegacyPollUrl } from "@/lib/api";
@@ -28,6 +29,7 @@ import { STAMIO_CORE_COLORS, fontFamilyBold, fontFamilyMedium, fontFamilySemibol
 import type { Poll, PollHistoryPoint, PollResource, PollResult, VoteStatus } from "@/lib/types";
 import { getHistoricalResultPath, getQuestionPath } from "@/lib/publicPollUrls";
 import { canShowPublicResults, getTotalVotes } from "@/lib/publicResults";
+import { getQuestionBrief } from "@/lib/questionBriefs";
 import { splitFinalFrenchPunctuation } from "@/lib/typography";
 
 export default function LegacyPollRoute() {
@@ -97,6 +99,7 @@ export function PollScreen({
   const [voteColumnHeight, setVoteColumnHeight] = useState(0);
   const [themeLinkHovered, setThemeLinkHovered] = useState(false);
   const [detailsVisible, setDetailsVisible] = useState(Platform.OS !== "web" || !initialPoll);
+  const [briefExpanded, setBriefExpanded] = useState(false);
   const resultsTotalRef = useRef(getTotalVotes(initialResults ?? []));
   const scrollRef = useRef<ScrollView>(null);
   const overviewAnchorY = useRef(0);
@@ -153,6 +156,7 @@ export function PollScreen({
       }
       setSelectedChoiceId(null);
       setVoteState(null);
+      setBriefExpanded(false);
       const [pollData, resultData, historyData] = await Promise.all([fetchPoll(pollId), getResults(pollId), getResultsHistory(pollId)]);
       if (!active) return;
       setPoll(pollData);
@@ -218,6 +222,9 @@ export function PollScreen({
   const answerSelectionLocked = alreadyParticipated || voteAccepted || participationStatusLoading;
   const voteButtonDisabled = !selectedChoiceId || voteAccepted || alreadyParticipated || participationStatusLoading;
   const answerColumnWidth = compact ? undefined : estimateAnswerColumnWidth(poll?.choices ?? []);
+  const briefAnswerColumnWidth = compact ? undefined : Math.min(answerColumnWidth ?? 384, 384);
+  const questionBrief = !resultsOnly ? getQuestionBrief(poll?.series_slug) : null;
+  const editorial = poll ? poll.description ?? getPollDescription(poll.id) : "";
   const displayedHistory = useMemo(
     () => mergeCurrentResultsIntoHistory(history, results, resultsSnapshotAt),
     [history, results, resultsSnapshotAt]
@@ -262,8 +269,43 @@ export function PollScreen({
   }
 
   function scrollToContext() {
+    if (questionBrief) setBriefExpanded(true);
     const contextY = overviewAnchorY.current + contextOffsetY.current;
+    if (Platform.OS === "web" && typeof requestAnimationFrame === "function") {
+      requestAnimationFrame(() => scrollRef.current?.scrollTo({ y: Math.max(0, contextY - 18), animated: true }));
+      return;
+    }
     scrollRef.current?.scrollTo({ y: Math.max(0, contextY - 18), animated: true });
+  }
+
+  function renderAnswerPanel() {
+    if (isPollOpen) {
+      return (
+        <PollCard
+          poll={poll!}
+          selectedChoiceId={selectedChoiceId}
+          onSelectChoice={setSelectedChoiceId}
+          locked={answerSelectionLocked}
+          variant={questionBrief ? "compact" : "default"}
+          footer={
+            <VoteSubmitButton
+              compact={Boolean(questionBrief)}
+              disabled={voteButtonDisabled}
+              label={voteButtonLabel}
+              status={voteButtonStatus}
+              onPress={handleOpenVotePanel}
+            />
+          }
+        />
+      );
+    }
+
+    return (
+      <View style={styles.closedBox}>
+        <Text style={styles.closedTitle}>Sondage cloture</Text>
+        <Text style={styles.closedText}>Cette vague est consultable pour ses resultats. Pour revoter sur cette question, une nouvelle vague doit etre creee.</Text>
+      </View>
+    );
   }
 
   const canonicalUrl = canonicalPath ? `https://stamio.fr${canonicalPath}` : null;
@@ -315,64 +357,106 @@ export function PollScreen({
                     <QuestionShareMenu question={poll.question} seriesSlug={poll.series_slug} />
                   ) : null}
                 </View>
-                {detailsVisible ? <>
-                <View
-                  onLayout={(event) => { overviewAnchorY.current = event.nativeEvent.layout.y; }}
-                  style={StyleSheet.flatten([styles.overview, compact && styles.overviewCompact])}
-                >
+                {questionBrief ? (
                   <View
-                    nativeID="poll-context"
-                    onLayout={(event) => { contextOffsetY.current = event.nativeEvent.layout.y; }}
-                    style={styles.contextBlock}
+                    onLayout={(event) => { overviewAnchorY.current = event.nativeEvent.layout.y; }}
+                    style={StyleSheet.flatten([styles.overview, compact && styles.overviewCompact])}
                   >
-                    <Text style={styles.contextKicker}>Enjeux</Text>
-                    <MarkdownContent value={poll.description ?? getPollDescription(poll.id)} compact />
+                    <View
+                      onLayout={(event) => { contextOffsetY.current = event.nativeEvent.layout.y; }}
+                      style={StyleSheet.flatten([
+                        styles.briefColumn,
+                        !compact && !briefExpanded && styles.briefColumnCentered,
+                        compact && styles.briefColumnCompact
+                      ])}
+                    >
+                      <QuestionBrief
+                        summary={questionBrief}
+                        editorial={editorial}
+                        compact={compact}
+                        expanded={briefExpanded}
+                        onExpandedChange={setBriefExpanded}
+                      />
+                    </View>
+                    <View
+                      style={StyleSheet.flatten([
+                        styles.briefAnswerColumn,
+                        briefAnswerColumnWidth ? { flexBasis: briefAnswerColumnWidth, maxWidth: briefAnswerColumnWidth } : null,
+                        !compact && briefExpanded && styles.briefAnswerColumnExpanded,
+                        compact && styles.briefAnswerColumnCompact
+                      ])}
+                    >
+                      <View style={Platform.OS === "web" && !compact ? webStickyAnswerStyle : undefined}>
+                        {renderAnswerPanel()}
+                      </View>
+                    </View>
                   </View>
-                  <ResultsDonutSummary choices={poll.choices} results={results} />
-                </View>
-                {(poll.resources && poll.resources.length > 0) || decisionTreePreviewByPollId[poll.id]
-                  ? <ResourceBand pollId={poll.id} resources={poll.resources ?? []} compact={compact} previewStacked={previewStacked} />
-                  : null}
+                ) : detailsVisible ? <>
+                  <View
+                    onLayout={(event) => { overviewAnchorY.current = event.nativeEvent.layout.y; }}
+                    style={StyleSheet.flatten([styles.legacyOverview, compact && styles.legacyOverviewCompact])}
+                  >
+                    <View
+                      nativeID="poll-context"
+                      onLayout={(event) => { contextOffsetY.current = event.nativeEvent.layout.y; }}
+                      style={styles.contextBlock}
+                    >
+                      <Text style={styles.contextKicker}>Enjeux</Text>
+                      <MarkdownContent value={editorial} compact />
+                    </View>
+                    <ResultsDonutSummary choices={poll.choices} results={results} />
+                  </View>
+                  {(poll.resources && poll.resources.length > 0) || decisionTreePreviewByPollId[poll.id]
+                    ? <ResourceBand pollId={poll.id} resources={poll.resources ?? []} compact={compact} previewStacked={previewStacked} />
+                    : null}
                 </> : null}
               </View>
               {detailsVisible ? <>
               <View style={styles.contentGrid}>
-                <View
-                  onLayout={(event) => setVoteColumnHeight(event.nativeEvent.layout.height)}
-                  style={StyleSheet.flatten([styles.mainColumn, answerColumnWidth ? { flexBasis: answerColumnWidth, maxWidth: answerColumnWidth } : null, compact && styles.mainColumnCompact])}
-                >
-                {isPollOpen ? (
-                  <>
-                    <PollCard
-                      poll={poll}
-                      selectedChoiceId={selectedChoiceId}
-                      onSelectChoice={setSelectedChoiceId}
-                      locked={answerSelectionLocked}
-                      footer={
-                        <VoteSubmitButton
-                          disabled={voteButtonDisabled}
-                          label={voteButtonLabel}
-                          status={voteButtonStatus}
-                          onPress={handleOpenVotePanel}
-                        />
-                      }
-                    />
-                  </>
+                {questionBrief ? (
+                  <View
+                    style={StyleSheet.flatten([
+                      styles.mainColumn,
+                      answerColumnWidth ? { flexBasis: answerColumnWidth, maxWidth: answerColumnWidth } : null,
+                      !compact && styles.briefResultsColumnDesktop,
+                      compact && styles.mainColumnCompact
+                    ])}
+                  >
+                    {(poll.resources && poll.resources.length > 0) || decisionTreePreviewByPollId[poll.id]
+                      ? <ResourceBand pollId={poll.id} resources={poll.resources ?? []} compact previewStacked inGridColumn />
+                      : null}
+                    <View style={StyleSheet.flatten([
+                      styles.resultsSummarySlot,
+                      !compact && styles.resultsSummarySlotDesktop,
+                      !((poll.resources && poll.resources.length > 0) || decisionTreePreviewByPollId[poll.id]) && styles.resultsSummarySlotFirst
+                    ])}>
+                      <ResultsDonutSummary choices={poll.choices} results={results} />
+                    </View>
+                  </View>
                 ) : (
-                  <View style={styles.closedBox}>
-                    <Text style={styles.closedTitle}>Sondage cloture</Text>
-                    <Text style={styles.closedText}>Cette vague est consultable pour ses resultats. Pour revoter sur cette question, une nouvelle vague doit etre creee.</Text>
+                  <View
+                    onLayout={(event) => setVoteColumnHeight(event.nativeEvent.layout.height)}
+                    style={StyleSheet.flatten([styles.mainColumn, answerColumnWidth ? { flexBasis: answerColumnWidth, maxWidth: answerColumnWidth } : null, compact && styles.mainColumnCompact])}
+                  >
+                    {renderAnswerPanel()}
                   </View>
                 )}
-                </View>
 
                 {!compact ? <View style={styles.columnDivider} /> : null}
 
                 <View style={StyleSheet.flatten([styles.analyticsColumn, compact && styles.analyticsColumnCompact])}>
-                  <ResultsHistoryChart history={displayedHistory} totalVotes={getTotalVotes(results)} containerHeight={!compact && voteColumnHeight > 0 ? voteColumnHeight : undefined} />
+                  <ResultsHistoryChart
+                    history={displayedHistory}
+                    totalVotes={getTotalVotes(results)}
+                    containerHeight={!compact && questionBrief
+                      ? HISTORICAL_DESKTOP_HISTORY_CHART_HEIGHT
+                      : !compact && voteColumnHeight > 0
+                        ? voteColumnHeight
+                        : undefined}
+                  />
                 </View>
               </View>
-              <View style={styles.discussionBreak}>
+              <View style={StyleSheet.flatten([styles.discussionBreak, questionBrief && styles.discussionBreakWithBrief])}>
                 <View style={styles.discussionAccent} />
                 <View style={styles.discussionIcon}><MessagesSquare size={18} color={palette.primaryStrong} /></View>
                 <View style={styles.discussionCopy}>
@@ -442,6 +526,14 @@ const WEB_H1_RESET: CSSProperties = {
   overflowWrap: "break-word"
 };
 
+const webStickyAnswerStyle = {
+  position: "sticky",
+  top: 18,
+  zIndex: 1
+} as unknown as ViewStyle;
+
+const HISTORICAL_DESKTOP_HISTORY_CHART_HEIGHT = 400;
+
 function QuestionTitle({ question, compact }: { question: string; compact: boolean }) {
   const titleStyle = StyleSheet.flatten([styles.title, compact && styles.titleCompact]);
 
@@ -467,7 +559,7 @@ function QuestionTitle({ question, compact }: { question: string; compact: boole
   );
 }
 
-function ResourceBand({ pollId, resources, compact, previewStacked }: { pollId: string; resources: PollResource[]; compact: boolean; previewStacked: boolean }) {
+function ResourceBand({ pollId, resources, compact, previewStacked, inGridColumn = false }: { pollId: string; resources: PollResource[]; compact: boolean; previewStacked: boolean; inGridColumn?: boolean }) {
   const [hoveredResourceId, setHoveredResourceId] = useState<string | null>(null);
   const hasPreview = Boolean(decisionTreePreviewByPollId[pollId]);
   const splitIndex = Math.ceil(resources.length / 2);
@@ -485,6 +577,18 @@ function ResourceBand({ pollId, resources, compact, previewStacked }: { pollId: 
   const resourceList = resources.length > 0 ? renderResourceList(resources) : null;
 
   if (hasPreview) {
+    if (inGridColumn) {
+      return (
+        <View style={styles.resourceColumnGroup}>
+          <View style={styles.previewResources}>
+            <Text style={styles.resourcesTitle}>Les ressources utiles</Text>
+            {resourceList}
+          </View>
+          <DecisionTreePreview pollId={pollId} embedded borderless />
+        </View>
+      );
+    }
+
     return (
       <IntrinsicEditorialSplit
         primary={
@@ -502,7 +606,7 @@ function ResourceBand({ pollId, resources, compact, previewStacked }: { pollId: 
   }
 
   return (
-    <View style={styles.resourcesBand}>
+    <View style={StyleSheet.flatten([styles.resourcesBand, inGridColumn && styles.resourcesBandColumn])}>
       <Text style={styles.resourcesTitle}>Les ressources utiles</Text>
       {compact ? (
         resourceList
@@ -604,7 +708,8 @@ const VOTE_CTA_ACCENT = STAMIO_CORE_COLORS.editorialAmber;
 const VOTE_CTA_BORDER = getColorWithOpacity(VOTE_CTA_ACCENT, 0.56);
 const VOTE_CTA_FILL = VOTE_CTA_ACCENT;
 
-function VoteSubmitButton({ disabled, label, status, onPress }: {
+function VoteSubmitButton({ compact = false, disabled, label, status, onPress }: {
+  compact?: boolean;
   disabled: boolean;
   label: string;
   status: VoteSubmitButtonStatus;
@@ -644,6 +749,7 @@ function VoteSubmitButton({ disabled, label, status, onPress }: {
       style={() =>
         StyleSheet.flatten([
           styles.voteButton,
+          compact && styles.voteButtonCompact,
           status === "empty" && styles.voteButtonInactive,
           status === "loading" && styles.voteButtonInactive,
           terminal && styles.voteButtonTerminal
@@ -655,6 +761,7 @@ function VoteSubmitButton({ disabled, label, status, onPress }: {
           pointerEvents="none"
           style={StyleSheet.flatten([
             styles.voteButtonFill,
+            compact && styles.voteButtonFillCompact,
             { transform: [{ translateY: fill.interpolate({ inputRange: [0, 1], outputRange: [53, 0] }) }] }
           ])}
         />
@@ -709,11 +816,21 @@ const styles = StyleSheet.create({
   titleCompact: { fontSize: 34, lineHeight: 41, letterSpacing: 0 },
   questionHeading: { alignItems: "flex-start", gap: 8 },
   overview: { flexDirection: "row", alignItems: "stretch", justifyContent: "space-between", gap: 24 },
-  overviewCompact: { flexDirection: "column-reverse" },
+  overviewCompact: { flexDirection: "column", alignItems: "stretch", gap: 16 },
+  briefColumn: { flexGrow: 1.85, flexShrink: 1, flexBasis: 0, minWidth: 0, alignSelf: "flex-start" },
+  briefColumnCentered: { alignSelf: "center" },
+  briefColumnCompact: { width: "100%", flexGrow: 0, flexShrink: 0, flexBasis: "auto", alignSelf: "stretch" },
+  briefAnswerColumn: { flexGrow: 0, flexShrink: 0, flexBasis: 360, maxWidth: 384, minWidth: 320, alignSelf: "stretch", justifyContent: "center" },
+  briefAnswerColumnExpanded: { justifyContent: "flex-start" },
+  briefAnswerColumnCompact: { width: "100%", flexBasis: "auto", maxWidth: "100%", minWidth: 0 },
+  legacyOverview: { flexDirection: "row", alignItems: "stretch", justifyContent: "space-between", gap: 24 },
+  legacyOverviewCompact: { flexDirection: "column-reverse" },
   contextBlock: { flex: 1, minWidth: 280, borderLeftWidth: 2, borderLeftColor: palette.primary, paddingVertical: 12, paddingHorizontal: 16, alignSelf: "stretch", justifyContent: "center", gap: 7 },
   contextKicker: { color: palette.primaryStrong, fontFamily: fontFamilySemibold, fontSize: 10, textTransform: "uppercase", letterSpacing: 1 },
   contextText: { color: palette.inkSecondary, fontSize: 14, lineHeight: 22, maxWidth: 720 },
   resourcesBand: { width: "100%", paddingTop: 14, borderTopWidth: 1, borderTopColor: palette.line, gap: 11 },
+  resourcesBandColumn: { paddingTop: 2, borderTopWidth: 0 },
+  resourceColumnGroup: { width: "100%", minWidth: 0, gap: 18, paddingHorizontal: 4, paddingVertical: 2 },
   previewResources: { width: "100%", minWidth: 0, gap: 9 },
   resourcesTitle: { color: palette.ink, fontFamily: fontFamilySemibold, fontSize: 14, lineHeight: 20 },
   resourceList: { width: "100%", borderTopWidth: 1, borderTopColor: palette.line, marginTop: 2 },
@@ -745,7 +862,11 @@ const styles = StyleSheet.create({
     flexWrap: "wrap"
   },
   mainColumn: { flexGrow: 0, flexShrink: 0, flexBasis: 360, maxWidth: 430, minWidth: 320, gap: 10 },
+  briefResultsColumnDesktop: { gap: 0 },
   mainColumnCompact: { flexBasis: "100%", maxWidth: "100%", minWidth: 0 },
+  resultsSummarySlot: { width: "100%", paddingTop: 18, marginTop: 4, borderTopWidth: 1, borderTopColor: palette.line },
+  resultsSummarySlotDesktop: { flexGrow: 1, justifyContent: "center", paddingTop: 0, marginTop: 0, borderTopWidth: 0 },
+  resultsSummarySlotFirst: { paddingTop: 2, marginTop: 0, borderTopWidth: 0 },
   columnDivider: {
     width: 1,
     alignSelf: "stretch",
@@ -755,6 +876,7 @@ const styles = StyleSheet.create({
   analyticsColumn: { flexGrow: 1, flexShrink: 1, flexBasis: 560, minWidth: 300, paddingLeft: 2 },
   analyticsColumnCompact: { flexBasis: "100%", minWidth: 0, paddingLeft: 0 },
   discussionBreak: { position: "relative", flexDirection: "row", alignItems: "center", flexWrap: "wrap", gap: 14, marginTop: 24, paddingHorizontal: 4, paddingTop: 20, paddingBottom: 4, borderTopWidth: 1, borderTopColor: palette.lineStrong },
+  discussionBreakWithBrief: { marginTop: 0 },
   discussionAccent: { position: "absolute", left: 4, top: -1, width: 52, height: 2, backgroundColor: palette.primary },
   discussionIcon: { width: 32, height: 32, borderRadius: radius.sm, alignItems: "center", justifyContent: "center", backgroundColor: palette.primarySoft },
   discussionCopy: { gap: 4, flex: 1 },
@@ -780,6 +902,7 @@ const styles = StyleSheet.create({
     shadowRadius: 11,
     shadowOffset: { width: 0, height: 6 }
   },
+  voteButtonCompact: { minHeight: 45 },
   voteButtonFill: {
     position: "absolute",
     left: 0,
@@ -788,6 +911,7 @@ const styles = StyleSheet.create({
     height: 53,
     backgroundColor: VOTE_CTA_FILL
   },
+  voteButtonFillCompact: { height: 47 },
   voteButtonContent: { zIndex: 1, flexDirection: "row", alignItems: "center", justifyContent: "center", gap: 8, paddingHorizontal: 12 },
   voteButtonLoaderSlot: { position: "absolute", left: 12, width: 18, height: 18, alignItems: "center", justifyContent: "center" },
   voteButtonLoaderHidden: { opacity: 0 },

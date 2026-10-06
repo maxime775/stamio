@@ -172,7 +172,7 @@ export const ResultsDonutSummary = memo(function ResultsDonutSummary({ choices, 
               style={StyleSheet.flatten([styles.legendRow, dimmed && styles.legendRowDimmed])}
             >
               <View style={StyleSheet.flatten([styles.swatch, { backgroundColor: item.color }])} />
-              <Text numberOfLines={2} style={styles.label}>{item.label}</Text>
+              <Text style={styles.label}>{item.label}</Text>
               <Text
                 accessibilityElementsHidden={!showResults}
                 importantForAccessibility={showResults ? "auto" : "no-hide-descendants"}
@@ -196,10 +196,10 @@ const styles = StyleSheet.create({
   total: { color: palette.ink, fontFamily: fontFamilyBold, fontSize: 22, lineHeight: 24, fontVariant: ["tabular-nums"] },
   totalLabel: { color: palette.muted, fontFamily: fontFamilyMedium, fontSize: 8, textTransform: "uppercase", letterSpacing: 0.7 },
   legend: { flex: 1, alignItems: "flex-start", gap: 8 },
-  legendRow: { flexDirection: "row", alignItems: "center", gap: 6, maxWidth: "100%" },
+  legendRow: { width: "100%", flexDirection: "row", alignItems: "center", maxWidth: "100%" },
   legendRowDimmed: { opacity: 0.54 },
-  swatch: { width: 12, height: 2, flexShrink: 0 },
-  label: { color: palette.inkSecondary, fontSize: 11, lineHeight: 14, flexShrink: 1 },
-  percentage: { color: palette.ink, fontFamily: fontFamilySemibold, fontSize: 11, lineHeight: 14, flexShrink: 0, fontVariant: ["tabular-nums"] },
+  swatch: { width: 12, height: 2, flexShrink: 0, marginRight: 6 },
+  label: { color: palette.inkSecondary, fontSize: 11, lineHeight: 14, flex: 1, minWidth: 0 },
+  percentage: { width: 33, color: palette.ink, fontFamily: fontFamilySemibold, fontSize: 11, lineHeight: 14, flexShrink: 0, textAlign: "right", fontVariant: ["tabular-nums"] },
   percentageHidden: { opacity: 0 }
 });

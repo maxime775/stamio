@@ -1,10 +1,17 @@
 import { useState, type ReactNode } from "react";
-import { Pressable, StyleSheet, Text, View } from "react-native";
+import { Platform, Pressable, StyleSheet, Text, View, type ViewStyle } from "react-native";
 import { Check } from "@/lib/icons";
 import type { Poll } from "@/lib/types";
 import { STAMIO_CORE_COLORS, fontFamilyMedium, fontFamilySemibold, getAnswerBackgroundColor, getAnswerColor, getColorWithOpacity, palette, radius } from "@/lib/design";
 
 const VOTE_MODULE_ACCENT = STAMIO_CORE_COLORS.editorialAmber;
+const webStableHeadingRuleStyle = {
+  backgroundColor: "transparent",
+  boxShadow: "inset 0 1px 0 #424850",
+  opacity: 1,
+  position: "relative",
+  top: 1
+} as unknown as ViewStyle;
 
 type Props = {
   poll: Poll;
@@ -12,22 +19,24 @@ type Props = {
   onSelectChoice: (choiceId: string) => void;
   locked?: boolean;
   footer?: ReactNode;
+  variant?: "default" | "compact";
 };
 
-export function PollCard({ poll, selectedChoiceId, onSelectChoice, locked = false, footer }: Props) {
+export function PollCard({ poll, selectedChoiceId, onSelectChoice, locked = false, footer, variant = "default" }: Props) {
   const [hoveredChoiceId, setHoveredChoiceId] = useState<string | null>(null);
+  const compact = variant === "compact";
   return (
-    <View style={styles.card}>
+    <View style={StyleSheet.flatten([styles.card, compact && styles.cardCompact])}>
       <View style={styles.accentRail} />
-      <View style={styles.heading}>
+      <View style={StyleSheet.flatten([styles.heading, compact && styles.headingCompact])}>
         <View style={styles.headingRow}>
           <Text style={styles.title}>Votre réponse</Text>
           <Text style={styles.kicker}>Réponse unique</Text>
         </View>
-        <Text style={styles.hint}>{locked ? "Participation enregistrée" : "Choisissez une réponse, puis validez votre participation."}</Text>
-        <View style={styles.headingRule} />
+        <Text style={StyleSheet.flatten([styles.hint, compact && styles.hintCompact])}>{locked ? "Participation enregistrée" : "Choisissez une réponse, puis validez votre participation."}</Text>
+        <View style={StyleSheet.flatten([styles.headingRule, compact && Platform.OS === "web" && webStableHeadingRuleStyle])} />
       </View>
-      <View style={styles.options}>
+      <View style={StyleSheet.flatten([styles.options, compact && styles.optionsCompact])}>
         {poll.choices.map((choice, index) => {
           const selected = selectedChoiceId === choice.id;
           const hovered = hoveredChoiceId === choice.id && !selected && !locked;
@@ -47,6 +56,7 @@ export function PollCard({ poll, selectedChoiceId, onSelectChoice, locked = fals
               style={({ pressed }) =>
                 StyleSheet.flatten([
                   styles.option,
+                  compact && styles.optionCompact,
                   hovered && styles.optionHovered,
                   hovered && { borderColor: answerBorderColor, backgroundColor: answerBackgroundColor },
                   selected && styles.optionSelected,
@@ -56,9 +66,10 @@ export function PollCard({ poll, selectedChoiceId, onSelectChoice, locked = fals
                 ])
               }
             >
-              <View style={StyleSheet.flatten([styles.optionRail, (hovered || selected) && { backgroundColor: answerColor, opacity: selected ? 1 : 0.72 }])} />
+              <View style={StyleSheet.flatten([styles.optionRail, compact && styles.optionRailCompact, (hovered || selected) && { backgroundColor: answerColor, opacity: selected ? 1 : 0.72 }])} />
               <View style={StyleSheet.flatten([
                 styles.optionCode,
+                compact && styles.optionCodeCompact,
                 hovered && styles.optionCodeHovered,
                 selected && styles.optionCodeSelected,
                 (hovered || selected) && { borderColor: answerBorderColor, backgroundColor: getAnswerBackgroundColor(index, choice.label, selected ? 0.18 : 0.12) }
@@ -69,7 +80,7 @@ export function PollCard({ poll, selectedChoiceId, onSelectChoice, locked = fals
           );
         })}
       </View>
-      {footer ? <View style={styles.footer}>{footer}</View> : null}
+      {footer ? <View style={StyleSheet.flatten([styles.footer, compact && styles.footerCompact])}>{footer}</View> : null}
     </View>
   );
 }
@@ -90,14 +101,18 @@ const styles = StyleSheet.create({
     shadowRadius: 16,
     shadowOffset: { width: 0, height: 10 }
   },
+  cardCompact: { padding: 14, paddingLeft: 16, gap: 12 },
   accentRail: { position: "absolute", top: 0, bottom: 0, left: 0, width: 2, backgroundColor: VOTE_MODULE_ACCENT, opacity: 0.82 },
   heading: { gap: 12 },
+  headingCompact: { gap: 8 },
   headingRow: { flexDirection: "row", alignItems: "flex-end", justifyContent: "space-between", gap: 14 },
   kicker: { color: VOTE_MODULE_ACCENT, fontFamily: fontFamilySemibold, fontSize: 9, lineHeight: 12, textTransform: "uppercase", letterSpacing: 1.1, textAlign: "right", flexShrink: 0, paddingBottom: 3 },
   title: { color: palette.ink, fontFamily: fontFamilySemibold, fontSize: 20, lineHeight: 25 },
   hint: { color: palette.muted, fontSize: 11, lineHeight: 16 },
+  hintCompact: { lineHeight: 15 },
   headingRule: { height: 1, backgroundColor: STAMIO_CORE_COLORS.text, opacity: 0.24 },
   options: { gap: 10 },
+  optionsCompact: { gap: 7 },
   option: {
     position: "relative",
     minHeight: 58,
@@ -112,6 +127,7 @@ const styles = StyleSheet.create({
     gap: 14,
     overflow: "hidden"
   },
+  optionCompact: { minHeight: 48, paddingHorizontal: 10, paddingVertical: 7, gap: 10 },
   optionSelected: {},
   optionLocked: { opacity: 0.52 },
   optionHovered: { borderColor: "rgba(143, 184, 198, 0.38)", backgroundColor: "rgba(19, 34, 53, 0.56)" },
@@ -125,6 +141,7 @@ const styles = StyleSheet.create({
     backgroundColor: "rgba(143, 184, 198, 0.18)",
     opacity: 0.6
   },
+  optionRailCompact: { top: 7, bottom: 7 },
   optionRailSelected: { opacity: 1 },
   optionCode: {
     width: 27,
@@ -136,6 +153,7 @@ const styles = StyleSheet.create({
     borderColor: "rgba(143, 184, 198, 0.24)",
     backgroundColor: "rgba(8, 11, 16, 0.42)"
   },
+  optionCodeCompact: { width: 24, height: 24 },
   optionCodeText: { color: palette.muted, fontFamily: fontFamilySemibold, fontSize: 10 },
   optionCodeHovered: { borderColor: "rgba(199, 206, 216, 0.42)" },
   optionCodeTextHovered: { color: palette.inkSecondary },
@@ -150,5 +168,6 @@ const styles = StyleSheet.create({
     borderTopColor: "rgba(143, 184, 198, 0.16)",
     paddingTop: 16,
     alignItems: "center"
-  }
+  },
+  footerCompact: { paddingTop: 12 }
 });
